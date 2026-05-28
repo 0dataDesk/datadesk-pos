@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Cocina</title>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    body { overflow: hidden; }
+    .kds-header {
+      background: #0A0003;
+      border-bottom: 3px solid var(--c-accent);
+      padding: 10px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .kds-header h1 { font-size: 1.1rem; margin: 0; }
+    .kds-clock { font-size: 1.1rem; font-weight: 700; color: var(--c-accent); font-variant-numeric: tabular-nums; }
+    .kds-page { display: flex; flex-direction: column; height: 100vh; }
+    .kds-body { flex: 1; overflow: hidden; display: flex; }
+  </style>
+</head>
+<body>
+
+<div class="kds-page">
+  <div class="kds-header">
+    <h1 id="kds-tenant-nombre">Cocina</h1>
+    <span class="kds-clock" id="kds-clock">00:00:00</span>
+  </div>
+  <div class="kds-body">
+    <div class="kds-layout" style="flex:1;">
+      <div class="kds-main">
+        <div class="kds-grid" id="kds-grid"></div>
+        <div id="kds-empty" style="display:none;text-align:center;padding:60px 20px;color:rgba(242,224,200,0.3);">
+          <div style="font-size:3rem;">🍳</div>
+          <div style="margin-top:12px;font-size:1rem;">Sin órdenes activas</div>
+        </div>
+      </div>
+      <div class="kds-cemetery">
+        <h3>Entregadas</h3>
+        <div id="kds-cemetery-list"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="src/config.js"></script>
+<script src="src/supabase.js"></script>
+<script>
+// ── Estado ────────────────────────────────────────────────────────────────────
+const ordenes = {}   // id_venta → { orden, items, card }
+const cementerio = []  // últimas 10 entregadas/canceladas
+
+// ── Reloj ─────────────────────────────────────────────────────────────────────
+function tickClock() {
+  const now = new Date()
+  const hh = String(now.getHours()).padStart(2,'0')
+  const mm = String(now.getMinutes()).padStart(2,'0')
+  const ss = String(now.getSeconds()).padStart(2,'0')
+  document.getElementById('kds-clock').textContent = hh + ':' + mm + ':' + ss
+}
+setInterval(tickClock, 1000)
+tickClock()
+
+// ── Semáforo ─────────────────────────────────────────────────────────────────
+function semaforo(confirmada_en, objetivo, limite) {
+  const elapsed = (Date.now() - new Date(confirmada_en).getTime()) / 1000
+  if (elapsed < objetivo) return 'verde'
+  if (elapsed < limite)   return 'amarillo'
+  return 'rojo'
+}
+
+function timerStr(confirmada_en) {
+  const sec = Math.floor((Date.now() - new Date(confirmada_en).getTime()) / 1000)
+  const m = Math.floor(sec / 60), s = sec % 60
+  return String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0')
+}
+
+// ── Render tarjeta ─────────────────────────────────────────────────────────────
+function crearCard(orden, items) {
+  const card = document.createElement('div')
+  card.className = 'kds-card verde'
+  card.id = 'kds-ord-' + orden.id_venta
+  card.innerHTML = buildCardHTML(orden, items)
+  return card
+}
+
+function buildCardHTML(orden, items) {
+  const sem = semaforo(orden.confirmada_en, orden.tiempo_objetivo_seg, orden.tiempo_limite_seg)
+  const estado = orden.estado === 'lista' ? '<span class="pill pill-lista">Lista</span>' : '<span class="pill pill-pendiente">Pendiente</span>'
+  const tipo = orden.tipo_entrega || ''
+
+  let itsHTML = ''
+  items.forEach(it => {
+    const mods = it.modificadores || {}
+    let modHTML = ''
+    const partes = []
+    if (mods.quitados && mods.quitados.length) partes.push('❌ Sin: ' + mods.quitados.join(', '))
+    if (mods.extras && mods.extras.length) partes.push('➕ ' + mods.extras.map(e => e.nombre).join(', '))
+    if (mods.nota) partes.push('📝 ' + mods.nota)
+    if (partes.length) modHTML = '<div class="kds-mods">' + partes.map(p => '<span class="mod-tag">' + p + '</span>').join('') + '</div>'
+    itsHTML += `<div class="kds-item">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span class="kds-item-qty" style="font-size:1rem;font-weight:700;">×${it.cantidad}</span>
+        <span class="kds-item-name">${it.nombre}</span>
+      </div>
+      ${modHTML}
+    </div>`
+  })
+
+  return `
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:4px;">
+      <span class="kds-folio">${orden.folio || orden.id_venta}</span>
+      <span class="kds-timer" id="timer-${orden.id_venta}">${timerStr(orden.confirmada_en)}</span>
+    </div>
+    <div class="kds-tipo">${tipo} ${estado}</div>
+    <div class="kds-items">${itsHTML}</div>`
+}
+
+function actualizarSemaforo(orden) {
+  const card = document.getElementById('kds-ord-' + orden.id_venta)
+  if (!card) return
+  const sem = semaforo(orden.confirmada_en, orden.tiempo_objetivo_seg, orden.tiempo_limite_seg)
+  card.className = 'kds-card ' + sem
+  const t = document.getElementById('timer-' + orden.id_venta)
+  if (t) t.textContent = timerStr(orden.confirmada_en)
+}
+
+// Actualizar timers cada segundo
+setInterval(() => {
+  Object.values(ordenes).forEach(o => actualizarSemaforo(o.orden))
+}, 1000)
+
+function mostrarVacio() {
+  const grid = document.getElementById('kds-grid')
+  document.getElementById('kds-empty').style.display = Object.keys(ordenes).length === 0 ? 'block' : 'none'
+}
+
+// ── Cementerio ────────────────────────────────────────────────────────────────
+function addCementerio(orden) {
+  cementerio.unshift(orden)
+  if (cementerio.length > 10) cementerio.pop()
+  renderCementerio()
+}
+
+function renderCementerio() {
+  const cont = document.getElementById('kds-cemetery-list')
+  cont.innerHTML = ''
+  cementerio.forEach(o => {
+    const div = document.createElement('div')
+    div.className = 'kds-dead-item'
+    div.innerHTML = `<span class="kds-dead-folio">${o.folio || o.id_venta}</span><br><span>${o.estado}</span>`
+    cont.appendChild(div)
+  })
+}
+
+// ── Cargar órdenes activas iniciales ──────────────────────────────────────────
+async function cargarActivas() {
+  // Cargar ventas para tener folio y tipo_entrega
+  const { data: ords } = await window._db
+    .from('ordenes_cocina')
+    .select('*')
+    .eq('tenant_id', POS.TENANT_ID)
+    .in('estado', ['pendiente', 'lista'])
+    .order('confirmada_en', { ascending: true })
+
+  if (!ords || ords.length === 0) { mostrarVacio(); return }
+
+  const ventaIds = ords.map(o => o.id_venta)
+
+  // Obtener folios + tipo_entrega
+  const { data: ventas } = await window._db
+    .from('ventas')
+    .select('id, folio, tipo_entrega')
+    .eq('tenant_id', POS.TENANT_ID)
+    .in('id', ventaIds)
+
+  const ventaMap = {}
+  if (ventas) ventas.forEach(v => { ventaMap[v.id] = v })
+
+  // Obtener items
+  const { data: allItems } = await window._db
+    .from('venta_items')
+    .select('id_venta, nombre, cantidad, modificadores')
+    .eq('tenant_id', POS.TENANT_ID)
+    .in('id_venta', ventaIds)
+
+  const itemsMap = {}
+  if (allItems) allItems.forEach(it => {
+    if (!itemsMap[it.id_venta]) itemsMap[it.id_venta] = []
+    itemsMap[it.id_venta].push(it)
+  })
+
+  const grid = document.getElementById('kds-grid')
+  ords.forEach(ord => {
+    const venta = ventaMap[ord.id_venta] || {}
+    const ordenCompleta = { ...ord, folio: venta.folio, tipo_entrega: venta.tipo_entrega }
+    const items = itemsMap[ord.id_venta] || []
+    const card = crearCard(ordenCompleta, items)
+    grid.appendChild(card)
+    ordenes[ord.id_venta] = { orden: ordenCompleta, items }
+  })
+  mostrarVacio()
+}
+
+// ── Realtime ───────────────────────────────────────────────────────────────────
+function suscribirRealtime() {
+  window._db
+    .channel('cocina-' + POS.TENANT_ID)
+    .on('postgres_changes', {
+      event: '*',
+      schema: 'public',
+      table: 'ordenes_cocina',
+      filter: 'tenant_id=eq.' + POS.TENANT_ID
+    }, async payload => {
+      const ord = payload.new || payload.old
+      if (!ord) return
+
+      if (payload.eventType === 'INSERT') {
+        // Nueva orden — necesitamos folio + items
+        const { data: venta } = await window._db
+          .from('ventas')
+          .select('id, folio, tipo_entrega')
+          .eq('id', ord.id_venta)
+          .eq('tenant_id', POS.TENANT_ID)
+          .single()
+
+        const { data: items } = await window._db
+          .from('venta_items')
+          .select('id_venta, nombre, cantidad, modificadores')
+          .eq('id_venta', ord.id_venta)
+          .eq('tenant_id', POS.TENANT_ID)
+
+        const ordenCompleta = { ...ord, folio: venta?.folio, tipo_entrega: venta?.tipo_entrega }
+        const card = crearCard(ordenCompleta, items || [])
+        document.getElementById('kds-grid').appendChild(card)
+        ordenes[ord.id_venta] = { orden: ordenCompleta, items: items || [] }
+        mostrarVacio()
+      }
+
+      if (payload.eventType === 'UPDATE') {
+        const nuevo = payload.new
+        if (nuevo.estado === 'entregada' || nuevo.estado === 'cancelada') {
+          // Quitar de activas, añadir al cementerio
+          const card = document.getElementById('kds-ord-' + nuevo.id_venta)
+          if (card) card.remove()
+          const o = ordenes[nuevo.id_venta]
+          if (o) addCementerio({ ...o.orden, estado: nuevo.estado })
+          delete ordenes[nuevo.id_venta]
+          mostrarVacio()
+        } else if (nuevo.estado === 'lista') {
+          // Actualizar estado en la tarjeta
+          if (ordenes[nuevo.id_venta]) {
+            ordenes[nuevo.id_venta].orden.estado = 'lista'
+            const card = document.getElementById('kds-ord-' + nuevo.id_venta)
+            if (card) card.innerHTML = buildCardHTML(ordenes[nuevo.id_venta].orden, ordenes[nuevo.id_venta].items)
+          }
+        }
+      }
+    })
+    .subscribe()
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', async () => {
+  document.getElementById('kds-tenant-nombre').textContent = POS.BRANDING.nombre + ' — Cocina'
+  const r = document.documentElement.style
+  r.setProperty('--c-accent', POS.BRANDING.accentColor)
+  r.setProperty('--c-primary-dark', POS.BRANDING.primaryDark)
+  await cargarActivas()
+  suscribirRealtime()
+})
+</script>
+</body>
+</html>

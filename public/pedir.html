@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Hacer pedido</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div class="page" id="app">
+  <!-- Header dinámico con nombre del tenant -->
+  <header class="pos-header">
+    <h1 id="hdr-nombre">POS</h1>
+    <span class="badge">Pedido</span>
+  </header>
+
+  <div class="container" style="flex:1;display:flex;flex-direction:column;">
+
+    <!-- STEP 1: Identificación -->
+    <section class="step active" id="step-id">
+      <h2 style="font-size:1.3rem;">Identifícate</h2>
+      <div class="card" style="display:flex;flex-direction:column;gap:14px;">
+        <div class="field">
+          <label for="cel">Celular *</label>
+          <input type="tel" id="cel" placeholder="10 dígitos" maxlength="10">
+        </div>
+        <div class="field">
+          <label for="nombre">Nombre *</label>
+          <input type="text" id="nombre" placeholder="¿Cómo te llamamos?">
+        </div>
+        <div class="alert alert-info">Tu orden llegará por WhatsApp cuando esté lista.</div>
+      </div>
+      <div id="err-id" class="alert alert-error hidden"></div>
+      <button class="btn btn-primary" onclick="goTipo()">Continuar →</button>
+    </section>
+
+    <!-- STEP 2: Tipo de entrega -->
+    <section class="step" id="step-tipo">
+      <h2 style="font-size:1.3rem;">¿Cómo lo quieres?</h2>
+      <div class="choice-grid">
+        <div class="choice-card" id="opt-barra" onclick="selectTipo('barra')">
+          <span class="icon">🏠</span>
+          <span class="label">En barra</span>
+          <span class="sub">Recoges aquí</span>
+        </div>
+        <div class="choice-card" id="opt-domicilio" onclick="selectTipo('domicilio')">
+          <span class="icon">🛵</span>
+          <span class="label">A domicilio</span>
+          <span class="sub">Te lo llevamos</span>
+        </div>
+      </div>
+      <div id="err-tipo" class="alert alert-error hidden"></div>
+      <div class="btn-row">
+        <button class="btn btn-ghost" onclick="goStep('step-id')">← Atrás</button>
+        <button class="btn btn-primary" onclick="goDir()">Continuar →</button>
+      </div>
+    </section>
+
+    <!-- STEP 3: Dirección (solo domicilio) -->
+    <section class="step" id="step-dir">
+      <h2 style="font-size:1.3rem;">¿A dónde te lo llevamos?</h2>
+      <div class="card" style="display:flex;flex-direction:column;gap:14px;">
+        <div class="field">
+          <label for="dir-texto">Dirección completa</label>
+          <textarea id="dir-texto" rows="3" placeholder="Calle, número, colonia, referencias..."></textarea>
+        </div>
+      </div>
+      <div id="err-dir" class="alert alert-error hidden"></div>
+      <div class="btn-row">
+        <button class="btn btn-ghost" onclick="goStep('step-tipo')">← Atrás</button>
+        <button class="btn btn-primary" onclick="validarDireccion()">Verificar zona →</button>
+      </div>
+    </section>
+
+    <!-- STEP 4: Carta -->
+    <section class="step" id="step-carta">
+      <h2 style="font-size:1.3rem;">Elige tu orden</h2>
+      <div id="menu-loading" class="loading-center"><div class="spinner"></div></div>
+      <div id="menu-container"></div>
+      <div id="err-carta" class="alert alert-error hidden"></div>
+      <button class="btn btn-primary" id="btn-ir-carrito" onclick="goCarrito()" style="margin-top:8px;">
+        Ver carrito (<span id="cart-count">0</span>)
+      </button>
+    </section>
+
+    <!-- STEP 5: Carrito -->
+    <section class="step" id="step-carrito">
+      <h2 style="font-size:1.3rem;">Tu carrito</h2>
+      <div id="carrito-container"></div>
+      <div id="cart-empty" class="alert alert-info">Tu carrito está vacío.</div>
+      <div class="subtotal-bar" id="subtotal-bar" style="margin-top:8px;">
+        <span>Total</span>
+        <span class="amount" id="subtotal-display">$0</span>
+      </div>
+      <div id="err-carrito" class="alert alert-error hidden"></div>
+      <div class="btn-row" style="margin-top:8px;">
+        <button class="btn btn-ghost" onclick="goStep('step-carta')">← Agregar más</button>
+        <button class="btn btn-primary" onclick="goPago()">Pagar →</button>
+      </div>
+    </section>
+
+    <!-- STEP 6: Pago -->
+    <section class="step" id="step-pago">
+      <h2 style="font-size:1.3rem;">Método de pago</h2>
+      <div class="pago-opts" id="pago-opts">
+        <div class="pago-opt" id="pago-efectivo" onclick="selectPago('efectivo')">
+          <span class="icon">💵</span><span class="lbl">Efectivo</span>
+        </div>
+        <div class="pago-opt" id="pago-tarjeta" onclick="selectPago('tarjeta')">
+          <span class="icon">💳</span><span class="lbl">Tarjeta</span>
+        </div>
+        <div class="pago-opt" id="pago-transferencia" onclick="selectPago('transferencia')">
+          <span class="icon">📲</span><span class="lbl">Transferencia</span>
+        </div>
+      </div>
+      <div class="subtotal-bar" style="margin-top:16px;">
+        <span>Total a pagar</span>
+        <span class="amount" id="total-pago">$0</span>
+      </div>
+      <div id="err-pago" class="alert alert-error hidden"></div>
+      <div class="btn-row" style="margin-top:8px;">
+        <button class="btn btn-ghost" onclick="goStep('step-carrito')">← Atrás</button>
+        <button class="btn btn-primary" id="btn-confirmar" onclick="confirmarOrden()">Confirmar pedido</button>
+      </div>
+    </section>
+
+    <!-- STEP 7: Confirmación -->
+    <section class="step" id="step-confirm">
+      <div class="confirm-box card">
+        <div class="confirm-icon">✅</div>
+        <h2 style="margin-top:12px;">¡Pedido recibido!</h2>
+        <div class="confirm-folio" id="confirm-folio">—</div>
+        <p style="color:var(--c-text-muted);font-size:0.9rem;">Guarda este folio. Te avisamos por WhatsApp.</p>
+      </div>
+    </section>
+
+  </div><!-- .container -->
+</div><!-- #app -->
+
+<!-- Modal modificadores -->
+<div class="modal-overlay hidden" id="mod-overlay">
+  <div class="modal-sheet">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+      <span class="modal-title" id="mod-item-nombre"></span>
+      <button class="btn btn-ghost btn-sm" onclick="cerrarModal()">✕</button>
+    </div>
+    <div id="mod-quitados-sec" class="mod-section">
+      <div class="mod-section-title">Quitar ingredientes</div>
+      <div id="mod-quitados"></div>
+    </div>
+    <div id="mod-extras-sec" class="mod-section">
+      <div class="mod-section-title">Extras</div>
+      <div id="mod-extras-list"></div>
+    </div>
+    <div id="mod-salsas-sec" class="mod-section">
+      <div class="mod-section-title">Salsas</div>
+      <div id="mod-salsas-list"></div>
+    </div>
+    <div class="mod-section">
+      <div class="mod-section-title">Nota especial</div>
+      <textarea id="mod-nota" rows="2" placeholder="Ej: bien cocida, sin sal..."></textarea>
+    </div>
+    <button class="btn btn-primary" style="margin-top:12px;" onclick="guardarModificadores()">Guardar</button>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="src/config.js"></script>
+<script src="src/supabase.js"></script>
+<script>
+// ── Estado global ─────────────────────────────────────────────────────────────
+let cfg = null           // config_pos del tenant
+let catalogo = []        // [{id_receta, nombre_platillo, categoria, precio}]
+let extrasDisp = []      // [{id_receta, nombre_platillo, precio}]
+let salsasDisp = []
+let ingredientesCache = {} // id_receta → [{producto}]
+let carrito = []         // ver addToCart()
+let tipoEntrega = null
+let metodoPago = null
+let modIdx = null        // índice en carrito del ítem en edición
+
+// ── Bootstrap ────────────────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', async () => {
+  document.title = POS.BRANDING.nombre + ' — Pedido'
+  document.getElementById('hdr-nombre').textContent = POS.BRANDING.nombre
+  // Aplicar branding como vars CSS
+  const r = document.documentElement.style
+  r.setProperty('--c-primary',      POS.BRANDING.primaryColor)
+  r.setProperty('--c-primary-dark', POS.BRANDING.primaryDark)
+  r.setProperty('--c-accent',       POS.BRANDING.accentColor)
+  r.setProperty('--c-accent-dark',  POS.BRANDING.accentDark)
+  r.setProperty('--c-on-primary',   POS.BRANDING.textOnPrimary)
+  r.setProperty('--c-on-accent',    POS.BRANDING.textOnAccent)
+  r.setProperty('--c-bg',           POS.BRANDING.bgColor)
+
+  // Cargar config del tenant
+  const { data } = await window._db
+    .from('config_pos')
+    .select('*')
+    .eq('tenant_id', POS.TENANT_ID)
+    .single()
+  cfg = data || {}
+
+  // Pre-cargar catálogo en background
+  cargarCatalogo()
+})
+
+// ── Navegación ────────────────────────────────────────────────────────────────
+function goStep(id) {
+  document.querySelectorAll('.step').forEach(s => s.classList.remove('active'))
+  document.getElementById(id).classList.add('active')
+  window.scrollTo(0,0)
+}
+
+function goTipo() {
+  const cel = document.getElementById('cel').value.trim()
+  const nom = document.getElementById('nombre').value.trim()
+  const err = document.getElementById('err-id')
+  if (!/^\d{10}$/.test(cel)) { mostrarError(err, 'Ingresa un celular de 10 dígitos.'); return }
+  if (!nom) { mostrarError(err, 'Ingresa tu nombre.'); return }
+  err.classList.add('hidden')
+  goStep('step-tipo')
+}
+
+function selectTipo(t) {
+  tipoEntrega = t
+  document.getElementById('opt-barra').classList.toggle('selected', t === 'barra')
+  document.getElementById('opt-domicilio').classList.toggle('selected', t === 'domicilio')
+}
+
+function goDir() {
+  const err = document.getElementById('err-tipo')
+  if (!tipoEntrega) { mostrarError(err, 'Selecciona cómo quieres tu orden.'); return }
+  err.classList.add('hidden')
+  if (tipoEntrega === 'barra') { goStep('step-carta'); return }
+  // domicilio
+  if (cfg && cfg.delivery_activo === false) {
+    mostrarError(err, 'Lo sentimos, delivery no disponible en este momento.'); return
+  }
+  goStep('step-dir')
+}
+
+async function validarDireccion() {
+  const dir = document.getElementById('dir-texto').value.trim()
+  const err = document.getElementById('err-dir')
+  if (!dir) { mostrarError(err, 'Escribe tu dirección.'); return }
+
+  if (cfg && cfg.maps_preciso_activo) {
+    // Gancho apagado: validación aproximada de todas formas
+    // (API key no inyectada — tratar como no preciso)
+  }
+  // Validación aproximada: solo verificamos que haya dirección
+  err.classList.add('hidden')
+  goStep('step-carta')
+}
+
+// ── Catálogo ──────────────────────────────────────────────────────────────────
+async function cargarCatalogo() {
+  try {
+    // Ítems del menú
+    const { data: recetas, error: e1 } = await window._db
+      .from('catalogo_recetas')
+      .select('id_receta, nombre_platillo, categoria')
+      .eq('tenant_id', POS.TENANT_ID)
+      .eq('fuente', POS.FUENTE)
+      .eq('activo', true)
+
+    if (e1) throw e1
+
+    // Precios
+    const ids = recetas.map(r => r.id_receta)
+    const { data: precios, error: e2 } = await window._db
+      .from('precios_venta')
+      .select('id_item, precio')
+      .eq('tenant_id', POS.TENANT_ID)
+      .eq('lista', POS.LISTA_PRECIO)
+      .eq('vigente', true)
+      .in('id_item', ids)
+
+    if (e2) throw e2
+
+    const precioMap = {}
+    precios.forEach(p => { precioMap[p.id_item] = p.precio })
+
+    // Categorías de modificadores (Extras, Salsas) — no van en el menú principal
+    const CATS_MOD = ['Extras', 'Salsas']
+    const menuItems = recetas.filter(r => !CATS_MOD.includes(r.categoria))
+    const extrasRaw = recetas.filter(r => r.categoria === 'Extras')
+    const salsasRaw = recetas.filter(r => r.categoria === 'Salsas')
+
+    catalogo = menuItems.map(r => ({
+      id_receta: r.id_receta,
+      nombre_platillo: r.nombre_platillo,
+      categoria: r.categoria,
+      precio: precioMap[r.id_receta] || 0
+    }))
+
+    extrasDisp = extrasRaw.map(r => ({ ...r, precio: precioMap[r.id_receta] || 0 }))
+    salsasDisp = salsasRaw.map(r => ({ ...r, precio: precioMap[r.id_receta] || 0 }))
+
+    renderMenu()
+  } catch(e) {
+    document.getElementById('menu-loading').innerHTML =
+      '<div class="alert alert-error">Error cargando menú: ' + e.message + '</div>'
+  }
+}
+
+const ORDEN_CATS = ['Hamburguesas','Pollo','Acompañamientos','Bebidas']
+
+function renderMenu() {
+  const cont = document.getElementById('menu-container')
+  document.getElementById('menu-loading').classList.add('hidden')
+
+  const bycat = {}
+  catalogo.forEach(it => {
+    if (!bycat[it.categoria]) bycat[it.categoria] = []
+    bycat[it.categoria].push(it)
+  })
+
+  const cats = [...ORDEN_CATS.filter(c => bycat[c]), ...Object.keys(bycat).filter(c => !ORDEN_CATS.includes(c))]
+  cont.innerHTML = ''
+  cats.forEach(cat => {
+    const sec = document.createElement('div')
+    sec.className = 'menu-category'
+    sec.innerHTML = '<div class="menu-category-title">' + cat + '</div>'
+    bycat[cat].forEach(it => {
+      const row = document.createElement('div')
+      row.className = 'menu-item'
+      row.innerHTML = `
+        <div>
+          <div class="menu-item-name">${it.nombre_platillo}</div>
+          <div class="menu-item-price">$${it.precio}</div>
+        </div>
+        <button class="menu-item-add" onclick="addToCart('${it.id_receta}')">+</button>`
+      sec.appendChild(row)
+    })
+    cont.appendChild(sec)
+  })
+}
+
+// ── Carrito ───────────────────────────────────────────────────────────────────
+function addToCart(id) {
+  const it = catalogo.find(x => x.id_receta === id)
+  if (!it) return
+  // Siempre abrir modal de modificadores para nueva línea
+  const idx = carrito.length
+  carrito.push({
+    id_receta: it.id_receta,
+    nombre: it.nombre_platillo,
+    precio_base: it.precio,
+    cantidad: 1,
+    modificadores: { quitados: [], extras: [], nota: '' },
+    importe: it.precio
+  })
+  actualizarContadorCart()
+  abrirModal(idx)
+}
+
+function actualizarContadorCart() {
+  const total = carrito.reduce((s, i) => s + i.cantidad, 0)
+  document.getElementById('cart-count').textContent = total
+}
+
+function calcularImporte(item) {
+  const extra = item.modificadores.extras.reduce((s, e) => s + (e.precio || 0), 0)
+  return (item.precio_base + extra) * item.cantidad
+}
+
+function renderCarrito() {
+  const cont = document.getElementById('carrito-container')
+  const empty = document.getElementById('cart-empty')
+  if (carrito.length === 0) {
+    cont.innerHTML = ''
+    empty.classList.remove('hidden')
+    document.getElementById('subtotal-display').textContent = '$0'
+    return
+  }
+  empty.classList.add('hidden')
+  cont.innerHTML = ''
+  let total = 0
+  carrito.forEach((item, idx) => {
+    total += item.importe
+    const div = document.createElement('div')
+    div.className = 'cart-item'
+    const modsStr = buildModsStr(item)
+    div.innerHTML = `
+      <div class="cart-item-header">
+        <span class="cart-item-name">${item.nombre}</span>
+        <span class="cart-item-importe">$${item.importe}</span>
+      </div>
+      ${modsStr ? '<div class="cart-mods has-mods">' + modsStr + '</div>' : ''}
+      <div class="cart-qty-row">
+        <button class="qty-btn" onclick="cambiarCantidad(${idx},-1)">−</button>
+        <span class="qty-val">${item.cantidad}</span>
+        <button class="qty-btn" onclick="cambiarCantidad(${idx},1)">+</button>
+        <button class="btn btn-ghost btn-sm" onclick="abrirModal(${idx})" style="margin-left:auto;">✏️ Modificar</button>
+      </div>`
+    cont.appendChild(div)
+  })
+  document.getElementById('subtotal-display').textContent = '$' + total
+}
+
+function buildModsStr(item) {
+  const parts = []
+  if (item.modificadores.quitados.length) parts.push('Sin: ' + item.modificadores.quitados.join(', '))
+  if (item.modificadores.extras.length) parts.push('+ ' + item.modificadores.extras.map(e => e.nombre).join(', '))
+  if (item.modificadores.nota) parts.push('📝 ' + item.modificadores.nota)
+  return parts.join(' · ')
+}
+
+function cambiarCantidad(idx, delta) {
+  carrito[idx].cantidad = Math.max(1, carrito[idx].cantidad + delta)
+  carrito[idx].importe = calcularImporte(carrito[idx])
+  renderCarrito()
+  actualizarContadorCart()
+}
+
+function goCarrito() {
+  renderCarrito()
+  goStep('step-carrito')
+}
+
+function goPago() {
+  if (carrito.length === 0) { mostrarError(document.getElementById('err-carrito'), 'Agrega al menos un ítem.'); return }
+  const total = carrito.reduce((s, i) => s + i.importe, 0)
+  document.getElementById('total-pago').textContent = '$' + total
+  goStep('step-pago')
+}
+
+// ── Modal modificadores ───────────────────────────────────────────────────────
+async function abrirModal(idx) {
+  modIdx = idx
+  const item = carrito[idx]
+  document.getElementById('mod-item-nombre').textContent = item.nombre
+  document.getElementById('mod-nota').value = item.modificadores.nota || ''
+
+  // Ingredientes (quitables)
+  const quitCont = document.getElementById('mod-quitados')
+  quitCont.innerHTML = '<div class="loading-center" style="padding:10px;"><div class="spinner" style="width:20px;height:20px;"></div></div>'
+  document.getElementById('mod-overlay').classList.remove('hidden')
+
+  if (!ingredientesCache[item.id_receta]) {
+    const { data } = await window._db
+      .from('receta_ingredientes')
+      .select('producto, id_producto')
+      .eq('tenant_id', POS.TENANT_ID)
+      .eq('id_receta', item.id_receta)
+      .eq('activo', true)
+    ingredientesCache[item.id_receta] = data || []
+  }
+
+  const ings = ingredientesCache[item.id_receta]
+  quitCont.innerHTML = ''
+  if (ings.length === 0) {
+    quitCont.innerHTML = '<div style="color:var(--c-text-muted);font-size:0.8rem;">Sin ingredientes registrados.</div>'
+  } else {
+    ings.forEach(ing => {
+      const checked = !item.modificadores.quitados.includes(ing.producto)
+      quitCont.innerHTML += `
+        <div class="mod-item">
+          <label>
+            <input type="checkbox" data-ing="${ing.producto}" ${checked ? 'checked' : ''}>
+            ${ing.producto}
+          </label>
+        </div>`
+    })
+  }
+
+  // Extras
+  const extCont = document.getElementById('mod-extras-list')
+  extCont.innerHTML = ''
+  extrasDisp.forEach(ex => {
+    const checked = item.modificadores.extras.some(e => e.id === ex.id_receta)
+    extCont.innerHTML += `
+      <div class="mod-item">
+        <label>
+          <input type="checkbox" data-extra-id="${ex.id_receta}" data-extra-nom="${ex.nombre_platillo}" data-extra-precio="${ex.precio}" ${checked ? 'checked' : ''}>
+          ${ex.nombre_platillo}
+        </label>
+        ${ex.precio > 0 ? '<span class="mod-price">+$' + ex.precio + '</span>' : ''}
+      </div>`
+  })
+  if (!extrasDisp.length) extCont.innerHTML = '<div style="color:var(--c-text-muted);font-size:0.8rem;">Sin extras disponibles.</div>'
+
+  // Salsas
+  const salCont = document.getElementById('mod-salsas-list')
+  salCont.innerHTML = ''
+  salsasDisp.forEach(sa => {
+    const checked = item.modificadores.extras.some(e => e.id === sa.id_receta)
+    salCont.innerHTML += `
+      <div class="mod-item">
+        <label>
+          <input type="checkbox" data-extra-id="${sa.id_receta}" data-extra-nom="${sa.nombre_platillo}" data-extra-precio="${sa.precio}" ${checked ? 'checked' : ''}>
+          ${sa.nombre_platillo}
+        </label>
+        ${sa.precio > 0 ? '<span class="mod-price">+$' + sa.precio + '</span>' : ''}
+      </div>`
+  })
+  if (!salsasDisp.length) salCont.innerHTML = '<div style="color:var(--c-text-muted);font-size:0.8rem;">Sin salsas disponibles.</div>'
+}
+
+function cerrarModal() {
+  // Si se abre modal para ítem nuevo pero se cancela, quitar ese ítem
+  if (modIdx !== null && modIdx === carrito.length - 1 && buildModsStr(carrito[modIdx]) === '' && carrito[modIdx].cantidad === 1) {
+    // solo quitar si no se guardó nada relevante — guardamos si se cierra el modal sin guardar
+  }
+  document.getElementById('mod-overlay').classList.add('hidden')
+  modIdx = null
+}
+
+function guardarModificadores() {
+  if (modIdx === null) return
+  const item = carrito[modIdx]
+
+  // Quitados
+  const quitados = []
+  document.querySelectorAll('#mod-quitados input[type=checkbox]').forEach(cb => {
+    if (!cb.checked) quitados.push(cb.dataset.ing)
+  })
+
+  // Extras + Salsas
+  const extras = []
+  document.querySelectorAll('#mod-extras-list input[type=checkbox], #mod-salsas-list input[type=checkbox]').forEach(cb => {
+    if (cb.checked) extras.push({ id: cb.dataset.extraId, nombre: cb.dataset.extraNom, precio: parseFloat(cb.dataset.extraPrecio) || 0 })
+  })
+
+  item.modificadores = { quitados, extras, nota: document.getElementById('mod-nota').value.trim() }
+  item.importe = calcularImporte(item)
+  document.getElementById('mod-overlay').classList.add('hidden')
+  modIdx = null
+  actualizarContadorCart()
+}
+
+// ── Pago ──────────────────────────────────────────────────────────────────────
+function selectPago(m) {
+  metodoPago = m
+  document.querySelectorAll('.pago-opt').forEach(el => el.classList.remove('selected'))
+  document.getElementById('pago-' + m).classList.add('selected')
+}
+
+// ── Generar folio ────────────────────────────────────────────────────────────
+async function generarFolio() {
+  const hoy = new Date().toISOString().split('T')[0].replace(/-/g, '')
+  const { data } = await window._db
+    .from('ventas')
+    .select('folio')
+    .eq('tenant_id', POS.TENANT_ID)
+    .like('folio', 'F-' + hoy + '-%')
+    .order('folio', { ascending: false })
+    .limit(1)
+  const lastNum = (data && data.length) ? (parseInt(data[0].folio.split('-')[2]) || 0) : 0
+  return 'F-' + hoy + '-' + String(lastNum + 1).padStart(3, '0')
+}
+
+// ── Confirmar orden ──────────────────────────────────────────────────────────
+async function confirmarOrden() {
+  const err = document.getElementById('err-pago')
+  if (!metodoPago) { mostrarError(err, 'Selecciona un método de pago.'); return }
+
+  const btn = document.getElementById('btn-confirmar')
+  btn.disabled = true
+  btn.textContent = 'Procesando...'
+
+  try {
+    const folio = await generarFolio()
+    const cel = document.getElementById('cel').value.trim()
+    const nomCliente = document.getElementById('nombre').value.trim()
+    const dir = tipoEntrega === 'domicilio' ? document.getElementById('dir-texto').value.trim() : null
+    const subtotal = carrito.reduce((s, i) => s + i.importe, 0)
+
+    // 1) Insertar venta
+    const { data: venta, error: e1 } = await window._db
+      .from('ventas')
+      .insert({
+        tenant_id: POS.TENANT_ID,
+        folio,
+        canal: 'qr',
+        metodo_pago: metodoPago,
+        subtotal,
+        total: subtotal,
+        estado: 'cerrada',
+        creado_por: cel,
+        notas: null,
+        cliente_nombre: nomCliente,
+        cliente_celular: cel,
+        tipo_entrega: tipoEntrega,
+        direccion_entrega: dir,
+        entrega_lat: null,
+        entrega_lng: null
+      })
+      .select('id')
+      .single()
+
+    if (e1) throw e1
+
+    // 2) Insertar ítems
+    const items = carrito.map(it => ({
+      tenant_id: POS.TENANT_ID,
+      id_venta: venta.id,
+      id_item: it.id_receta,
+      tipo_item: 'receta',
+      nombre: it.nombre,
+      cantidad: it.cantidad,
+      precio_unitario: it.precio_base,
+      importe: it.importe,
+      modificadores: it.modificadores,
+      notas: it.modificadores.nota || null
+    }))
+
+    const { error: e2 } = await window._db.from('venta_items').insert(items)
+    if (e2) {
+      await window._db.from('ventas').delete().eq('id', venta.id).eq('tenant_id', POS.TENANT_ID)
+      throw e2
+    }
+
+    // 3) Insertar orden de cocina
+    const { error: e3 } = await window._db.from('ordenes_cocina').insert({
+      tenant_id: POS.TENANT_ID,
+      id_venta: venta.id,
+      estado: 'pendiente',
+      tiempo_objetivo_seg: 420,
+      tiempo_limite_seg: 600,
+      confirmada_en: new Date().toISOString()
+    })
+    if (e3) {
+      await window._db.from('venta_items').delete().eq('id_venta', venta.id).eq('tenant_id', POS.TENANT_ID)
+      await window._db.from('ventas').delete().eq('id', venta.id).eq('tenant_id', POS.TENANT_ID)
+      throw e3
+    }
+
+    document.getElementById('confirm-folio').textContent = folio
+    goStep('step-confirm')
+  } catch(e) {
+    mostrarError(err, 'Error al crear pedido: ' + e.message)
+    btn.disabled = false
+    btn.textContent = 'Confirmar pedido'
+  }
+}
+
+// ── Utilerías ─────────────────────────────────────────────────────────────────
+function mostrarError(el, msg) { el.textContent = msg; el.classList.remove('hidden') }
+</script>
+</body>
+</html>

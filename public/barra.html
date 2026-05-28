@@ -1,0 +1,773 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Barra</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- ── LOGIN ──────────────────────────────────────────────────────────────── -->
+<div id="vista-login" class="login-wrap">
+  <div class="login-card">
+    <h2>🔐 Acceso Barra</h2>
+    <div style="font-size:0.85rem;color:var(--c-text-muted);text-align:center;margin-bottom:20px;" id="login-tenant-nombre"></div>
+    <div style="display:flex;flex-direction:column;gap:14px;">
+      <div class="field">
+        <label for="login-email">Correo</label>
+        <input type="text" id="login-email" placeholder="usuario@furia.mx" autocomplete="username">
+      </div>
+      <div class="field">
+        <label for="login-pass">Contraseña</label>
+        <input type="password" id="login-pass" placeholder="••••••••" autocomplete="current-password">
+      </div>
+      <div id="login-err" class="alert alert-error hidden"></div>
+      <button class="btn btn-primary" id="btn-login" onclick="doLogin()">Entrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── APP BARRA ───────────────────────────────────────────────────────────── -->
+<div id="vista-app" class="hidden" style="display:none;flex-direction:column;min-height:100vh;">
+
+  <header class="pos-header">
+    <h1 id="app-tenant-nombre">POS</h1>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <span class="badge" id="badge-usuario"></span>
+      <button class="btn btn-ghost btn-sm" onclick="doLogout()">Salir</button>
+    </div>
+  </header>
+
+  <div class="tab-bar">
+    <button class="tab-btn active" id="tab-btn-pedido" onclick="switchTab('pedido')">➕ Nuevo pedido</button>
+    <button class="tab-btn" id="tab-btn-ordenes" onclick="switchTab('ordenes')">📋 Órdenes activas <span id="badge-activas" style="background:var(--c-accent);color:var(--c-on-accent);border-radius:999px;padding:1px 7px;font-size:0.72rem;margin-left:4px;">0</span></button>
+  </div>
+
+  <!-- TAB PEDIDO (reutiliza mismo flujo que pedir.html) -->
+  <div class="tab-panel active" id="tab-pedido">
+    <div class="container" style="flex:1;display:flex;flex-direction:column;">
+
+      <!-- STEP ID -->
+      <section class="step active" id="b-step-id">
+        <h2 style="font-size:1.2rem;">Identificar cliente</h2>
+        <div class="card" style="display:flex;flex-direction:column;gap:14px;">
+          <div class="field">
+            <label for="b-cel">Celular *</label>
+            <input type="tel" id="b-cel" placeholder="10 dígitos" maxlength="10">
+          </div>
+          <div class="field">
+            <label for="b-nombre">Nombre *</label>
+            <input type="text" id="b-nombre" placeholder="Nombre del cliente">
+          </div>
+        </div>
+        <div id="b-err-id" class="alert alert-error hidden"></div>
+        <button class="btn btn-primary" onclick="b_goTipo()">Continuar →</button>
+      </section>
+
+      <!-- STEP TIPO -->
+      <section class="step" id="b-step-tipo">
+        <h2 style="font-size:1.2rem;">Tipo de entrega</h2>
+        <div class="choice-grid">
+          <div class="choice-card" id="b-opt-barra" onclick="b_selectTipo('barra')">
+            <span class="icon">🏠</span><span class="label">En barra</span>
+          </div>
+          <div class="choice-card" id="b-opt-domicilio" onclick="b_selectTipo('domicilio')">
+            <span class="icon">🛵</span><span class="label">Domicilio</span>
+          </div>
+        </div>
+        <div id="b-err-tipo" class="alert alert-error hidden"></div>
+        <div class="btn-row">
+          <button class="btn btn-ghost" onclick="b_goStep('b-step-id')">← Atrás</button>
+          <button class="btn btn-primary" onclick="b_goDir()">Continuar →</button>
+        </div>
+      </section>
+
+      <!-- STEP DIR -->
+      <section class="step" id="b-step-dir">
+        <h2 style="font-size:1.2rem;">Dirección</h2>
+        <div class="card" style="display:flex;flex-direction:column;gap:14px;">
+          <div class="field">
+            <label for="b-dir">Dirección de entrega</label>
+            <textarea id="b-dir" rows="3" placeholder="Calle, número, colonia, referencias..."></textarea>
+          </div>
+        </div>
+        <div id="b-err-dir" class="alert alert-error hidden"></div>
+        <div class="btn-row">
+          <button class="btn btn-ghost" onclick="b_goStep('b-step-tipo')">← Atrás</button>
+          <button class="btn btn-primary" onclick="b_validarDir()">Confirmar →</button>
+        </div>
+      </section>
+
+      <!-- STEP CARTA -->
+      <section class="step" id="b-step-carta">
+        <h2 style="font-size:1.2rem;">Menú</h2>
+        <div id="b-menu-loading" class="loading-center"><div class="spinner"></div></div>
+        <div id="b-menu-container"></div>
+        <div id="b-err-carta" class="alert alert-error hidden"></div>
+        <button class="btn btn-primary" id="b-btn-ir-carrito" onclick="b_goCarrito()" style="margin-top:8px;">
+          Carrito (<span id="b-cart-count">0</span>)
+        </button>
+      </section>
+
+      <!-- STEP CARRITO -->
+      <section class="step" id="b-step-carrito">
+        <h2 style="font-size:1.2rem;">Carrito</h2>
+        <div id="b-carrito-container"></div>
+        <div id="b-cart-empty" class="alert alert-info">Carrito vacío.</div>
+        <div class="subtotal-bar" style="margin-top:8px;">
+          <span>Total</span>
+          <span class="amount" id="b-subtotal-display">$0</span>
+        </div>
+        <div id="b-err-carrito" class="alert alert-error hidden"></div>
+        <div class="btn-row" style="margin-top:8px;">
+          <button class="btn btn-ghost" onclick="b_goStep('b-step-carta')">← Más ítems</button>
+          <button class="btn btn-primary" onclick="b_goPago()">Pagar →</button>
+        </div>
+      </section>
+
+      <!-- STEP PAGO -->
+      <section class="step" id="b-step-pago">
+        <h2 style="font-size:1.2rem;">Pago</h2>
+        <div class="pago-opts">
+          <div class="pago-opt" id="b-pago-efectivo" onclick="b_selectPago('efectivo')">
+            <span class="icon">💵</span><span class="lbl">Efectivo</span>
+          </div>
+          <div class="pago-opt" id="b-pago-tarjeta" onclick="b_selectPago('tarjeta')">
+            <span class="icon">💳</span><span class="lbl">Tarjeta</span>
+          </div>
+          <div class="pago-opt" id="b-pago-transferencia" onclick="b_selectPago('transferencia')">
+            <span class="icon">📲</span><span class="lbl">Transferencia</span>
+          </div>
+        </div>
+        <div class="subtotal-bar" style="margin-top:16px;">
+          <span>Total</span>
+          <span class="amount" id="b-total-pago">$0</span>
+        </div>
+        <div id="b-err-pago" class="alert alert-error hidden"></div>
+        <div class="btn-row" style="margin-top:8px;">
+          <button class="btn btn-ghost" onclick="b_goStep('b-step-carrito')">← Atrás</button>
+          <button class="btn btn-primary" id="b-btn-confirmar" onclick="b_confirmarOrden()">Confirmar pedido</button>
+        </div>
+      </section>
+
+      <!-- STEP CONFIRM -->
+      <section class="step" id="b-step-confirm">
+        <div class="confirm-box card">
+          <div class="confirm-icon">✅</div>
+          <h2 style="margin-top:12px;">¡Pedido creado!</h2>
+          <div class="confirm-folio" id="b-confirm-folio">—</div>
+          <button class="btn btn-primary" style="margin-top:20px;" onclick="b_resetPedido()">Nuevo pedido</button>
+        </div>
+      </section>
+
+    </div>
+  </div><!-- /tab-pedido -->
+
+  <!-- TAB ÓRDENES ACTIVAS -->
+  <div class="tab-panel" id="tab-ordenes">
+    <div style="padding:16px;">
+      <div id="ordenes-loading" class="loading-center"><div class="spinner"></div></div>
+      <div id="ordenes-empty" class="alert alert-info hidden">Sin órdenes activas.</div>
+      <div class="orders-grid" id="ordenes-grid"></div>
+    </div>
+  </div>
+
+</div><!-- /vista-app -->
+
+<!-- Modal modificadores (barra) -->
+<div class="modal-overlay hidden" id="b-mod-overlay">
+  <div class="modal-sheet">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+      <span class="modal-title" id="b-mod-item-nombre"></span>
+      <button class="btn btn-ghost btn-sm" onclick="b_cerrarModal()">✕</button>
+    </div>
+    <div class="mod-section">
+      <div class="mod-section-title">Quitar ingredientes</div>
+      <div id="b-mod-quitados"></div>
+    </div>
+    <div class="mod-section">
+      <div class="mod-section-title">Extras</div>
+      <div id="b-mod-extras-list"></div>
+    </div>
+    <div class="mod-section">
+      <div class="mod-section-title">Salsas</div>
+      <div id="b-mod-salsas-list"></div>
+    </div>
+    <div class="mod-section">
+      <div class="mod-section-title">Nota</div>
+      <textarea id="b-mod-nota" rows="2" placeholder="Instrucción especial..."></textarea>
+    </div>
+    <button class="btn btn-primary" style="margin-top:12px;" onclick="b_guardarMods()">Guardar</button>
+  </div>
+</div>
+
+<!-- Modal cancelar orden -->
+<div class="modal-overlay hidden" id="cancel-overlay">
+  <div class="modal-sheet">
+    <div class="modal-title">Cancelar orden</div>
+    <p style="color:var(--c-text-muted);font-size:0.9rem;margin-bottom:14px;">Se requiere un motivo.</p>
+    <div class="field">
+      <label for="cancel-motivo">Motivo *</label>
+      <input type="text" id="cancel-motivo" placeholder="Ej: Error de captura, cliente desistió...">
+    </div>
+    <div id="cancel-err" class="alert alert-error hidden" style="margin-top:8px;"></div>
+    <div class="btn-row" style="margin-top:14px;">
+      <button class="btn btn-ghost" onclick="cerrarCancelModal()">No, volver</button>
+      <button class="btn btn-danger" id="btn-cancel-confirmar" onclick="ejecutarCancelar()">Cancelar orden</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="src/config.js"></script>
+<script src="src/supabase.js"></script>
+<script>
+// ── Auth ──────────────────────────────────────────────────────────────────────
+let usuarioActual = null
+let cfg = null
+
+async function doLogin() {
+  const email = document.getElementById('login-email').value.trim()
+  const pass  = document.getElementById('login-pass').value
+  const err   = document.getElementById('login-err')
+  const btn   = document.getElementById('btn-login')
+  if (!email || !pass) { mostrarErr(err, 'Ingresa correo y contraseña.'); return }
+  btn.disabled = true; btn.textContent = 'Entrando...'
+  const { data, error } = await window._db.auth.signInWithPassword({ email, password: pass })
+  if (error) { mostrarErr(err, error.message); btn.disabled = false; btn.textContent = 'Entrar'; return }
+  usuarioActual = data.user
+  mostrarApp()
+}
+
+async function doLogout() {
+  await window._db.auth.signOut()
+  location.reload()
+}
+
+function mostrarApp() {
+  document.getElementById('vista-login').style.display = 'none'
+  const app = document.getElementById('vista-app')
+  app.classList.remove('hidden')
+  app.style.display = 'flex'
+  document.getElementById('badge-usuario').textContent = usuarioActual?.email?.split('@')[0] || 'operador'
+  iniciarApp()
+}
+
+// ── Init app ──────────────────────────────────────────────────────────────────
+async function iniciarApp() {
+  const { data } = await window._db
+    .from('config_pos')
+    .select('*')
+    .eq('tenant_id', POS.TENANT_ID)
+    .single()
+  cfg = data || {}
+  b_cargarCatalogo()
+  cargarOrdenesActivas()
+  suscribirOrdenes()
+}
+
+// ── Tab switcher ──────────────────────────────────────────────────────────────
+function switchTab(tab) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'))
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'))
+  document.getElementById('tab-btn-' + tab).classList.add('active')
+  document.getElementById('tab-' + tab).classList.add('active')
+}
+
+// ═══════════════════════════════════════════════════════════════
+// FLUJO PEDIDO (barra)
+// ═══════════════════════════════════════════════════════════════
+let b_tipoEntrega = null
+let b_metodoPago = null
+let b_catalogo = []
+let b_extras = []
+let b_salsas = []
+let b_ingCache = {}
+let b_carrito = []
+let b_modIdx = null
+
+function b_goStep(id) {
+  document.querySelectorAll('#tab-pedido .step').forEach(s => s.classList.remove('active'))
+  document.getElementById(id).classList.add('active')
+  window.scrollTo(0,0)
+}
+
+function b_goTipo() {
+  const cel = document.getElementById('b-cel').value.trim()
+  const nom = document.getElementById('b-nombre').value.trim()
+  const err = document.getElementById('b-err-id')
+  if (!/^\d{10}$/.test(cel)) { mostrarErr(err, 'Celular de 10 dígitos requerido.'); return }
+  if (!nom) { mostrarErr(err, 'Ingresa el nombre del cliente.'); return }
+  err.classList.add('hidden')
+  b_goStep('b-step-tipo')
+}
+
+function b_selectTipo(t) {
+  b_tipoEntrega = t
+  document.getElementById('b-opt-barra').classList.toggle('selected', t === 'barra')
+  document.getElementById('b-opt-domicilio').classList.toggle('selected', t === 'domicilio')
+}
+
+function b_goDir() {
+  const err = document.getElementById('b-err-tipo')
+  if (!b_tipoEntrega) { mostrarErr(err, 'Selecciona tipo de entrega.'); return }
+  err.classList.add('hidden')
+  if (b_tipoEntrega === 'barra') { b_goStep('b-step-carta'); return }
+  if (cfg && cfg.delivery_activo === false) { mostrarErr(err, 'Delivery no disponible.'); return }
+  b_goStep('b-step-dir')
+}
+
+function b_validarDir() {
+  const dir = document.getElementById('b-dir').value.trim()
+  const err = document.getElementById('b-err-dir')
+  if (!dir) { mostrarErr(err, 'Escribe la dirección.'); return }
+  err.classList.add('hidden')
+  b_goStep('b-step-carta')
+}
+
+async function b_cargarCatalogo() {
+  try {
+    const { data: recetas } = await window._db
+      .from('catalogo_recetas')
+      .select('id_receta, nombre_platillo, categoria')
+      .eq('tenant_id', POS.TENANT_ID)
+      .eq('fuente', POS.FUENTE)
+      .eq('activo', true)
+
+    const ids = recetas.map(r => r.id_receta)
+    const { data: precios } = await window._db
+      .from('precios_venta')
+      .select('id_item, precio')
+      .eq('tenant_id', POS.TENANT_ID)
+      .eq('lista', POS.LISTA_PRECIO)
+      .eq('vigente', true)
+      .in('id_item', ids)
+
+    const pm = {}; precios.forEach(p => { pm[p.id_item] = p.precio })
+    const CATS_MOD = ['Extras', 'Salsas']
+    const menu = recetas.filter(r => !CATS_MOD.includes(r.categoria))
+    b_catalogo = menu.map(r => ({ id_receta: r.id_receta, nombre_platillo: r.nombre_platillo, categoria: r.categoria, precio: pm[r.id_receta] || 0 }))
+    b_extras = recetas.filter(r => r.categoria === 'Extras').map(r => ({ ...r, precio: pm[r.id_receta] || 0 }))
+    b_salsas = recetas.filter(r => r.categoria === 'Salsas').map(r => ({ ...r, precio: pm[r.id_receta] || 0 }))
+    b_renderMenu()
+  } catch(e) {
+    document.getElementById('b-menu-loading').innerHTML = '<div class="alert alert-error">Error: ' + e.message + '</div>'
+  }
+}
+
+const ORDEN_CATS = ['Hamburguesas','Pollo','Acompañamientos','Bebidas']
+
+function b_renderMenu() {
+  const cont = document.getElementById('b-menu-container')
+  document.getElementById('b-menu-loading').classList.add('hidden')
+  const bycat = {}
+  b_catalogo.forEach(it => { if (!bycat[it.categoria]) bycat[it.categoria] = []; bycat[it.categoria].push(it) })
+  const cats = [...ORDEN_CATS.filter(c => bycat[c]), ...Object.keys(bycat).filter(c => !ORDEN_CATS.includes(c))]
+  cont.innerHTML = ''
+  cats.forEach(cat => {
+    const sec = document.createElement('div'); sec.className = 'menu-category'
+    sec.innerHTML = '<div class="menu-category-title">' + cat + '</div>'
+    bycat[cat].forEach(it => {
+      const row = document.createElement('div'); row.className = 'menu-item'
+      row.innerHTML = `<div><div class="menu-item-name">${it.nombre_platillo}</div><div class="menu-item-price">$${it.precio}</div></div>
+        <button class="menu-item-add" onclick="b_addToCart('${it.id_receta}')">+</button>`
+      sec.appendChild(row)
+    })
+    cont.appendChild(sec)
+  })
+}
+
+function b_addToCart(id) {
+  const it = b_catalogo.find(x => x.id_receta === id)
+  if (!it) return
+  const idx = b_carrito.length
+  b_carrito.push({ id_receta: it.id_receta, nombre: it.nombre_platillo, precio_base: it.precio, cantidad: 1, modificadores: { quitados: [], extras: [], nota: '' }, importe: it.precio })
+  b_actualizarContador()
+  b_abrirModal(idx)
+}
+
+function b_actualizarContador() {
+  document.getElementById('b-cart-count').textContent = b_carrito.reduce((s, i) => s + i.cantidad, 0)
+}
+
+function b_calcImporte(item) {
+  return (item.precio_base + item.modificadores.extras.reduce((s, e) => s + (e.precio || 0), 0)) * item.cantidad
+}
+
+function b_renderCarrito() {
+  const cont = document.getElementById('b-carrito-container')
+  const empty = document.getElementById('b-cart-empty')
+  if (b_carrito.length === 0) { cont.innerHTML = ''; empty.classList.remove('hidden'); document.getElementById('b-subtotal-display').textContent = '$0'; return }
+  empty.classList.add('hidden'); cont.innerHTML = ''
+  let total = 0
+  b_carrito.forEach((item, idx) => {
+    total += item.importe
+    const mstr = b_buildModStr(item)
+    const div = document.createElement('div'); div.className = 'cart-item'
+    div.innerHTML = `
+      <div class="cart-item-header"><span class="cart-item-name">${item.nombre}</span><span class="cart-item-importe">$${item.importe}</span></div>
+      ${mstr ? '<div class="cart-mods has-mods">' + mstr + '</div>' : ''}
+      <div class="cart-qty-row">
+        <button class="qty-btn" onclick="b_cambiarCantidad(${idx},-1)">−</button>
+        <span class="qty-val">${item.cantidad}</span>
+        <button class="qty-btn" onclick="b_cambiarCantidad(${idx},1)">+</button>
+        <button class="btn btn-ghost btn-sm" onclick="b_abrirModal(${idx})" style="margin-left:auto;">✏️</button>
+        <button class="btn btn-danger btn-sm" onclick="b_quitarItem(${idx})">🗑</button>
+      </div>`
+    cont.appendChild(div)
+  })
+  document.getElementById('b-subtotal-display').textContent = '$' + total
+}
+
+function b_buildModStr(item) {
+  const parts = []
+  if (item.modificadores.quitados.length) parts.push('Sin: ' + item.modificadores.quitados.join(', '))
+  if (item.modificadores.extras.length) parts.push('+ ' + item.modificadores.extras.map(e => e.nombre).join(', '))
+  if (item.modificadores.nota) parts.push('📝 ' + item.modificadores.nota)
+  return parts.join(' · ')
+}
+
+function b_cambiarCantidad(idx, delta) {
+  b_carrito[idx].cantidad = Math.max(1, b_carrito[idx].cantidad + delta)
+  b_carrito[idx].importe = b_calcImporte(b_carrito[idx])
+  b_renderCarrito(); b_actualizarContador()
+}
+
+function b_quitarItem(idx) {
+  b_carrito.splice(idx, 1)
+  b_renderCarrito(); b_actualizarContador()
+}
+
+function b_goCarrito() { b_renderCarrito(); b_goStep('b-step-carrito') }
+
+function b_goPago() {
+  if (b_carrito.length === 0) { mostrarErr(document.getElementById('b-err-carrito'), 'Agrega al menos un ítem.'); return }
+  document.getElementById('b-total-pago').textContent = '$' + b_carrito.reduce((s, i) => s + i.importe, 0)
+  b_goStep('b-step-pago')
+}
+
+async function b_abrirModal(idx) {
+  b_modIdx = idx
+  const item = b_carrito[idx]
+  document.getElementById('b-mod-item-nombre').textContent = item.nombre
+  document.getElementById('b-mod-nota').value = item.modificadores.nota || ''
+  const qCont = document.getElementById('b-mod-quitados')
+  qCont.innerHTML = '<div class="loading-center" style="padding:10px;"><div class="spinner" style="width:20px;height:20px;"></div></div>'
+  document.getElementById('b-mod-overlay').classList.remove('hidden')
+
+  if (!b_ingCache[item.id_receta]) {
+    const { data } = await window._db.from('receta_ingredientes').select('producto, id_producto').eq('tenant_id', POS.TENANT_ID).eq('id_receta', item.id_receta).eq('activo', true)
+    b_ingCache[item.id_receta] = data || []
+  }
+  const ings = b_ingCache[item.id_receta]
+  qCont.innerHTML = ings.length ? ings.map(ing => `<div class="mod-item"><label><input type="checkbox" data-ing="${ing.producto}" ${!item.modificadores.quitados.includes(ing.producto) ? 'checked' : ''}>${ing.producto}</label></div>`).join('') : '<div style="color:var(--c-text-muted);font-size:0.8rem;">Sin ingredientes registrados.</div>'
+
+  const extCont = document.getElementById('b-mod-extras-list')
+  extCont.innerHTML = b_extras.map(ex => `<div class="mod-item"><label><input type="checkbox" data-extra-id="${ex.id_receta}" data-extra-nom="${ex.nombre_platillo}" data-extra-precio="${ex.precio}" ${item.modificadores.extras.some(e => e.id === ex.id_receta) ? 'checked' : ''}>${ex.nombre_platillo}</label>${ex.precio > 0 ? '<span class="mod-price">+$' + ex.precio + '</span>' : ''}</div>`).join('') || '<div style="color:var(--c-text-muted);font-size:0.8rem;">Sin extras.</div>'
+
+  const salCont = document.getElementById('b-mod-salsas-list')
+  salCont.innerHTML = b_salsas.map(sa => `<div class="mod-item"><label><input type="checkbox" data-extra-id="${sa.id_receta}" data-extra-nom="${sa.nombre_platillo}" data-extra-precio="${sa.precio}" ${item.modificadores.extras.some(e => e.id === sa.id_receta) ? 'checked' : ''}>${sa.nombre_platillo}</label>${sa.precio > 0 ? '<span class="mod-price">+$' + sa.precio + '</span>' : ''}</div>`).join('') || '<div style="color:var(--c-text-muted);font-size:0.8rem;">Sin salsas.</div>'
+}
+
+function b_cerrarModal() { document.getElementById('b-mod-overlay').classList.add('hidden'); b_modIdx = null }
+
+function b_guardarMods() {
+  if (b_modIdx === null) return
+  const item = b_carrito[b_modIdx]
+  const quitados = []
+  document.querySelectorAll('#b-mod-quitados input[type=checkbox]').forEach(cb => { if (!cb.checked) quitados.push(cb.dataset.ing) })
+  const extras = []
+  document.querySelectorAll('#b-mod-extras-list input[type=checkbox], #b-mod-salsas-list input[type=checkbox]').forEach(cb => { if (cb.checked) extras.push({ id: cb.dataset.extraId, nombre: cb.dataset.extraNom, precio: parseFloat(cb.dataset.extraPrecio) || 0 }) })
+  item.modificadores = { quitados, extras, nota: document.getElementById('b-mod-nota').value.trim() }
+  item.importe = b_calcImporte(item)
+  document.getElementById('b-mod-overlay').classList.add('hidden')
+  b_modIdx = null; b_actualizarContador()
+}
+
+function b_selectPago(m) {
+  b_metodoPago = m
+  document.querySelectorAll('#tab-pedido .pago-opt').forEach(el => el.classList.remove('selected'))
+  document.getElementById('b-pago-' + m).classList.add('selected')
+}
+
+async function generarFolio() {
+  const hoy = new Date().toISOString().split('T')[0].replace(/-/g, '')
+  const { data } = await window._db.from('ventas').select('folio').eq('tenant_id', POS.TENANT_ID).like('folio', 'F-' + hoy + '-%').order('folio', { ascending: false }).limit(1)
+  const last = (data && data.length) ? (parseInt(data[0].folio.split('-')[2]) || 0) : 0
+  return 'F-' + hoy + '-' + String(last + 1).padStart(3, '0')
+}
+
+async function b_confirmarOrden() {
+  const err = document.getElementById('b-err-pago')
+  if (!b_metodoPago) { mostrarErr(err, 'Selecciona método de pago.'); return }
+  const btn = document.getElementById('b-btn-confirmar')
+  btn.disabled = true; btn.textContent = 'Procesando...'
+  try {
+    const folio = await generarFolio()
+    const cel = document.getElementById('b-cel').value.trim()
+    const nomCliente = document.getElementById('b-nombre').value.trim()
+    const dir = b_tipoEntrega === 'domicilio' ? document.getElementById('b-dir').value.trim() : null
+    const subtotal = b_carrito.reduce((s, i) => s + i.importe, 0)
+    const { data: venta, error: e1 } = await window._db.from('ventas').insert({
+      tenant_id: POS.TENANT_ID, folio, canal: 'mostrador', metodo_pago: b_metodoPago,
+      subtotal, total: subtotal, estado: 'cerrada',
+      creado_por: usuarioActual?.email || 'barra',
+      notas: null, cliente_nombre: nomCliente, cliente_celular: cel,
+      tipo_entrega: b_tipoEntrega, direccion_entrega: dir, entrega_lat: null, entrega_lng: null
+    }).select('id').single()
+    if (e1) throw e1
+
+    const items = b_carrito.map(it => ({
+      tenant_id: POS.TENANT_ID, id_venta: venta.id, id_item: it.id_receta,
+      tipo_item: 'receta', nombre: it.nombre, cantidad: it.cantidad,
+      precio_unitario: it.precio_base, importe: it.importe,
+      modificadores: it.modificadores, notas: it.modificadores.nota || null
+    }))
+    const { error: e2 } = await window._db.from('venta_items').insert(items)
+    if (e2) { await window._db.from('ventas').delete().eq('id', venta.id).eq('tenant_id', POS.TENANT_ID); throw e2 }
+
+    const { error: e3 } = await window._db.from('ordenes_cocina').insert({
+      tenant_id: POS.TENANT_ID, id_venta: venta.id, estado: 'pendiente',
+      tiempo_objetivo_seg: 420, tiempo_limite_seg: 600, confirmada_en: new Date().toISOString()
+    })
+    if (e3) {
+      await window._db.from('venta_items').delete().eq('id_venta', venta.id).eq('tenant_id', POS.TENANT_ID)
+      await window._db.from('ventas').delete().eq('id', venta.id).eq('tenant_id', POS.TENANT_ID)
+      throw e3
+    }
+
+    document.getElementById('b-confirm-folio').textContent = folio
+    b_goStep('b-step-confirm')
+  } catch(e) {
+    mostrarErr(err, 'Error: ' + e.message)
+    btn.disabled = false; btn.textContent = 'Confirmar pedido'
+  }
+}
+
+function b_resetPedido() {
+  b_carrito = []; b_tipoEntrega = null; b_metodoPago = null
+  document.getElementById('b-cel').value = ''
+  document.getElementById('b-nombre').value = ''
+  document.getElementById('b-cart-count').textContent = '0'
+  document.querySelectorAll('#tab-pedido .pago-opt').forEach(el => el.classList.remove('selected'))
+  b_goStep('b-step-id')
+}
+
+// ═══════════════════════════════════════════════════════════════
+// PANEL ÓRDENES ACTIVAS
+// ═══════════════════════════════════════════════════════════════
+const ordeActivas = {}  // id_venta → {orden, items, venta}
+let cancelTarget = null
+
+async function cargarOrdenesActivas() {
+  const { data: ords } = await window._db
+    .from('ordenes_cocina')
+    .select('*')
+    .eq('tenant_id', POS.TENANT_ID)
+    .in('estado', ['pendiente', 'lista'])
+    .order('confirmada_en', { ascending: true })
+
+  document.getElementById('ordenes-loading').classList.add('hidden')
+  if (!ords || ords.length === 0) { document.getElementById('ordenes-empty').classList.remove('hidden'); actualizarBadge(); return }
+
+  const ventaIds = ords.map(o => o.id_venta)
+  const { data: ventas } = await window._db.from('ventas').select('id, folio, tipo_entrega, cliente_nombre, cliente_celular').eq('tenant_id', POS.TENANT_ID).in('id', ventaIds)
+  const { data: allItems } = await window._db.from('venta_items').select('id_venta, nombre, cantidad, modificadores').eq('tenant_id', POS.TENANT_ID).in('id_venta', ventaIds)
+
+  const vm = {}; if (ventas) ventas.forEach(v => { vm[v.id] = v })
+  const im = {}; if (allItems) allItems.forEach(it => { if (!im[it.id_venta]) im[it.id_venta] = []; im[it.id_venta].push(it) })
+
+  ords.forEach(ord => {
+    ordeActivas[ord.id_venta] = { orden: ord, venta: vm[ord.id_venta] || {}, items: im[ord.id_venta] || [] }
+  })
+  renderOrdenesGrid()
+  actualizarBadge()
+}
+
+function semaforo(confirmada_en, obj, lim) {
+  const el = (Date.now() - new Date(confirmada_en).getTime()) / 1000
+  if (el < obj) return 'verde'; if (el < lim) return 'amarillo'; return 'rojo'
+}
+function timerStr(confirmada_en) {
+  const s = Math.floor((Date.now() - new Date(confirmada_en).getTime()) / 1000)
+  return String(Math.floor(s/60)).padStart(2,'0') + ':' + String(s%60).padStart(2,'0')
+}
+
+function renderOrdenesGrid() {
+  const grid = document.getElementById('ordenes-grid'); grid.innerHTML = ''
+  const empty = document.getElementById('ordenes-empty')
+  const keys = Object.keys(ordeActivas)
+  empty.classList.toggle('hidden', keys.length > 0)
+  keys.forEach(idv => {
+    const { orden, venta, items } = ordeActivas[idv]
+    grid.appendChild(buildOrderCard(orden, venta, items))
+  })
+  actualizarBadge()
+}
+
+function buildOrderCard(orden, venta, items) {
+  const sem = semaforo(orden.confirmada_en, orden.tiempo_objetivo_seg, orden.tiempo_limite_seg)
+  const div = document.createElement('div')
+  div.className = 'order-card semaforo-' + sem
+  div.id = 'ord-' + orden.id_venta
+
+  const itemsHTML = items.map(it => {
+    const mods = it.modificadores || {}; const parts = []
+    if (mods.quitados?.length) parts.push('Sin: ' + mods.quitados.join(', '))
+    if (mods.extras?.length) parts.push('+ ' + mods.extras.map(e => e.nombre).join(', '))
+    if (mods.nota) parts.push('📝 ' + mods.nota)
+    return `<div class="order-item-line">×${it.cantidad} ${it.nombre}${parts.length ? '<div class="order-item-mods">' + parts.join(' · ') + '</div>' : ''}</div>`
+  }).join('')
+
+  const estadoPill = orden.estado === 'lista' ? '<span class="pill pill-lista">Lista</span>' : '<span class="pill pill-pendiente">Pendiente</span>'
+  const esLista = orden.estado === 'lista'
+
+  div.innerHTML = `
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;">
+      <span class="order-folio">${venta.folio || orden.id_venta}</span>
+      <span class="order-timer" id="otimer-${orden.id_venta}">${timerStr(orden.confirmada_en)}</span>
+    </div>
+    <div class="order-info">${venta.cliente_nombre || ''} · ${venta.tipo_entrega || ''} ${estadoPill}</div>
+    <div class="order-items">${itemsHTML}</div>
+    <div class="order-btns">
+      ${!esLista ? `<button class="btn btn-ghost btn-sm" onclick="accionOrden('lista','${orden.id_venta}')">✓ Lista</button>` : ''}
+      <button class="btn btn-primary btn-sm" onclick="accionOrden('entregada','${orden.id_venta}')">📦 Entregar</button>
+      <button class="btn btn-danger btn-sm" onclick="abrirCancelModal('${orden.id_venta}')">✗ Cancelar</button>
+    </div>`
+  return div
+}
+
+// Actualizar timers/semáforos cada segundo
+setInterval(() => {
+  Object.keys(ordeActivas).forEach(idv => {
+    const { orden } = ordeActivas[idv]
+    const t = document.getElementById('otimer-' + idv)
+    if (t) t.textContent = timerStr(orden.confirmada_en)
+    const card = document.getElementById('ord-' + idv)
+    if (card) {
+      const sem = semaforo(orden.confirmada_en, orden.tiempo_objetivo_seg, orden.tiempo_limite_seg)
+      card.className = 'order-card semaforo-' + sem
+    }
+  })
+}, 1000)
+
+function actualizarBadge() {
+  document.getElementById('badge-activas').textContent = Object.keys(ordeActivas).length
+}
+
+async function accionOrden(nuevoEstado, idVenta) {
+  const o = ordeActivas[idVenta]; if (!o) return
+  const { orden, venta } = o
+  const now = new Date().toISOString()
+  const upd = { estado: nuevoEstado }
+  if (nuevoEstado === 'lista') upd.lista_en = now
+  if (nuevoEstado === 'entregada') upd.entregada_en = now
+
+  const { error } = await window._db
+    .from('ordenes_cocina')
+    .update(upd)
+    .eq('id_venta', idVenta)
+    .eq('tenant_id', POS.TENANT_ID)
+  if (error) { alert('Error: ' + error.message); return }
+
+  // Historial
+  await window._db.from('historial_orden').insert({
+    tenant_id: POS.TENANT_ID, id_venta: idVenta,
+    accion: nuevoEstado, motivo: null, detalle: { estado: nuevoEstado },
+    hecho_por: usuarioActual?.email || 'barra'
+  })
+
+  if (nuevoEstado === 'entregada') {
+    delete ordeActivas[idVenta]
+  } else {
+    ordeActivas[idVenta].orden.estado = nuevoEstado
+  }
+  renderOrdenesGrid()
+}
+
+// Cancelar modal
+function abrirCancelModal(idVenta) {
+  cancelTarget = idVenta
+  document.getElementById('cancel-motivo').value = ''
+  document.getElementById('cancel-err').classList.add('hidden')
+  document.getElementById('cancel-overlay').classList.remove('hidden')
+}
+function cerrarCancelModal() { document.getElementById('cancel-overlay').classList.add('hidden'); cancelTarget = null }
+
+async function ejecutarCancelar() {
+  const motivo = document.getElementById('cancel-motivo').value.trim()
+  const err = document.getElementById('cancel-err')
+  if (!motivo) { mostrarErr(err, 'El motivo es obligatorio.'); return }
+  const btn = document.getElementById('btn-cancel-confirmar')
+  btn.disabled = true
+
+  const { error } = await window._db
+    .from('ordenes_cocina')
+    .update({ estado: 'cancelada' })
+    .eq('id_venta', cancelTarget)
+    .eq('tenant_id', POS.TENANT_ID)
+
+  if (error) { mostrarErr(err, error.message); btn.disabled = false; return }
+
+  await window._db.from('historial_orden').insert({
+    tenant_id: POS.TENANT_ID, id_venta: cancelTarget,
+    accion: 'cancelada', motivo, detalle: { motivo },
+    hecho_por: usuarioActual?.email || 'barra'
+  })
+
+  // Actualizar estado de la venta también
+  await window._db.from('ventas').update({ estado: 'cancelada' }).eq('id', cancelTarget).eq('tenant_id', POS.TENANT_ID)
+
+  delete ordeActivas[cancelTarget]
+  cerrarCancelModal()
+  btn.disabled = false
+  renderOrdenesGrid()
+}
+
+// ── Realtime órdenes ──────────────────────────────────────────────────────────
+function suscribirOrdenes() {
+  window._db
+    .channel('barra-ordenes-' + POS.TENANT_ID)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'ordenes_cocina', filter: 'tenant_id=eq.' + POS.TENANT_ID }, async payload => {
+      const nuevo = payload.new; if (!nuevo) return
+      if (payload.eventType === 'INSERT') {
+        const { data: venta } = await window._db.from('ventas').select('id, folio, tipo_entrega, cliente_nombre, cliente_celular').eq('id', nuevo.id_venta).eq('tenant_id', POS.TENANT_ID).single()
+        const { data: items } = await window._db.from('venta_items').select('id_venta, nombre, cantidad, modificadores').eq('id_venta', nuevo.id_venta).eq('tenant_id', POS.TENANT_ID)
+        ordeActivas[nuevo.id_venta] = { orden: nuevo, venta: venta || {}, items: items || [] }
+        renderOrdenesGrid()
+      }
+      if (payload.eventType === 'UPDATE') {
+        if (nuevo.estado === 'cancelada' || nuevo.estado === 'entregada') {
+          delete ordeActivas[nuevo.id_venta]
+        } else if (ordeActivas[nuevo.id_venta]) {
+          ordeActivas[nuevo.id_venta].orden = { ...ordeActivas[nuevo.id_venta].orden, ...nuevo }
+        }
+        renderOrdenesGrid()
+      }
+    })
+    .subscribe()
+}
+
+// ── Bootstrap ─────────────────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', async () => {
+  document.getElementById('login-tenant-nombre').textContent = POS.BRANDING.nombre
+  document.getElementById('app-tenant-nombre').textContent = POS.BRANDING.nombre
+  const r = document.documentElement.style
+  r.setProperty('--c-primary',      POS.BRANDING.primaryColor)
+  r.setProperty('--c-primary-dark', POS.BRANDING.primaryDark)
+  r.setProperty('--c-accent',       POS.BRANDING.accentColor)
+  r.setProperty('--c-accent-dark',  POS.BRANDING.accentDark)
+  r.setProperty('--c-on-primary',   POS.BRANDING.textOnPrimary)
+  r.setProperty('--c-on-accent',    POS.BRANDING.textOnAccent)
+  r.setProperty('--c-bg',           POS.BRANDING.bgColor)
+
+  // Intentar restaurar sesión
+  const { data: { session } } = await window._db.auth.getSession()
+  if (session) { usuarioActual = session.user; mostrarApp() }
+})
+
+function mostrarErr(el, msg) { el.textContent = msg; el.classList.remove('hidden') }
+</script>
+</body>
+</html>
