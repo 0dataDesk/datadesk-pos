@@ -3,643 +3,853 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Hacer pedido</title>
-  <link rel="stylesheet" href="styles.css">
+  <title>Pedido</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <style>
+/* ── Reset & base ──────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+:root {
+  --bg:       #1E000A;
+  --s1:       #280A14;
+  --s2:       #30121E;
+  --s3:       #3A1828;
+  --border:   rgba(242,224,200,0.11);
+  --accent:   #F2E0C8;
+  --adim:     rgba(242,224,200,0.10);
+  --adim2:    rgba(242,224,200,0.17);
+  --text:     #F2E0C8;
+  --muted:    rgba(242,224,200,0.38);
+  --success:  #4ade80;
+}
+button, input, textarea { font-family: 'DM Sans', sans-serif; outline: none; }
+::-webkit-scrollbar { width: 3px; }
+::-webkit-scrollbar-thumb { background: var(--accent); opacity: .3; border-radius: 2px; }
+
+/* ── Animations ────────────────────────────────────────────────────────────── */
+@keyframes fadeUp  { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
+@keyframes slideUp { from { transform:translateY(100%); } to { transform:translateY(0); } }
+@keyframes bump    { 0%,100% { transform:scale(1); } 50% { transform:scale(1.35); } }
+@keyframes spin    { to { transform:rotate(360deg); } }
+
+/* ── App shell ─────────────────────────────────────────────────────────────── */
+#app { max-width: 480px; margin: 0 auto; min-height: 100vh; position: relative; }
+
+.view { min-height: 100vh; }
+.view.hidden, .hidden { display: none !important; }
+
+/* ── Shared buttons ────────────────────────────────────────────────────────── */
+.btn-cta {
+  width: 100%; background: var(--accent); border: none; border-radius: 12px;
+  padding: 17px; color: var(--bg); font-size: 16px; font-weight: 700;
+  cursor: pointer; transition: opacity .15s, transform .1s; letter-spacing: .3px;
+}
+.btn-cta:active  { transform: scale(.98); opacity: .88; }
+.btn-cta:disabled { background: var(--s3); color: var(--muted); cursor: not-allowed; }
+
+.btn-back {
+  background: none; border: none; cursor: pointer;
+  color: var(--muted); font-size: 14px; display: flex; align-items: center;
+  gap: 6px; padding: 6px 0; transition: color .15s;
+}
+.btn-back:hover { color: var(--text); }
+
+/* ── Logo ──────────────────────────────────────────────────────────────────── */
+.logo { display: flex; align-items: center; gap: 10px; }
+.logo-box {
+  background: var(--accent); border-radius: 7px; display: flex;
+  align-items: center; justify-content: center;
+  font-family: 'Bebas Neue', cursive; color: var(--bg); flex-shrink: 0;
+}
+.logo-name { font-family: 'Bebas Neue', cursive; letter-spacing: 4px; color: var(--text); line-height: 1; }
+
+/* ── VIEW: ID ──────────────────────────────────────────────────────────────── */
+#view-id {
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; min-height: 100vh; padding: 32px;
+  text-align: center; position: relative; animation: fadeUp .5s ease both;
+}
+.id-glow {
+  position: absolute; top: 32%; left: 50%; transform: translate(-50%,-50%);
+  width: 300px; height: 300px; pointer-events: none; border-radius: 50%;
+  background: radial-gradient(circle, rgba(242,224,200,.07) 0%, transparent 70%);
+}
+.id-form { width: 100%; max-width: 360px; margin-top: 52px; display: flex; flex-direction: column; gap: 32px; }
+.id-fields { display: flex; flex-direction: column; gap: 16px; }
+
+.phone-wrap {
+  background: var(--s1); border: 1px solid var(--border); border-radius: 12px;
+  display: flex; align-items: center; overflow: hidden; transition: border-color .2s;
+}
+.phone-wrap.valid { border-color: rgba(242,224,200,.32); }
+.phone-prefix {
+  padding: 0 14px; color: var(--muted); font-size: 15px;
+  border-right: 1px solid var(--border); height: 56px;
+  display: flex; align-items: center; gap: 6px; flex-shrink: 0;
+}
+#id-cel {
+  flex: 1; background: none; border: none; padding: 0 14px;
+  color: var(--text); font-family: monospace; font-size: 19px;
+  letter-spacing: 2px; height: 56px;
+}
+#id-cel-tick { padding: 0 14px; color: var(--success); font-size: 22px; }
+
+.field-lbl { font-size: 11px; color: var(--muted); letter-spacing: 2px; text-transform: uppercase; margin-bottom: 8px; }
+.field-input {
+  width: 100%; background: var(--s1); border: 1px solid var(--border);
+  border-radius: 10px; padding: 14px 16px; color: var(--text); font-size: 16px;
+  transition: border-color .2s;
+}
+.field-input:focus { border-color: rgba(242,224,200,.32); }
+
+/* ── VIEW: TIPO ────────────────────────────────────────────────────────────── */
+#view-tipo { padding: 32px; display: flex; flex-direction: column; animation: fadeUp .35s ease; }
+.tipo-opts { display: flex; flex-direction: column; gap: 14px; margin-top: 40px; }
+.opt-card {
+  background: var(--s1); border: 1px solid var(--border); border-radius: 16px;
+  padding: 24px 20px; cursor: pointer; display: flex; align-items: center;
+  gap: 18px; text-align: left; width: 100%; transition: all .15s ease;
+}
+.opt-card:hover, .opt-card:active { background: var(--adim2); border-color: rgba(242,224,200,.28); transform: scale(1.015); }
+.opt-icon  { font-size: 42px; flex-shrink: 0; }
+.opt-title { font-family: 'Bebas Neue', cursive; font-size: 24px; letter-spacing: 2px; line-height: 1; }
+.opt-desc  { font-size: 13px; color: var(--muted); margin-top: 4px; }
+.opt-arrow { color: var(--muted); font-size: 20px; margin-left: auto; flex-shrink: 0; }
+
+/* ── VIEW: MENU ────────────────────────────────────────────────────────────── */
+#view-menu { display: flex; flex-direction: column; min-height: 100vh; }
+
+.menu-header {
+  padding: 12px 20px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+  position: sticky; top: 0; background: var(--bg); z-index: 20;
+  min-height: 56px;
+}
+.mode-pill {
+  background: var(--adim); border: 1px solid var(--border); border-radius: 8px;
+  padding: 5px 10px; font-size: 12px; color: var(--muted);
+}
+
+/* Category tabs */
+.cat-tabs-wrap {
+  position: sticky; top: 56px; background: var(--bg);
+  border-bottom: 1px solid var(--border); z-index: 19;
+}
+.cat-tabs { display: flex; overflow-x: auto; padding: 0 16px; gap: 2px; scrollbar-width: none; }
+.cat-tabs::-webkit-scrollbar { display: none; }
+.cat-tab {
+  background: none; border: none; cursor: pointer;
+  padding: 13px 14px; font-size: 14px; font-weight: 500; white-space: nowrap;
+  color: var(--muted); border-bottom: 2px solid transparent; flex-shrink: 0;
+  transition: all .15s; font-family: 'DM Sans', sans-serif;
+}
+.cat-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+/* Item cards */
+.menu-items { padding: 12px 16px 120px; display: flex; flex-direction: column; gap: 10px; }
+.item-card {
+  background: var(--s1); border-radius: 14px; padding: 14px;
+  display: flex; align-items: center; gap: 14px;
+  border: 1px solid var(--border); transition: border-color .15s; cursor: pointer;
+}
+.item-card.in-cart { border-color: rgba(242,224,200,.28); }
+.item-thumb {
+  width: 72px; height: 72px; border-radius: 10px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center; font-size: 32px;
+}
+.item-info { flex: 1; min-width: 0; }
+.item-name  { font-family: 'Bebas Neue', cursive; font-size: 20px; letter-spacing: 1px; line-height: 1.15; }
+.item-desc  { font-size: 12px; color: var(--muted); margin-top: 3px; line-height: 1.5; min-height: 18px; }
+.item-price { font-family: 'Bebas Neue', cursive; font-size: 20px; color: var(--accent); margin-top: 5px; }
+.item-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.qty-badge  {
+  background: var(--adim); border: 1px solid rgba(242,224,200,.25);
+  border-radius: 8px; padding: 4px 10px; font-family: 'Bebas Neue', cursive;
+  font-size: 18px; color: var(--accent); min-width: 32px; text-align: center;
+}
+.btn-add {
+  width: 38px; height: 38px; border-radius: 9px; border: none; cursor: pointer;
+  background: var(--accent); color: var(--bg); font-size: 26px;
+  display: flex; align-items: center; justify-content: center; line-height: 1;
+  transition: transform .1s; flex-shrink: 0;
+}
+.btn-add:active { transform: scale(.88); }
+.btn-add.bumping { animation: bump .25s ease; }
+
+/* ── CART BAR (fixed) ──────────────────────────────────────────────────────── */
+#cart-bar {
+  position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
+  width: 100%; max-width: 480px;
+  background: var(--accent); padding: 14px 20px;
+  display: flex; align-items: center; justify-content: space-between;
+  z-index: 30; animation: fadeUp .25s ease;
+}
+.cb-left   { display: flex; align-items: center; gap: 10px; }
+.cb-count  { background: rgba(0,0,0,.22); border-radius: 6px; padding: 3px 10px; font-family: 'Bebas Neue', cursive; font-size: 20px; color: var(--bg); }
+.cb-label  { color: var(--bg); font-weight: 600; font-size: 15px; }
+.cb-btn    { background: var(--bg); border: none; border-radius: 8px; padding: 9px 18px; cursor: pointer; font-weight: 700; font-size: 15px; color: var(--accent); }
+
+/* ── SHEET: CARRITO ────────────────────────────────────────────────────────── */
+#sheet-cart { position: fixed; inset: 0; z-index: 40; display: flex; flex-direction: column; justify-content: flex-end; }
+.sheet-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,.72); }
+.sheet-panel {
+  position: relative; background: var(--s1); border-radius: 22px 22px 0 0;
+  max-height: 88vh; display: flex; flex-direction: column;
+  animation: slideUp .3s cubic-bezier(.32,.72,0,1);
+}
+.sh-handle-row { display: flex; justify-content: center; padding: 12px 0 4px; }
+.sh-handle { width: 36px; height: 4px; border-radius: 2px; background: var(--border); }
+.sh-hdr { padding: 0 20px 16px; border-bottom: 1px solid var(--border); }
+.sh-title { font-family: 'Bebas Neue', cursive; font-size: 28px; letter-spacing: 2px; }
+.sh-sub   { font-size: 13px; color: var(--muted); margin-top: 2px; }
+.sh-scroll { flex: 1; overflow-y: auto; padding: 10px 16px; }
+.sh-footer { padding: 16px 20px 28px; border-top: 1px solid var(--border); background: var(--s1); }
+
+/* Cart line */
+.cart-line { background: var(--s2); border: 1px solid var(--border); border-radius: 12px; padding: 14px; margin-bottom: 8px; }
+.cl-name   { font-weight: 600; font-size: 15px; }
+.cl-mods   { font-size: 12px; color: var(--muted); margin-top: 4px; line-height: 1.6; }
+.cl-controls { display: flex; align-items: center; gap: 7px; margin-top: 10px; }
+.cl-price  { font-family: 'Bebas Neue', cursive; font-size: 22px; color: var(--accent); margin-left: auto; }
+.qb { width: 30px; height: 30px; border-radius: 7px; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 18px; line-height: 1; }
+.qb.minus { background: var(--s3); color: var(--text); }
+.qb.plus  { background: var(--accent); color: var(--bg); }
+.qv { font-family: 'Bebas Neue', cursive; font-size: 20px; min-width: 18px; text-align: center; }
+.btn-edit { background: var(--s3); border: 1px solid var(--border); border-radius: 7px; padding: 5px 10px; color: var(--muted); cursor: pointer; font-size: 13px; }
+.btn-edit:hover { color: var(--text); }
+.btn-rm   { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 18px; padding: 4px 2px; }
+.total-row { display: flex; justify-content: space-between; margin-bottom: 16px; align-items: baseline; }
+.total-lbl { font-family: 'Bebas Neue', cursive; font-size: 22px; letter-spacing: 1px; }
+.total-amt { font-family: 'Bebas Neue', cursive; font-size: 30px; color: var(--accent); }
+
+/* ── SHEET: PERSONALIZACIÓN ────────────────────────────────────────────────── */
+#sheet-cz { position: fixed; inset: 0; z-index: 50; display: flex; flex-direction: column; justify-content: flex-end; }
+.cz-panel {
+  position: relative; background: var(--s1); border-radius: 22px 22px 0 0;
+  max-height: 92vh; display: flex; flex-direction: column;
+  animation: slideUp .3s cubic-bezier(.32,.72,0,1);
+}
+.cz-hdr { padding: 4px 20px 16px; border-bottom: 1px solid var(--border); }
+.cz-name { font-family: 'Bebas Neue', cursive; font-size: 26px; letter-spacing: 2px; line-height: 1.1; }
+.cz-desc { font-size: 13px; color: var(--muted); margin-top: 4px; }
+.section-lbl { font-size: 11px; color: var(--muted); letter-spacing: 2px; text-transform: uppercase; margin: 20px 0 12px; }
+.section-lbl:first-child { margin-top: 12px; }
+
+/* Ingredient chips */
+.chip-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip {
+  background: var(--adim); border: 1px solid rgba(242,224,200,.25);
+  border-radius: 20px; padding: 7px 14px; cursor: pointer;
+  font-size: 13px; color: var(--text); transition: all .15s;
+}
+.chip.off { background: var(--s3); border-color: var(--border); color: var(--muted); text-decoration: line-through; }
+
+/* Extra rows */
+.extra-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 14px; background: var(--s2); border-radius: 12px;
+  border: 1px solid var(--border); margin-bottom: 8px; transition: border-color .15s;
+}
+.extra-row.on { border-color: rgba(242,224,200,.28); }
+.ex-name  { font-weight: 500; font-size: 15px; }
+.ex-price { font-size: 13px; color: var(--accent); margin-left: 8px; }
+.ex-ctrl  { display: flex; align-items: center; gap: 8px; }
+
+/* ── VIEW: PAGO (stub) ─────────────────────────────────────────────────────── */
+#view-pago {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  min-height: 100vh; padding: 32px; text-align: center; animation: fadeUp .35s ease;
+}
+
+/* ── Loading ───────────────────────────────────────────────────────────────── */
+.spinner { width: 32px; height: 32px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; }
+.load-center { display: flex; justify-content: center; padding: 48px; }
+.err-box { background: rgba(255,60,60,.09); border: 1px solid rgba(255,60,60,.3); border-radius: 8px; padding: 12px 16px; font-size: 13px; color: #ff9090; margin-top: 10px; }
+  </style>
 </head>
 <body>
+<div id="app">
 
-<div class="page" id="app">
-  <!-- Header dinámico con nombre del tenant -->
-  <header class="pos-header">
-    <h1 id="hdr-nombre">POS</h1>
-    <span class="badge">Pedido</span>
-  </header>
-
-  <div class="container" style="flex:1;display:flex;flex-direction:column;">
-
-    <!-- STEP 1: Identificación -->
-    <section class="step active" id="step-id">
-      <h2 style="font-size:1.3rem;">Identifícate</h2>
-      <div class="card" style="display:flex;flex-direction:column;gap:14px;">
-        <div class="field">
-          <label for="cel">Celular *</label>
-          <input type="tel" id="cel" placeholder="10 dígitos" maxlength="10">
+<!-- ── VIEW: IDENTIFICACIÓN ───────────────────────────────────────────────── -->
+<div id="view-id" class="view">
+  <div class="id-glow"></div>
+  <div id="id-logo" class="logo" style="justify-content:center;margin-bottom:8px;"></div>
+  <p id="id-sub" style="color:var(--muted);font-size:11px;letter-spacing:5px;text-transform:uppercase;margin-bottom:56px;"></p>
+  <div class="id-form">
+    <div class="id-fields">
+      <div>
+        <div class="field-lbl" style="text-align:left;margin-top:0;">Tu número</div>
+        <div class="phone-wrap" id="id-phone-wrap">
+          <div class="phone-prefix">🇲🇽 +52</div>
+          <input type="tel" id="id-cel" inputmode="numeric" maxlength="10"
+            placeholder="55 1234 5678" oninput="onCelInput()">
+          <span id="id-cel-tick" class="hidden">✓</span>
         </div>
-        <div class="field">
-          <label for="nombre">Nombre *</label>
-          <input type="text" id="nombre" placeholder="¿Cómo te llamamos?">
-        </div>
-        <div class="alert alert-info">Tu orden llegará por WhatsApp cuando esté lista.</div>
+        <p style="font-size:12px;color:var(--muted);margin-top:10px;text-align:left;">Solo para localizar tu pedido</p>
       </div>
-      <div id="err-id" class="alert alert-error hidden"></div>
-      <button class="btn btn-primary" onclick="goTipo()">Continuar →</button>
-    </section>
-
-    <!-- STEP 2: Tipo de entrega -->
-    <section class="step" id="step-tipo">
-      <h2 style="font-size:1.3rem;">¿Cómo lo quieres?</h2>
-      <div class="choice-grid">
-        <div class="choice-card" id="opt-barra" onclick="selectTipo('barra')">
-          <span class="icon">🏠</span>
-          <span class="label">En barra</span>
-          <span class="sub">Recoges aquí</span>
-        </div>
-        <div class="choice-card" id="opt-domicilio" onclick="selectTipo('domicilio')">
-          <span class="icon">🛵</span>
-          <span class="label">A domicilio</span>
-          <span class="sub">Te lo llevamos</span>
-        </div>
+      <div>
+        <div class="field-lbl">Tu nombre</div>
+        <input class="field-input" type="text" id="id-nombre" placeholder="¿Cómo te llamamos?">
       </div>
-      <div id="err-tipo" class="alert alert-error hidden"></div>
-      <div class="btn-row">
-        <button class="btn btn-ghost" onclick="goStep('step-id')">← Atrás</button>
-        <button class="btn btn-primary" onclick="goDir()">Continuar →</button>
-      </div>
-    </section>
-
-    <!-- STEP 3: Dirección (solo domicilio) -->
-    <section class="step" id="step-dir">
-      <h2 style="font-size:1.3rem;">¿A dónde te lo llevamos?</h2>
-      <div class="card" style="display:flex;flex-direction:column;gap:14px;">
-        <div class="field">
-          <label for="dir-texto">Dirección completa</label>
-          <textarea id="dir-texto" rows="3" placeholder="Calle, número, colonia, referencias..."></textarea>
-        </div>
-      </div>
-      <div id="err-dir" class="alert alert-error hidden"></div>
-      <div class="btn-row">
-        <button class="btn btn-ghost" onclick="goStep('step-tipo')">← Atrás</button>
-        <button class="btn btn-primary" onclick="validarDireccion()">Verificar zona →</button>
-      </div>
-    </section>
-
-    <!-- STEP 4: Carta -->
-    <section class="step" id="step-carta">
-      <h2 style="font-size:1.3rem;">Elige tu orden</h2>
-      <div id="menu-loading" class="loading-center"><div class="spinner"></div></div>
-      <div id="menu-container"></div>
-      <div id="err-carta" class="alert alert-error hidden"></div>
-      <button class="btn btn-primary" id="btn-ir-carrito" onclick="goCarrito()" style="margin-top:8px;">
-        Ver carrito (<span id="cart-count">0</span>)
-      </button>
-    </section>
-
-    <!-- STEP 5: Carrito -->
-    <section class="step" id="step-carrito">
-      <h2 style="font-size:1.3rem;">Tu carrito</h2>
-      <div id="carrito-container"></div>
-      <div id="cart-empty" class="alert alert-info">Tu carrito está vacío.</div>
-      <div class="subtotal-bar" id="subtotal-bar" style="margin-top:8px;">
-        <span>Total</span>
-        <span class="amount" id="subtotal-display">$0</span>
-      </div>
-      <div id="err-carrito" class="alert alert-error hidden"></div>
-      <div class="btn-row" style="margin-top:8px;">
-        <button class="btn btn-ghost" onclick="goStep('step-carta')">← Agregar más</button>
-        <button class="btn btn-primary" onclick="goPago()">Pagar →</button>
-      </div>
-    </section>
-
-    <!-- STEP 6: Pago -->
-    <section class="step" id="step-pago">
-      <h2 style="font-size:1.3rem;">Método de pago</h2>
-      <div class="pago-opts" id="pago-opts">
-        <div class="pago-opt" id="pago-efectivo" onclick="selectPago('efectivo')">
-          <span class="icon">💵</span><span class="lbl">Efectivo</span>
-        </div>
-        <div class="pago-opt" id="pago-tarjeta" onclick="selectPago('tarjeta')">
-          <span class="icon">💳</span><span class="lbl">Tarjeta</span>
-        </div>
-        <div class="pago-opt" id="pago-transferencia" onclick="selectPago('transferencia')">
-          <span class="icon">📲</span><span class="lbl">Transferencia</span>
-        </div>
-      </div>
-      <div class="subtotal-bar" style="margin-top:16px;">
-        <span>Total a pagar</span>
-        <span class="amount" id="total-pago">$0</span>
-      </div>
-      <div id="err-pago" class="alert alert-error hidden"></div>
-      <div class="btn-row" style="margin-top:8px;">
-        <button class="btn btn-ghost" onclick="goStep('step-carrito')">← Atrás</button>
-        <button class="btn btn-primary" id="btn-confirmar" onclick="confirmarOrden()">Confirmar pedido</button>
-      </div>
-    </section>
-
-    <!-- STEP 7: Confirmación -->
-    <section class="step" id="step-confirm">
-      <div class="confirm-box card">
-        <div class="confirm-icon">✅</div>
-        <h2 style="margin-top:12px;">¡Pedido recibido!</h2>
-        <div class="confirm-folio" id="confirm-folio">—</div>
-        <p style="color:var(--c-text-muted);font-size:0.9rem;">Guarda este folio. Te avisamos por WhatsApp.</p>
-      </div>
-    </section>
-
-  </div><!-- .container -->
-</div><!-- #app -->
-
-<!-- Modal modificadores -->
-<div class="modal-overlay hidden" id="mod-overlay">
-  <div class="modal-sheet">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
-      <span class="modal-title" id="mod-item-nombre"></span>
-      <button class="btn btn-ghost btn-sm" onclick="cerrarModal()">✕</button>
     </div>
-    <div id="mod-quitados-sec" class="mod-section">
-      <div class="mod-section-title">Quitar ingredientes</div>
-      <div id="mod-quitados"></div>
-    </div>
-    <div id="mod-extras-sec" class="mod-section">
-      <div class="mod-section-title">Extras</div>
-      <div id="mod-extras-list"></div>
-    </div>
-    <div id="mod-salsas-sec" class="mod-section">
-      <div class="mod-section-title">Salsas</div>
-      <div id="mod-salsas-list"></div>
-    </div>
-    <div class="mod-section">
-      <div class="mod-section-title">Nota especial</div>
-      <textarea id="mod-nota" rows="2" placeholder="Ej: bien cocida, sin sal..."></textarea>
-    </div>
-    <button class="btn btn-primary" style="margin-top:12px;" onclick="guardarModificadores()">Guardar</button>
+    <button class="btn-cta" onclick="goTipo()">Ver menú →</button>
   </div>
 </div>
+
+<!-- ── VIEW: TIPO DE ENTREGA ─────────────────────────────────────────────── -->
+<div id="view-tipo" class="view hidden" style="padding:32px;display:flex;flex-direction:column;">
+  <button class="btn-back" onclick="goView('view-id')">← Regresar</button>
+  <div id="tipo-logo" class="logo" style="margin-top:32px;margin-bottom:10px;"></div>
+  <h2 style="font-family:'Bebas Neue',cursive;font-size:34px;letter-spacing:2px;margin-bottom:6px;">¿Cómo lo recibes?</h2>
+  <p style="color:var(--muted);font-size:14px;margin-bottom:40px;">Elige una opción para continuar</p>
+  <div class="tipo-opts">
+    <button class="opt-card" onclick="goMenu('barra')">
+      <span class="opt-icon">🏠</span>
+      <div><div class="opt-title">En barra</div><div class="opt-desc">Comes aquí · Te avisamos cuando esté listo</div></div>
+      <span class="opt-arrow">→</span>
+    </button>
+    <button class="opt-card" onclick="goMenu('domicilio')">
+      <span class="opt-icon">🛵</span>
+      <div><div class="opt-title">A domicilio</div><div class="opt-desc">Próximamente disponible · Mapa interactivo</div></div>
+      <span class="opt-arrow">→</span>
+    </button>
+  </div>
+</div>
+
+<!-- ── VIEW: MENÚ ────────────────────────────────────────────────────────── -->
+<div id="view-menu" class="view hidden" style="display:flex;flex-direction:column;">
+  <div class="menu-header">
+    <button class="btn-back" onclick="goView('view-tipo')">← Regresar</button>
+    <div id="menu-logo" class="logo"></div>
+    <span class="mode-pill" id="menu-mode-pill"></span>
+  </div>
+  <div class="cat-tabs-wrap">
+    <div class="cat-tabs" id="cat-tabs"></div>
+  </div>
+  <div class="menu-items" id="menu-items">
+    <div class="load-center"><div class="spinner"></div></div>
+  </div>
+</div>
+
+<!-- ── CART BAR (fixed) ──────────────────────────────────────────────────── -->
+<div id="cart-bar" class="hidden">
+  <div class="cb-left">
+    <span class="cb-count" id="cb-count">0</span>
+    <span class="cb-label">Ver pedido</span>
+  </div>
+  <button class="cb-btn" id="cb-total" onclick="abrirCart()">$0 →</button>
+</div>
+
+<!-- ── SHEET: CARRITO ───────────────────────────────────────────────────── -->
+<div id="sheet-cart" class="hidden">
+  <div class="sheet-backdrop" onclick="cerrarCart()"></div>
+  <div class="sheet-panel">
+    <div class="sh-handle-row"><div class="sh-handle"></div></div>
+    <div class="sh-hdr">
+      <div class="sh-title">Tu Pedido</div>
+      <div class="sh-sub" id="cart-sub">0 productos</div>
+    </div>
+    <div class="sh-scroll" id="cart-lines"></div>
+    <div class="sh-footer">
+      <div class="total-row">
+        <span class="total-lbl">Total</span>
+        <span class="total-amt" id="cart-total">$0</span>
+      </div>
+      <button class="btn-cta" onclick="irPago()">Continuar →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── SHEET: PERSONALIZACIÓN ──────────────────────────────────────────── -->
+<div id="sheet-cz" class="hidden">
+  <div class="sheet-backdrop" onclick="cerrarCz()"></div>
+  <div class="cz-panel">
+    <div class="sh-handle-row"><div class="sh-handle"></div></div>
+    <div class="cz-hdr">
+      <div class="cz-name" id="cz-name"></div>
+      <div class="cz-desc" id="cz-desc"></div>
+    </div>
+    <div class="sh-scroll" id="cz-body" style="padding:4px 20px 16px;"></div>
+    <div style="padding:16px 20px 28px;border-top:1px solid var(--border);background:var(--s1);">
+      <button class="btn-cta" onclick="guardarCz()">Guardar cambios</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── VIEW: PAGO (stub) ─────────────────────────────────────────────────── -->
+<div id="view-pago" class="view hidden">
+  <div style="font-size:64px;margin-bottom:20px;">🚧</div>
+  <h2 style="font-family:'Bebas Neue',cursive;font-size:36px;letter-spacing:2px;margin-bottom:10px;">Pago</h2>
+  <p style="color:var(--muted);font-size:15px;margin-bottom:40px;max-width:280px;">
+    Esta sección estará disponible muy pronto. Ya puedes explorar y armar tu pedido.
+  </p>
+  <button class="btn-cta" style="max-width:280px;" onclick="goView('view-menu')">Volver al menú</button>
+</div>
+
+</div><!-- /app -->
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="src/config.js"></script>
 <script src="src/supabase.js"></script>
 <script>
-// ── Estado global ─────────────────────────────────────────────────────────────
-let cfg = null           // config_pos del tenant
-let catalogo = []        // [{id_receta, nombre_platillo, categoria, precio}]
-let extrasDisp = []      // [{id_receta, nombre_platillo, precio}]
-let salsasDisp = []
-let ingredientesCache = {} // id_receta → [{producto}]
-let carrito = []         // ver addToCart()
-let tipoEntrega = null
-let metodoPago = null
-let modIdx = null        // índice en carrito del ítem en edición
+// ── Constants ─────────────────────────────────────────────────────────────────
+const ORDEN_CATS = ['Hamburguesas', 'Pollo', 'Acompañamientos', 'Bebidas']
+const CATS_MOD   = ['Extras', 'Salsas']
+const CAT_ICONS  = {
+  'Hamburguesas':    '🍔',
+  'Pollo':           '🍗',
+  'Acompañamientos': '🍟',
+  'Bebidas':         '🥤',
+}
+const CAT_ANGLES = {
+  'Hamburguesas': 135, 'Pollo': 315, 'Acompañamientos': 180, 'Bebidas': 45,
+}
 
-// ── Bootstrap ────────────────────────────────────────────────────────────────
-window.addEventListener('DOMContentLoaded', async () => {
-  document.title = POS.BRANDING.nombre + ' — Pedido'
-  document.getElementById('hdr-nombre').textContent = POS.BRANDING.nombre
-  // Aplicar branding como vars CSS
+// ── State ─────────────────────────────────────────────────────────────────────
+let catalogo  = []       // menu items (excl. extras/salsas)
+let modExtras = []       // Extras category items
+let modSalsas = []       // Salsas category items
+let ingCache  = {}       // id_receta → ingredients array
+let carrito   = []       // cart: [{id_receta, nombre, precio_base, cantidad, mods, importe}]
+let czIdx     = null     // cart index being customized
+let menuLoaded = false
+let modoEntrega = 'barra'
+let activeCat = null
+
+// ── Branding ──────────────────────────────────────────────────────────────────
+function applyBranding() {
   const r = document.documentElement.style
-  r.setProperty('--c-primary',      POS.BRANDING.primaryColor)
-  r.setProperty('--c-primary-dark', POS.BRANDING.primaryDark)
-  r.setProperty('--c-accent',       POS.BRANDING.accentColor)
-  r.setProperty('--c-accent-dark',  POS.BRANDING.accentDark)
-  r.setProperty('--c-on-primary',   POS.BRANDING.textOnPrimary)
-  r.setProperty('--c-on-accent',    POS.BRANDING.textOnAccent)
-  r.setProperty('--c-bg',           POS.BRANDING.bgColor)
-
-  // Cargar config del tenant
-  const { data } = await window._db
-    .from('config_pos')
-    .select('*')
-    .eq('tenant_id', POS.TENANT_ID)
-    .single()
-  cfg = data || {}
-
-  // Pre-cargar catálogo en background
-  cargarCatalogo()
-})
-
-// ── Navegación ────────────────────────────────────────────────────────────────
-function goStep(id) {
-  document.querySelectorAll('.step').forEach(s => s.classList.remove('active'))
-  document.getElementById(id).classList.add('active')
-  window.scrollTo(0,0)
+  const bg = POS.BRANDING.bgColor           // e.g. #1E000A
+  const bg1 = addLum(bg, 10)
+  const bg2 = addLum(bg, 18)
+  const bg3 = addLum(bg, 26)
+  r.setProperty('--bg',     bg)
+  r.setProperty('--s1',     bg1)
+  r.setProperty('--s2',     bg2)
+  r.setProperty('--s3',     bg3)
+  r.setProperty('--accent', POS.BRANDING.accentColor)
+  document.title = POS.BRANDING.nombre
+  buildLogos()
 }
 
-function goTipo() {
-  const cel = document.getElementById('cel').value.trim()
-  const nom = document.getElementById('nombre').value.trim()
-  const err = document.getElementById('err-id')
-  if (!/^\d{10}$/.test(cel)) { mostrarError(err, 'Ingresa un celular de 10 dígitos.'); return }
-  if (!nom) { mostrarError(err, 'Ingresa tu nombre.'); return }
-  err.classList.add('hidden')
-  goStep('step-tipo')
+function addLum(hex, n) {
+  const r = parseInt(hex.slice(1,3),16)
+  const g = parseInt(hex.slice(3,5),16)
+  const b = parseInt(hex.slice(5,7),16)
+  return '#' + [r,g,b].map(v => Math.min(255,v+n).toString(16).padStart(2,'0')).join('')
 }
 
-function selectTipo(t) {
-  tipoEntrega = t
-  document.getElementById('opt-barra').classList.toggle('selected', t === 'barra')
-  document.getElementById('opt-domicilio').classList.toggle('selected', t === 'domicilio')
+function buildLogos() {
+  const N = POS.BRANDING.nombre
+  const mkLogo = (sz) => `
+    <div class="logo-box" style="width:${sz*.72}px;height:${sz*.72}px;font-size:${sz*.44}px;">${N[0]}</div>
+    <span class="logo-name" style="font-size:${sz}px;">${N.toUpperCase()}</span>`
+  document.getElementById('id-logo').innerHTML   = mkLogo(50)
+  document.getElementById('tipo-logo').innerHTML = mkLogo(34)
+  document.getElementById('menu-logo').innerHTML = mkLogo(26)
+  document.getElementById('id-sub').textContent  = 'Haz tu pedido'
 }
 
-function goDir() {
-  const err = document.getElementById('err-tipo')
-  if (!tipoEntrega) { mostrarError(err, 'Selecciona cómo quieres tu orden.'); return }
-  err.classList.add('hidden')
-  if (tipoEntrega === 'barra') { goStep('step-carta'); return }
-  // domicilio
-  if (cfg && cfg.delivery_activo === false) {
-    mostrarError(err, 'Lo sentimos, delivery no disponible en este momento.'); return
-  }
-  goStep('step-dir')
+// ── Navigation ────────────────────────────────────────────────────────────────
+function goView(id) {
+  // Close sheets
+  document.getElementById('sheet-cart').classList.add('hidden')
+  document.getElementById('sheet-cz').classList.add('hidden')
+  // Switch view
+  document.querySelectorAll('.view').forEach(v => v.classList.add('hidden'))
+  document.getElementById(id).classList.remove('hidden')
+  window.scrollTo(0, 0)
+  // Cart bar: only on menu
+  document.getElementById('cart-bar').classList.toggle('hidden', id !== 'view-menu')
+  if (id === 'view-menu') updateCartBar()
 }
 
-async function validarDireccion() {
-  const dir = document.getElementById('dir-texto').value.trim()
-  const err = document.getElementById('err-dir')
-  if (!dir) { mostrarError(err, 'Escribe tu dirección.'); return }
+function goTipo() { goView('view-tipo') }   // stub — no validation
 
-  if (cfg && cfg.maps_preciso_activo) {
-    // Gancho apagado: validación aproximada de todas formas
-    // (API key no inyectada — tratar como no preciso)
-  }
-  // Validación aproximada: solo verificamos que haya dirección
-  err.classList.add('hidden')
-  goStep('step-carta')
+function goMenu(modo) {
+  modoEntrega = modo || 'barra'
+  const pills = { 'barra': '🏠 En barra', 'domicilio': '🛵 Domicilio' }
+  document.getElementById('menu-mode-pill').textContent = pills[modoEntrega] || ''
+  goView('view-menu')
+  cargarMenu()
 }
 
-// ── Catálogo ──────────────────────────────────────────────────────────────────
-async function cargarCatalogo() {
+function irPago() {
+  cerrarCart()
+  goView('view-pago')
+}
+
+// ── Phone input ───────────────────────────────────────────────────────────────
+function onCelInput() {
+  const inp = document.getElementById('id-cel')
+  inp.value = inp.value.replace(/\D/g,'').slice(0,10)
+  const ok = inp.value.length === 10
+  document.getElementById('id-phone-wrap').classList.toggle('valid', ok)
+  document.getElementById('id-cel-tick').classList.toggle('hidden', !ok)
+}
+
+// ── Load catalog ──────────────────────────────────────────────────────────────
+async function cargarMenu() {
+  if (menuLoaded) return
   try {
-    // Ítems del menú
     const { data: recetas, error: e1 } = await window._db
       .from('catalogo_recetas')
       .select('id_receta, nombre_platillo, categoria')
       .eq('tenant_id', POS.TENANT_ID)
-      .eq('fuente', POS.FUENTE)
-      .eq('activo', true)
-
+      .eq('fuente',    POS.FUENTE)
+      .eq('activo',    true)
     if (e1) throw e1
 
-    // Precios
     const ids = recetas.map(r => r.id_receta)
     const { data: precios, error: e2 } = await window._db
       .from('precios_venta')
       .select('id_item, precio')
       .eq('tenant_id', POS.TENANT_ID)
-      .eq('lista', POS.LISTA_PRECIO)
-      .eq('vigente', true)
-      .in('id_item', ids)
-
+      .eq('lista',     POS.LISTA_PRECIO)
+      .eq('vigente',   true)
+      .in('id_item',   ids)
     if (e2) throw e2
 
-    const precioMap = {}
-    precios.forEach(p => { precioMap[p.id_item] = p.precio })
+    const pm = {}; if (precios) precios.forEach(p => { pm[p.id_item] = p.precio })
 
-    // Categorías de modificadores (Extras, Salsas) — no van en el menú principal
-    const CATS_MOD = ['Extras', 'Salsas']
-    const menuItems = recetas.filter(r => !CATS_MOD.includes(r.categoria))
-    const extrasRaw = recetas.filter(r => r.categoria === 'Extras')
-    const salsasRaw = recetas.filter(r => r.categoria === 'Salsas')
+    modExtras = recetas.filter(r => r.categoria === 'Extras')
+      .map(r => ({ ...r, precio: pm[r.id_receta] || 0 }))
+    modSalsas = recetas.filter(r => r.categoria === 'Salsas')
+      .map(r => ({ ...r, precio: pm[r.id_receta] || 0 }))
+    catalogo  = recetas.filter(r => !CATS_MOD.includes(r.categoria))
+      .map(r => ({ id_receta: r.id_receta, nombre: r.nombre_platillo, categoria: r.categoria, precio: pm[r.id_receta] || 0 }))
 
-    catalogo = menuItems.map(r => ({
-      id_receta: r.id_receta,
-      nombre_platillo: r.nombre_platillo,
-      categoria: r.categoria,
-      precio: precioMap[r.id_receta] || 0
-    }))
-
-    extrasDisp = extrasRaw.map(r => ({ ...r, precio: precioMap[r.id_receta] || 0 }))
-    salsasDisp = salsasRaw.map(r => ({ ...r, precio: precioMap[r.id_receta] || 0 }))
-
-    renderMenu()
+    menuLoaded = true
+    renderTabs()
+    renderItems(activeCat || getCats()[0])
   } catch(e) {
-    document.getElementById('menu-loading').innerHTML =
-      '<div class="alert alert-error">Error cargando menú: ' + e.message + '</div>'
+    document.getElementById('menu-items').innerHTML =
+      `<div class="err-box" style="margin:24px;">Error al cargar menú: ${e.message}</div>`
   }
 }
 
-const ORDEN_CATS = ['Hamburguesas','Pollo','Acompañamientos','Bebidas']
+function getCats() {
+  const present = [...new Set(catalogo.map(it => it.categoria))]
+  return [...ORDEN_CATS.filter(c => present.includes(c)), ...present.filter(c => !ORDEN_CATS.includes(c))]
+}
 
-function renderMenu() {
-  const cont = document.getElementById('menu-container')
-  document.getElementById('menu-loading').classList.add('hidden')
-
-  const bycat = {}
-  catalogo.forEach(it => {
-    if (!bycat[it.categoria]) bycat[it.categoria] = []
-    bycat[it.categoria].push(it)
-  })
-
-  const cats = [...ORDEN_CATS.filter(c => bycat[c]), ...Object.keys(bycat).filter(c => !ORDEN_CATS.includes(c))]
-  cont.innerHTML = ''
+function renderTabs() {
+  const wrap = document.getElementById('cat-tabs')
+  wrap.innerHTML = ''
+  const cats = getCats()
+  activeCat = (activeCat && cats.includes(activeCat)) ? activeCat : cats[0]
   cats.forEach(cat => {
-    const sec = document.createElement('div')
-    sec.className = 'menu-category'
-    sec.innerHTML = '<div class="menu-category-title">' + cat + '</div>'
-    bycat[cat].forEach(it => {
-      const row = document.createElement('div')
-      row.className = 'menu-item'
-      row.innerHTML = `
-        <div>
-          <div class="menu-item-name">${it.nombre_platillo}</div>
-          <div class="menu-item-price">$${it.precio}</div>
-        </div>
-        <button class="menu-item-add" onclick="addToCart('${it.id_receta}')">+</button>`
-      sec.appendChild(row)
-    })
-    cont.appendChild(sec)
+    const btn = document.createElement('button')
+    btn.className = 'cat-tab' + (cat === activeCat ? ' active' : '')
+    btn.textContent = (CAT_ICONS[cat] || '🍽️') + ' ' + cat
+    btn.onclick = () => {
+      activeCat = cat
+      document.querySelectorAll('.cat-tab').forEach(b => b.classList.remove('active'))
+      btn.classList.add('active')
+      renderItems(cat)
+    }
+    wrap.appendChild(btn)
   })
 }
 
-// ── Carrito ───────────────────────────────────────────────────────────────────
-function addToCart(id) {
+function renderItems(cat) {
+  if (!cat) return
+  activeCat = cat
+  const cont = document.getElementById('menu-items')
+  cont.innerHTML = ''
+  const items = catalogo.filter(it => it.categoria === cat)
+  items.forEach(it => {
+    const totalQty = carrito.filter(x => x.id_receta === it.id_receta)
+      .reduce((s, x) => s + x.cantidad, 0)
+    const angle = CAT_ANGLES[it.categoria] || 135
+    const card = document.createElement('div')
+    card.className = 'item-card' + (totalQty > 0 ? ' in-cart' : '')
+    card.id = 'icard-' + it.id_receta
+    card.onclick = () => addToCart(it.id_receta, null)
+    card.innerHTML = `
+      <div class="item-thumb" style="background:linear-gradient(${angle}deg,var(--s2),var(--s3));">${CAT_ICONS[it.categoria] || '🍽️'}</div>
+      <div class="item-info">
+        <div class="item-name">${it.nombre}</div>
+        <div class="item-desc"></div>
+        <div class="item-price">$${it.precio}</div>
+      </div>
+      <div class="item-right">
+        ${totalQty > 0 ? `<div class="qty-badge" id="qbadge-${it.id_receta}">${totalQty}</div>` : ''}
+        <button class="btn-add" id="btnadd-${it.id_receta}"
+          onclick="event.stopPropagation();addToCart('${it.id_receta}',this)">+</button>
+      </div>`
+    cont.appendChild(card)
+  })
+}
+
+// ── Cart logic ────────────────────────────────────────────────────────────────
+function addToCart(id, btnEl) {
   const it = catalogo.find(x => x.id_receta === id)
   if (!it) return
-  // Siempre abrir modal de modificadores para nueva línea
-  const idx = carrito.length
-  carrito.push({
-    id_receta: it.id_receta,
-    nombre: it.nombre_platillo,
-    precio_base: it.precio,
-    cantidad: 1,
-    modificadores: { quitados: [], extras: [], nota: '' },
-    importe: it.precio
-  })
-  actualizarContadorCart()
-  abrirModal(idx)
+
+  // Aggregate identical item (no mods)
+  const same = carrito.find(x => x.id_receta === id &&
+    !x.mods.quitados.length && !x.mods.extras.length && !x.mods.nota)
+  if (same) {
+    same.cantidad++
+    same.importe = calcImporte(same)
+  } else {
+    carrito.push({
+      id_receta: it.id_receta, nombre: it.nombre,
+      precio_base: it.precio, cantidad: 1,
+      mods: { quitados: [], extras: [], nota: '' },
+      importe: it.precio
+    })
+  }
+
+  // Animate + button
+  const btn = btnEl || document.getElementById('btnadd-' + id)
+  if (btn) { btn.classList.remove('bumping'); void btn.offsetWidth; btn.classList.add('bumping') }
+
+  updateCartBar()
+
+  // Update qty badge on card
+  const totalQty = carrito.filter(x => x.id_receta === id).reduce((s, x) => s + x.cantidad, 0)
+  const right = document.getElementById('icard-' + id)?.querySelector('.item-right')
+  if (right) {
+    let badge = document.getElementById('qbadge-' + id)
+    if (!badge) {
+      badge = document.createElement('div'); badge.className = 'qty-badge'; badge.id = 'qbadge-' + id
+      right.insertBefore(badge, right.firstChild)
+    }
+    badge.textContent = totalQty
+    badge.classList.remove('bumping'); void badge.offsetWidth; badge.classList.add('bumping')
+  }
+  document.getElementById('icard-' + id)?.classList.add('in-cart')
 }
 
-function actualizarContadorCart() {
-  const total = carrito.reduce((s, i) => s + i.cantidad, 0)
-  document.getElementById('cart-count').textContent = total
+function calcImporte(item) {
+  const extSum = item.mods.extras
+    .filter(e => (e.qty || 0) > 0)
+    .reduce((s, e) => s + (e.precio || 0) * (e.qty || 1), 0)
+  return (item.precio_base + extSum) * item.cantidad
 }
 
-function calcularImporte(item) {
-  const extra = item.modificadores.extras.reduce((s, e) => s + (e.precio || 0), 0)
-  return (item.precio_base + extra) * item.cantidad
+function updateCartBar() {
+  const count = carrito.reduce((s, i) => s + i.cantidad, 0)
+  const total = carrito.reduce((s, i) => s + i.importe, 0)
+  const bar = document.getElementById('cart-bar')
+  if (count > 0) {
+    bar.classList.remove('hidden')
+    document.getElementById('cb-count').textContent = count
+    document.getElementById('cb-total').textContent = '$' + total + ' →'
+  } else {
+    bar.classList.add('hidden')
+  }
 }
 
-function renderCarrito() {
-  const cont = document.getElementById('carrito-container')
-  const empty = document.getElementById('cart-empty')
+// ── Cart sheet ────────────────────────────────────────────────────────────────
+function abrirCart() {
+  renderCartSheet()
+  document.getElementById('sheet-cart').classList.remove('hidden')
+}
+
+function cerrarCart() {
+  document.getElementById('sheet-cart').classList.add('hidden')
+}
+
+function renderCartSheet() {
+  const cont  = document.getElementById('cart-lines')
+  const count = carrito.reduce((s, i) => s + i.cantidad, 0)
+  const total = carrito.reduce((s, i) => s + i.importe, 0)
+  document.getElementById('cart-sub').textContent   = count + (count === 1 ? ' producto' : ' productos')
+  document.getElementById('cart-total').textContent = '$' + total
+
+  cont.innerHTML = ''
   if (carrito.length === 0) {
-    cont.innerHTML = ''
-    empty.classList.remove('hidden')
-    document.getElementById('subtotal-display').textContent = '$0'
+    cont.innerHTML = '<div style="text-align:center;padding:36px;color:var(--muted);">Carrito vacío — ¡agrega algo rico! 🍔</div>'
     return
   }
-  empty.classList.add('hidden')
-  cont.innerHTML = ''
-  let total = 0
+
   carrito.forEach((item, idx) => {
-    total += item.importe
-    const div = document.createElement('div')
-    div.className = 'cart-item'
-    const modsStr = buildModsStr(item)
-    div.innerHTML = `
-      <div class="cart-item-header">
-        <span class="cart-item-name">${item.nombre}</span>
-        <span class="cart-item-importe">$${item.importe}</span>
-      </div>
-      ${modsStr ? '<div class="cart-mods has-mods">' + modsStr + '</div>' : ''}
-      <div class="cart-qty-row">
-        <button class="qty-btn" onclick="cambiarCantidad(${idx},-1)">−</button>
-        <span class="qty-val">${item.cantidad}</span>
-        <button class="qty-btn" onclick="cambiarCantidad(${idx},1)">+</button>
-        <button class="btn btn-ghost btn-sm" onclick="abrirModal(${idx})" style="margin-left:auto;">✏️ Modificar</button>
+    const parts = []
+    if (item.mods.quitados.length) parts.push('Sin: ' + item.mods.quitados.join(', '))
+    if (item.mods.extras.filter(e=>(e.qty||0)>0).length)
+      parts.push('+ ' + item.mods.extras.filter(e=>(e.qty||0)>0).map(e => ((e.qty>1)?e.qty+'× ':'')+e.nombre).join(', '))
+    if (item.mods.nota) parts.push('📝 ' + item.mods.nota)
+
+    const line = document.createElement('div'); line.className = 'cart-line'
+    line.innerHTML = `
+      <div class="cl-name">${item.nombre}</div>
+      ${parts.length ? `<div class="cl-mods">${parts.join(' · ')}</div>` : ''}
+      <div class="cl-controls">
+        <button class="qb minus" onclick="cambiarCant(${idx},-1)">−</button>
+        <span class="qv">${item.cantidad}</span>
+        <button class="qb plus"  onclick="cambiarCant(${idx},1)">+</button>
+        <button class="btn-edit" onclick="abrirCz(${idx})">✏️ Personalizar</button>
+        <span class="cl-price">$${item.importe}</span>
+        <button class="btn-rm" onclick="quitarItem(${idx})">×</button>
       </div>`
-    cont.appendChild(div)
+    cont.appendChild(line)
   })
-  document.getElementById('subtotal-display').textContent = '$' + total
 }
 
-function buildModsStr(item) {
-  const parts = []
-  if (item.modificadores.quitados.length) parts.push('Sin: ' + item.modificadores.quitados.join(', '))
-  if (item.modificadores.extras.length) parts.push('+ ' + item.modificadores.extras.map(e => e.nombre).join(', '))
-  if (item.modificadores.nota) parts.push('📝 ' + item.modificadores.nota)
-  return parts.join(' · ')
-}
-
-function cambiarCantidad(idx, delta) {
+function cambiarCant(idx, delta) {
   carrito[idx].cantidad = Math.max(1, carrito[idx].cantidad + delta)
-  carrito[idx].importe = calcularImporte(carrito[idx])
-  renderCarrito()
-  actualizarContadorCart()
+  carrito[idx].importe  = calcImporte(carrito[idx])
+  updateCartBar(); renderCartSheet()
 }
 
-function goCarrito() {
-  renderCarrito()
-  goStep('step-carrito')
+function quitarItem(idx) {
+  const id = carrito[idx].id_receta
+  carrito.splice(idx, 1)
+  updateCartBar(); renderCartSheet()
+  const remaining = carrito.filter(x => x.id_receta === id).reduce((s,x) => s + x.cantidad, 0)
+  const badge = document.getElementById('qbadge-' + id)
+  const card  = document.getElementById('icard-'  + id)
+  if (remaining === 0) {
+    badge?.remove()
+    card?.classList.remove('in-cart')
+  } else if (badge) {
+    badge.textContent = remaining
+  }
 }
 
-function goPago() {
-  if (carrito.length === 0) { mostrarError(document.getElementById('err-carrito'), 'Agrega al menos un ítem.'); return }
-  const total = carrito.reduce((s, i) => s + i.importe, 0)
-  document.getElementById('total-pago').textContent = '$' + total
-  goStep('step-pago')
-}
-
-// ── Modal modificadores ───────────────────────────────────────────────────────
-async function abrirModal(idx) {
-  modIdx = idx
+// ── Customization sheet ───────────────────────────────────────────────────────
+async function abrirCz(idx) {
+  czIdx = idx
   const item = carrito[idx]
-  document.getElementById('mod-item-nombre').textContent = item.nombre
-  document.getElementById('mod-nota').value = item.modificadores.nota || ''
+  document.getElementById('cz-name').textContent = item.nombre
+  document.getElementById('cz-desc').textContent = ''
+  const body = document.getElementById('cz-body')
+  body.innerHTML = '<div class="load-center"><div class="spinner"></div></div>'
+  document.getElementById('sheet-cz').classList.remove('hidden')
 
-  // Ingredientes (quitables)
-  const quitCont = document.getElementById('mod-quitados')
-  quitCont.innerHTML = '<div class="loading-center" style="padding:10px;"><div class="spinner" style="width:20px;height:20px;"></div></div>'
-  document.getElementById('mod-overlay').classList.remove('hidden')
-
-  if (!ingredientesCache[item.id_receta]) {
+  // Load ingredients (cached)
+  if (!ingCache[item.id_receta]) {
     const { data } = await window._db
       .from('receta_ingredientes')
-      .select('producto, id_producto')
+      .select('producto, id_producto, productos(nombre_corto)')
       .eq('tenant_id', POS.TENANT_ID)
       .eq('id_receta', item.id_receta)
-      .eq('activo', true)
-    ingredientesCache[item.id_receta] = data || []
+      .eq('activo',    true)
+    ingCache[item.id_receta] = data || []
   }
+  if (czIdx !== idx) return  // navigated away during fetch
 
-  const ings = ingredientesCache[item.id_receta]
-  quitCont.innerHTML = ''
-  if (ings.length === 0) {
-    quitCont.innerHTML = '<div style="color:var(--c-text-muted);font-size:0.8rem;">Sin ingredientes registrados.</div>'
-  } else {
+  const ings = ingCache[item.id_receta]
+  let html = ''
+
+  // Ingredient chips
+  if (ings.length) {
+    html += '<div class="section-lbl">Ingredientes — toca para quitar</div><div class="chip-grid" id="cz-chips">'
     ings.forEach(ing => {
-      const checked = !item.modificadores.quitados.includes(ing.producto)
-      quitCont.innerHTML += `
-        <div class="mod-item">
-          <label>
-            <input type="checkbox" data-ing="${ing.producto}" ${checked ? 'checked' : ''}>
-            ${ing.producto}
-          </label>
-        </div>`
+      const display  = ing.productos?.nombre_corto || ing.producto
+      const isOff    = item.mods.quitados.includes(ing.producto)
+      html += `<div class="chip${isOff?' off':''}" data-ing="${ing.producto}" data-display="${display}" onclick="toggleChip(this)">${isOff?'✕ ':''}${display}</div>`
     })
+    html += '</div>'
   }
 
   // Extras
-  const extCont = document.getElementById('mod-extras-list')
-  extCont.innerHTML = ''
-  extrasDisp.forEach(ex => {
-    const checked = item.modificadores.extras.some(e => e.id === ex.id_receta)
-    extCont.innerHTML += `
-      <div class="mod-item">
-        <label>
-          <input type="checkbox" data-extra-id="${ex.id_receta}" data-extra-nom="${ex.nombre_platillo}" data-extra-precio="${ex.precio}" ${checked ? 'checked' : ''}>
-          ${ex.nombre_platillo}
-        </label>
-        ${ex.precio > 0 ? '<span class="mod-price">+$' + ex.precio + '</span>' : ''}
-      </div>`
-  })
-  if (!extrasDisp.length) extCont.innerHTML = '<div style="color:var(--c-text-muted);font-size:0.8rem;">Sin extras disponibles.</div>'
+  if (modExtras.length) {
+    html += '<div class="section-lbl">Extras</div>'
+    html += modExtras.map(ex => buildExtraRow(item, ex)).join('')
+  }
 
   // Salsas
-  const salCont = document.getElementById('mod-salsas-list')
-  salCont.innerHTML = ''
-  salsasDisp.forEach(sa => {
-    const checked = item.modificadores.extras.some(e => e.id === sa.id_receta)
-    salCont.innerHTML += `
-      <div class="mod-item">
-        <label>
-          <input type="checkbox" data-extra-id="${sa.id_receta}" data-extra-nom="${sa.nombre_platillo}" data-extra-precio="${sa.precio}" ${checked ? 'checked' : ''}>
-          ${sa.nombre_platillo}
-        </label>
-        ${sa.precio > 0 ? '<span class="mod-price">+$' + sa.precio + '</span>' : ''}
-      </div>`
-  })
-  if (!salsasDisp.length) salCont.innerHTML = '<div style="color:var(--c-text-muted);font-size:0.8rem;">Sin salsas disponibles.</div>'
-}
-
-function cerrarModal() {
-  // Si se abre modal para ítem nuevo pero se cancela, quitar ese ítem
-  if (modIdx !== null && modIdx === carrito.length - 1 && buildModsStr(carrito[modIdx]) === '' && carrito[modIdx].cantidad === 1) {
-    // solo quitar si no se guardó nada relevante — guardamos si se cierra el modal sin guardar
+  if (modSalsas.length) {
+    html += '<div class="section-lbl">Salsas</div>'
+    html += modSalsas.map(sa => buildExtraRow(item, sa)).join('')
   }
-  document.getElementById('mod-overlay').classList.add('hidden')
-  modIdx = null
+
+  // Nota
+  html += `<div class="section-lbl">Nota especial</div>
+    <textarea style="width:100%;background:var(--s2);border:1px solid var(--border);border-radius:10px;
+      padding:12px 14px;color:var(--text);font-size:14px;resize:none;min-height:72px;font-family:'DM Sans',sans-serif;"
+      id="cz-nota" placeholder="Instrucción especial para cocina...">${item.mods.nota || ''}</textarea>
+    <div style="height:16px;"></div>`
+
+  body.innerHTML = html
 }
 
-function guardarModificadores() {
-  if (modIdx === null) return
-  const item = carrito[modIdx]
+function buildExtraRow(item, ex) {
+  const sel = item.mods.extras.find(e => e.id === ex.id_receta)
+  const qty = sel?.qty || 0
+  return `<div class="extra-row${qty>0?' on':''}" id="ex-${ex.id_receta}">
+    <div><span class="ex-name">${ex.nombre_platillo}</span>${ex.precio>0?`<span class="ex-price">+$${ex.precio}</span>`:''}</div>
+    <div class="ex-ctrl" id="exc-${ex.id_receta}">
+      ${qty>0?`<button class="qb minus" onclick="cambiarExtra('${ex.id_receta}',-1)">−</button>
+               <span class="qv" id="exv-${ex.id_receta}">${qty}</span>`:''}
+      <button class="qb plus" onclick="cambiarExtra('${ex.id_receta}',1)">+</button>
+    </div>
+  </div>`
+}
 
+function toggleChip(el) {
+  el.classList.toggle('off')
+  el.textContent = el.classList.contains('off') ? '✕ ' + el.dataset.display : el.dataset.display
+}
+
+function cambiarExtra(exId, delta) {
+  if (czIdx === null) return
+  const item  = carrito[czIdx]
+  const allEx = [...modExtras, ...modSalsas]
+  const def   = allEx.find(e => e.id_receta === exId)
+  if (!def) return
+
+  let obj = item.mods.extras.find(e => e.id === exId)
+  if (!obj) {
+    if (delta < 0) return
+    obj = { id: exId, nombre: def.nombre_platillo, precio: def.precio, qty: 0 }
+    item.mods.extras.push(obj)
+  }
+  obj.qty = Math.max(0, (obj.qty || 0) + delta)
+  if (obj.qty === 0) item.mods.extras = item.mods.extras.filter(e => e.id !== exId)
+
+  // Update UI
+  const row = document.getElementById('ex-' + exId)
+  const ctrl = document.getElementById('exc-' + exId)
+  const newQty = obj.qty || 0
+  if (row)  row.classList.toggle('on', newQty > 0)
+  if (ctrl) ctrl.innerHTML = newQty > 0
+    ? `<button class="qb minus" onclick="cambiarExtra('${exId}',-1)">−</button>
+       <span class="qv" id="exv-${exId}">${newQty}</span>
+       <button class="qb plus" onclick="cambiarExtra('${exId}',1)">+</button>`
+    : `<button class="qb plus" onclick="cambiarExtra('${exId}',1)">+</button>`
+}
+
+function guardarCz() {
+  if (czIdx === null) return
+  const item = carrito[czIdx]
   // Quitados
-  const quitados = []
-  document.querySelectorAll('#mod-quitados input[type=checkbox]').forEach(cb => {
-    if (!cb.checked) quitados.push(cb.dataset.ing)
+  item.mods.quitados = []
+  document.querySelectorAll('#cz-chips .chip.off').forEach(chip => {
+    item.mods.quitados.push(chip.dataset.ing)
   })
-
-  // Extras + Salsas
-  const extras = []
-  document.querySelectorAll('#mod-extras-list input[type=checkbox], #mod-salsas-list input[type=checkbox]').forEach(cb => {
-    if (cb.checked) extras.push({ id: cb.dataset.extraId, nombre: cb.dataset.extraNom, precio: parseFloat(cb.dataset.extraPrecio) || 0 })
-  })
-
-  item.modificadores = { quitados, extras, nota: document.getElementById('mod-nota').value.trim() }
-  item.importe = calcularImporte(item)
-  document.getElementById('mod-overlay').classList.add('hidden')
-  modIdx = null
-  actualizarContadorCart()
+  // Nota
+  const notaEl = document.getElementById('cz-nota')
+  item.mods.nota = notaEl ? notaEl.value.trim() : ''
+  // Recalculate
+  item.importe = calcImporte(item)
+  cerrarCz()
+  updateCartBar()
+  if (!document.getElementById('sheet-cart').classList.contains('hidden')) renderCartSheet()
 }
 
-// ── Pago ──────────────────────────────────────────────────────────────────────
-function selectPago(m) {
-  metodoPago = m
-  document.querySelectorAll('.pago-opt').forEach(el => el.classList.remove('selected'))
-  document.getElementById('pago-' + m).classList.add('selected')
+function cerrarCz() {
+  document.getElementById('sheet-cz').classList.add('hidden')
+  czIdx = null
 }
 
-// ── Generar folio ────────────────────────────────────────────────────────────
-async function generarFolio() {
-  const hoy = new Date().toISOString().split('T')[0].replace(/-/g, '')
-  const { data } = await window._db
-    .from('ventas')
-    .select('folio')
-    .eq('tenant_id', POS.TENANT_ID)
-    .like('folio', 'F-' + hoy + '-%')
-    .order('folio', { ascending: false })
-    .limit(1)
-  const lastNum = (data && data.length) ? (parseInt(data[0].folio.split('-')[2]) || 0) : 0
-  return 'F-' + hoy + '-' + String(lastNum + 1).padStart(3, '0')
-}
-
-// ── Confirmar orden ──────────────────────────────────────────────────────────
-async function confirmarOrden() {
-  const err = document.getElementById('err-pago')
-  if (!metodoPago) { mostrarError(err, 'Selecciona un método de pago.'); return }
-
-  const btn = document.getElementById('btn-confirmar')
-  btn.disabled = true
-  btn.textContent = 'Procesando...'
-
-  try {
-    const folio = await generarFolio()
-    const cel = document.getElementById('cel').value.trim()
-    const nomCliente = document.getElementById('nombre').value.trim()
-    const dir = tipoEntrega === 'domicilio' ? document.getElementById('dir-texto').value.trim() : null
-    const subtotal = carrito.reduce((s, i) => s + i.importe, 0)
-
-    // 1) Insertar venta
-    const { data: venta, error: e1 } = await window._db
-      .from('ventas')
-      .insert({
-        tenant_id: POS.TENANT_ID,
-        folio,
-        canal: 'qr',
-        metodo_pago: metodoPago,
-        subtotal,
-        total: subtotal,
-        estado: 'cerrada',
-        creado_por: cel,
-        notas: null,
-        cliente_nombre: nomCliente,
-        cliente_celular: cel,
-        tipo_entrega: tipoEntrega,
-        direccion_entrega: dir,
-        entrega_lat: null,
-        entrega_lng: null
-      })
-      .select('id')
-      .single()
-
-    if (e1) throw e1
-
-    // 2) Insertar ítems
-    const items = carrito.map(it => ({
-      tenant_id: POS.TENANT_ID,
-      id_venta: venta.id,
-      id_item: it.id_receta,
-      tipo_item: 'receta',
-      nombre: it.nombre,
-      cantidad: it.cantidad,
-      precio_unitario: it.precio_base,
-      importe: it.importe,
-      modificadores: it.modificadores,
-      notas: it.modificadores.nota || null
-    }))
-
-    const { error: e2 } = await window._db.from('venta_items').insert(items)
-    if (e2) {
-      await window._db.from('ventas').delete().eq('id', venta.id).eq('tenant_id', POS.TENANT_ID)
-      throw e2
-    }
-
-    // 3) Insertar orden de cocina
-    const { error: e3 } = await window._db.from('ordenes_cocina').insert({
-      tenant_id: POS.TENANT_ID,
-      id_venta: venta.id,
-      estado: 'pendiente',
-      tiempo_objetivo_seg: 420,
-      tiempo_limite_seg: 600,
-      confirmada_en: new Date().toISOString()
-    })
-    if (e3) {
-      await window._db.from('venta_items').delete().eq('id_venta', venta.id).eq('tenant_id', POS.TENANT_ID)
-      await window._db.from('ventas').delete().eq('id', venta.id).eq('tenant_id', POS.TENANT_ID)
-      throw e3
-    }
-
-    document.getElementById('confirm-folio').textContent = folio
-    goStep('step-confirm')
-  } catch(e) {
-    mostrarError(err, 'Error al crear pedido: ' + e.message)
-    btn.disabled = false
-    btn.textContent = 'Confirmar pedido'
-  }
-}
-
-// ── Utilerías ─────────────────────────────────────────────────────────────────
-function mostrarError(el, msg) { el.textContent = msg; el.classList.remove('hidden') }
+// ── Bootstrap ─────────────────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', () => {
+  applyBranding()
+  goView('view-id')
+})
 </script>
 </body>
 </html>
