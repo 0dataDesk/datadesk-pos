@@ -187,24 +187,25 @@ html,body{
 .sh-sec:last-child{margin-bottom:0;}
 .sh-sec-ttl{font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:10px;}
 
-/* Ingredient chips */
+/* Ingredient chips — ON by default */
 .chip-grid{display:flex;flex-wrap:wrap;gap:8px;}
 .chip{
-  background:var(--pdim);border:1.5px solid rgba(61,0,20,.18);border-radius:20px;
+  background:var(--pdim);border:1.5px solid rgba(61,0,20,.20);border-radius:20px;
   padding:7px 14px;cursor:pointer;font-size:13px;color:var(--text);
   transition:all .14s;user-select:none;
 }
-.chip.off{background:#f0e8ec;border-color:rgba(61,0,20,.10);color:var(--muted);text-decoration:line-through;}
+.chip.off{background:#F5EDEF;border-color:var(--border);color:var(--muted);text-decoration:line-through;}
 
-/* Modifier rows */
-.mod-row{
-  display:flex;align-items:center;justify-content:space-between;
-  padding:11px 14px;background:var(--bg);border-radius:10px;
-  border:1.5px solid var(--border);margin-bottom:8px;transition:border-color .12s;
+/* Modifier chips (extras / salsas) — OFF by default */
+.chip-mod{
+  background:var(--bg);border:1.5px solid var(--border);border-radius:20px;
+  padding:7px 14px;cursor:pointer;font-size:13px;color:var(--muted);
+  transition:all .14s;user-select:none;display:inline-block;
 }
-.mod-row.on{border-color:var(--primary);background:var(--pdim);}
-.mod-name {font-size:15px;font-weight:500;color:var(--text);}
-.mod-price{font-size:13px;color:var(--muted);margin-top:2px;}
+.chip-mod.on{background:var(--pdim);border-color:rgba(61,0,20,.22);color:var(--text);}
+/* Salsa grid — 2 cols on mobile, full row on wider screens */
+.chip-grid-2{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+@media(min-width:480px){.chip-grid-2{grid-template-columns:repeat(4,1fr);}}
 
 /* ── Cart sheet ───────────────────────────────────────────────────────────── */
 .cart-line{
@@ -317,7 +318,7 @@ const PAGES = [
   { id:'res',       cat:'Hamburguesas',    label:'Res',       emoji:'🍔', title:'Hamburguesas de Res'   },
   { id:'pollo',     cat:'Pollo',           label:'Pollo',     emoji:'🍗', title:'Hamburguesas de Pollo' },
   { id:'papas',     cat:'Acompañamientos', label:'Papas',     emoji:'🍟', title:'Papas'                 },
-  { id:'refrescos', cat:'Bebidas',         label:'Refrescos', emoji:'🥤', title:'Refrescos'             },
+  { id:'refrescos', cat:'Bebidas',         label:'Bebidas',   emoji:'🥤', title:'Bebidas'               },
 ]
 const MOD_CATS  = ['Extras','Salsas']
 const MENU_CATS = ['Hamburguesas','Pollo','Acompañamientos','Bebidas']
@@ -436,7 +437,7 @@ function goPage(pgId) {
           <div class="item-price">$${it.precio}</div>
         </div>
         <div class="item-foot">
-          <button class="btn-pri full" onclick="abrirCz('${it.id_receta}')">Personalizar y agregar</button>
+          <button class="btn-pri full" onclick="abrirCz('${it.id_receta}')">Agregar y personalizar</button>
         </div>`
     }
     grid.appendChild(card)
@@ -452,13 +453,15 @@ function goPage(pgId) {
 }
 
 function getPgItems(pgId) {
+  let items
   switch(pgId) {
-    case 'res':       return menuItems.filter(it => it.categoria === 'Hamburguesas')
-    case 'pollo':     return menuItems.filter(it => it.categoria === 'Pollo')
-    case 'papas':     return menuItems.filter(it => it.categoria === 'Acompañamientos')
-    case 'refrescos': return menuItems.filter(it => it.categoria === 'Bebidas' && it.nombre !== 'Limonada')
-    default: return []
+    case 'res':       items = menuItems.filter(it => it.categoria === 'Hamburguesas'); break
+    case 'pollo':     items = menuItems.filter(it => it.categoria === 'Pollo'); break
+    case 'papas':     items = menuItems.filter(it => it.categoria === 'Acompañamientos'); break
+    case 'refrescos': items = menuItems.filter(it => it.categoria === 'Bebidas' && it.nombre !== 'Limonada'); break
+    default: items = []
   }
+  return items.sort((a, b) => a.precio - b.precio)  // AJUSTE 5: precio ascendente
 }
 
 // ── Bebidas (inline) ──────────────────────────────────────────────────────────
@@ -524,13 +527,13 @@ async function abrirCz(idReceta, cartIdx = null) {
     ingDiv.innerHTML = `<div class="sh-sec-ttl">Ingredientes</div><div class="load-c" style="padding:16px;" id="ing-spinner"><div class="spinner" style="width:24px;height:24px;"></div></div>`
     scroll.appendChild(ingDiv)
 
-    // Extras (solo hamburguesas)
+    // Extras (solo hamburguesas, con precio por chip)
     if (type === 'burger' && modExtras.length) {
-      scroll.insertAdjacentHTML('beforeend', buildModSec('Extras', modExtras, 'ex'))
+      scroll.insertAdjacentHTML('beforeend', buildModSec('Extras', modExtras, false))
     }
-    // Salsas (hamburgesas y papas)
+    // Salsas (hamburguesas y papas, precio en título)
     if (modSalsas.length) {
-      scroll.insertAdjacentHTML('beforeend', buildModSec('Salsas', modSalsas, 'sa'))
+      scroll.insertAdjacentHTML('beforeend', buildModSec('Salsas — $15 c/u', modSalsas, true))
     }
   }
 
@@ -575,30 +578,30 @@ async function abrirCz(idReceta, cartIdx = null) {
             onclick="toggleChip(this)">${isOff?'✕ ':''}${display}</div>`
         }).join('')}</div>`
     } else {
-      ingSec.innerHTML = `<div class="sh-sec-ttl">Ingredientes</div>
-        <p style="font-size:13px;color:var(--muted);">Sin ingredientes registrados.</p>`
+      ingSec.remove()  // AJUSTE 2: sin ingredientes → ocultar sección completamente
     }
   }
 }
 
-function buildModSec(title, mods, pfx) {
+// isSalsa=true → grid 2 cols, strip "Salsa " prefix, no price per chip
+// isSalsa=false → flex-wrap, show "+$precio" on each chip
+function buildModSec(title, mods, isSalsa) {
+  const gridClass = isSalsa ? 'chip-grid-2' : 'chip-grid'
   return `<div class="sh-sec">
     <div class="sh-sec-ttl">${title}</div>
-    ${mods.map(m => {
-      const obj = cz.extras.find(e => e.id === m.id_receta)
-      const qty = obj?.qty || 0
-      return `<div class="mod-row${qty>0?' on':''}" id="${pfx}-${m.id_receta}">
-        <div>
-          <div class="mod-name">${m.nombre}</div>
-          ${m.precio>0?`<div class="mod-price">+$${m.precio}</div>`:''}
-        </div>
-        <div class="stepper" id="${pfx}ctrl-${m.id_receta}">
-          ${qty>0?`<button class="stbtn" onclick="adjMod('${m.id_receta}',-1)">−</button>
-                   <span class="stval">${qty}</span>`:''}
-          <button class="stbtn plus" onclick="adjMod('${m.id_receta}',1)">+</button>
-        </div>
-      </div>`
-    }).join('')}
+    <div class="${gridClass}">${mods.map(m => {
+      const isOn = cz.extras.some(e => e.id === m.id_receta)
+      let label
+      if (isSalsa) {
+        // Strip "Salsa " prefix → "Furia Original", "Hot Honey", etc.
+        label = m.nombre.replace(/^Salsa\s+/i, '')
+      } else {
+        // Extras: name + price hint
+        label = m.nombre + (m.precio > 0 ? ` <span style="opacity:.6;font-size:11px;">+$${m.precio}</span>` : '')
+      }
+      return `<div class="chip-mod${isOn?' on':''}" id="mod-${m.id_receta}"
+        onclick="toggleMod('${m.id_receta}')">${label}</div>`
+    }).join('')}</div>
   </div>`
 }
 
@@ -615,30 +618,17 @@ function toggleChip(el) {
   }
 }
 
-function adjMod(id, delta) {
+function toggleMod(id) {
   const def = [...modExtras, ...modSalsas].find(m => m.id_receta === id)
   if (!def) return
-  let obj = cz.extras.find(e => e.id === id)
-  if (!obj) {
-    if (delta < 0) return
-    obj = { id, nombre:def.nombre, precio:def.precio, qty:0 }
-    cz.extras.push(obj)
+  const idx = cz.extras.findIndex(e => e.id === id)
+  if (idx >= 0) {
+    cz.extras.splice(idx, 1)              // ya estaba ON → apagar
+  } else {
+    cz.extras.push({ id, nombre:def.nombre, precio:def.precio })  // OFF → encender
   }
-  obj.qty = Math.max(0, (obj.qty||0) + delta)
-  if (obj.qty === 0) cz.extras = cz.extras.filter(e => e.id !== id)
-
-  const qty = obj.qty
-  for (const pfx of ['ex','sa']) {
-    const ctrl = document.getElementById(`${pfx}ctrl-${id}`)
-    const row  = document.getElementById(`${pfx}-${id}`)
-    if (!ctrl) continue
-    ctrl.innerHTML = qty > 0
-      ? `<button class="stbtn" onclick="adjMod('${id}',-1)">−</button>
-         <span class="stval">${qty}</span>
-         <button class="stbtn plus" onclick="adjMod('${id}',1)">+</button>`
-      : `<button class="stbtn plus" onclick="adjMod('${id}',1)">+</button>`
-    if (row) row.classList.toggle('on', qty > 0)
-  }
+  const el = document.getElementById('mod-' + id)
+  if (el) el.classList.toggle('on', cz.extras.some(e => e.id === id))
   actualizarCzBtn()
 }
 
@@ -649,7 +639,7 @@ function czCant(delta) {
 }
 
 function actualizarCzBtn() {
-  const extSum = cz.extras.filter(e => e.qty > 0).reduce((s, e) => s + e.precio * e.qty, 0)
+  const extSum = cz.extras.reduce((s, e) => s + (e.precio || 0), 0)
   const total  = ((cz.item?.precio || 0) + extSum) * cz.cantidad
   const btn    = document.getElementById('cz-add-btn')
   if (btn) btn.textContent = (cz.cartIdx !== null ? 'Actualizar — ' : 'Agregar al pedido — ') + '$' + total
@@ -658,7 +648,7 @@ function actualizarCzBtn() {
 function guardarCz() {
   const notaEl = document.getElementById('cz-nota')
   if (notaEl) cz.nota = notaEl.value.trim()
-  const extSum = cz.extras.filter(e => e.qty > 0).reduce((s, e) => s + e.precio * e.qty, 0)
+  const extSum  = cz.extras.reduce((s, e) => s + (e.precio || 0), 0)
   const importe = ((cz.item?.precio||0) + extSum) * cz.cantidad
   const entry = {
     id_receta:  cz.item.id_receta,
@@ -666,9 +656,9 @@ function guardarCz() {
     precio_base:cz.item.precio,
     cantidad:   cz.cantidad,
     mods: {
-      quitados:[...cz.quitados],
-      extras:  cz.extras.filter(e => e.qty > 0).map(e => ({...e})),
-      nota:    cz.nota,
+      quitados: [...cz.quitados],
+      extras:   cz.extras.map(e => ({ id:e.id, nombre:e.nombre, precio:e.precio })),
+      nota:     cz.nota,
     },
     importe,
   }
@@ -721,8 +711,7 @@ function renderCart() {
   carrito.forEach((item, idx) => {
     const parts = []
     if (item.mods.quitados.length) parts.push('Sin: ' + item.mods.quitados.join(', '))
-    const activeEx = item.mods.extras.filter(e => (e.qty||0) > 0)
-    if (activeEx.length) parts.push(activeEx.map(e => ((e.qty>1)?(e.qty+'× '):'') + e.nombre).join(', '))
+    if (item.mods.extras.length) parts.push(item.mods.extras.map(e => e.nombre).join(', '))
     if (item.mods.nota) parts.push('📝 ' + item.mods.nota)
 
     const line = document.createElement('div'); line.className = 'cart-line'
@@ -747,7 +736,7 @@ function renderCart() {
 
 function cartCant(idx, delta) {
   carrito[idx].cantidad = Math.max(1, carrito[idx].cantidad + delta)
-  const extSum = carrito[idx].mods.extras.filter(e=>(e.qty||0)>0).reduce((s,e)=>s+e.precio*e.qty,0)
+  const extSum = carrito[idx].mods.extras.reduce((s, e) => s + (e.precio || 0), 0)
   carrito[idx].importe  = (carrito[idx].precio_base + extSum) * carrito[idx].cantidad
   renderCart(); updateCartBar()
 }
