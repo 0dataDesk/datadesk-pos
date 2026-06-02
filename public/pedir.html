@@ -365,7 +365,7 @@ async function cargarMenu() {
   try {
     const { data: recetas, error: e1 } = await window._db
       .from('catalogo_recetas')
-      .select('id_receta, nombre_platillo, categoria')
+      .select('id_receta, nombre_platillo, categoria, descripcion')
       .eq('tenant_id', POS.TENANT_ID)
       .eq('fuente',    POS.FUENTE)
       .eq('activo',    true)
@@ -383,7 +383,7 @@ async function cargarMenu() {
 
     const pm = {}; if (precios) precios.forEach(p => { pm[p.id_item] = p.precio })
 
-    const all = recetas.map(r => ({ id_receta:r.id_receta, nombre:r.nombre_platillo, categoria:r.categoria, precio:pm[r.id_receta]||0 }))
+    const all = recetas.map(r => ({ id_receta:r.id_receta, nombre:r.nombre_platillo, categoria:r.categoria, descripcion:r.descripcion||'', precio:pm[r.id_receta]||0 }))
     modExtras = all.filter(r => r.categoria === 'Extras')
     modSalsas = all.filter(r => r.categoria === 'Salsas')
     menuItems = all.filter(r => MENU_CATS.includes(r.categoria))
@@ -415,7 +415,7 @@ function goPage(pgId) {
         <div class="item-thumb">${pg.emoji}</div>
         <div class="item-body">
           <div class="item-name">${it.nombre}</div>
-          <div class="item-desc"></div>
+          ${it.descripcion ? `<div class="item-desc">${it.descripcion}</div>` : ''}
           <div class="item-price">$${it.precio}</div>
         </div>
         <div class="item-foot">
@@ -433,7 +433,7 @@ function goPage(pgId) {
         <div class="item-thumb">${pg.emoji}</div>
         <div class="item-body">
           <div class="item-name">${it.nombre}</div>
-          <div class="item-desc"></div>
+          ${it.descripcion ? `<div class="item-desc">${it.descripcion}</div>` : ''}
           <div class="item-price">$${it.precio}</div>
         </div>
         <div class="item-foot">
