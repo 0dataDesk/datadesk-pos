@@ -3,502 +3,364 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Pedido</title>
+  <title>Menú</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
   <style>
-/* ── Reset & base ──────────────────────────────────────────────────────────── */
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-html, body {
-  background: var(--bg);
-  color: var(--text);
-  font-family: 'DM Sans', sans-serif;
-  -webkit-font-smoothing: antialiased;
-  overflow-x: hidden;
-}
-:root {
-  --bg:       #1E000A;
-  --s1:       #280A14;
-  --s2:       #30121E;
-  --s3:       #3A1828;
-  --border:   rgba(242,224,200,0.11);
-  --accent:   #F2E0C8;
-  --adim:     rgba(242,224,200,0.10);
-  --adim2:    rgba(242,224,200,0.17);
-  --text:     #F2E0C8;
-  --muted:    rgba(242,224,200,0.38);
-  --success:  #4ade80;
-}
-button, input, textarea { font-family: 'DM Sans', sans-serif; outline: none; }
-::-webkit-scrollbar { width: 3px; }
-::-webkit-scrollbar-thumb { background: var(--accent); opacity: .3; border-radius: 2px; }
-
-/* ── Animations ────────────────────────────────────────────────────────────── */
-@keyframes fadeUp  { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
-@keyframes slideUp { from { transform:translateY(100%); } to { transform:translateY(0); } }
-@keyframes bump    { 0%,100% { transform:scale(1); } 50% { transform:scale(1.35); } }
-@keyframes spin    { to { transform:rotate(360deg); } }
-
-/* ── App shell ─────────────────────────────────────────────────────────────── */
-#app { max-width: 480px; margin: 0 auto; min-height: 100vh; position: relative; }
-
-.view { min-height: 100vh; }
-.view.hidden, .hidden { display: none !important; }
-
-/* ── Shared buttons ────────────────────────────────────────────────────────── */
-.btn-cta {
-  width: 100%; background: var(--accent); border: none; border-radius: 12px;
-  padding: 17px; color: var(--bg); font-size: 16px; font-weight: 700;
-  cursor: pointer; transition: opacity .15s, transform .1s; letter-spacing: .3px;
-}
-.btn-cta:active  { transform: scale(.98); opacity: .88; }
-.btn-cta:disabled { background: var(--s3); color: var(--muted); cursor: not-allowed; }
-
-.btn-back {
-  background: none; border: none; cursor: pointer;
-  color: var(--muted); font-size: 14px; display: flex; align-items: center;
-  gap: 6px; padding: 6px 0; transition: color .15s;
-}
-.btn-back:hover { color: var(--text); }
-
-/* ── Logo ──────────────────────────────────────────────────────────────────── */
-.logo { display: flex; align-items: center; gap: 10px; }
-.logo-box {
-  background: var(--accent); border-radius: 7px; display: flex;
-  align-items: center; justify-content: center;
-  font-family: 'Bebas Neue', cursive; color: var(--bg); flex-shrink: 0;
-}
-.logo-name { font-family: 'Bebas Neue', cursive; letter-spacing: 4px; color: var(--text); line-height: 1; }
-
-/* ── VIEW: ID ──────────────────────────────────────────────────────────────── */
-#view-id {
-  display: flex; flex-direction: column; align-items: center;
-  justify-content: center; min-height: 100vh; padding: 32px;
-  text-align: center; position: relative; animation: fadeUp .5s ease both;
-}
-.id-glow {
-  position: absolute; top: 32%; left: 50%; transform: translate(-50%,-50%);
-  width: 300px; height: 300px; pointer-events: none; border-radius: 50%;
-  background: radial-gradient(circle, rgba(242,224,200,.07) 0%, transparent 70%);
-}
-.id-form { width: 100%; max-width: 360px; margin-top: 52px; display: flex; flex-direction: column; gap: 32px; }
-.id-fields { display: flex; flex-direction: column; gap: 16px; }
-
-.phone-wrap {
-  background: var(--s1); border: 1px solid var(--border); border-radius: 12px;
-  display: flex; align-items: center; overflow: hidden; transition: border-color .2s;
-}
-.phone-wrap.valid { border-color: rgba(242,224,200,.32); }
-.phone-prefix {
-  padding: 0 14px; color: var(--muted); font-size: 15px;
-  border-right: 1px solid var(--border); height: 56px;
-  display: flex; align-items: center; gap: 6px; flex-shrink: 0;
-}
-#id-cel {
-  flex: 1; background: none; border: none; padding: 0 14px;
-  color: var(--text); font-family: monospace; font-size: 19px;
-  letter-spacing: 2px; height: 56px;
-}
-#id-cel-tick { padding: 0 14px; color: var(--success); font-size: 22px; }
-
-.field-lbl { font-size: 11px; color: var(--muted); letter-spacing: 2px; text-transform: uppercase; margin-bottom: 8px; }
-.field-input {
-  width: 100%; background: var(--s1); border: 1px solid var(--border);
-  border-radius: 10px; padding: 14px 16px; color: var(--text); font-size: 16px;
-  transition: border-color .2s;
-}
-.field-input:focus { border-color: rgba(242,224,200,.32); }
-
-/* ── VIEW: TIPO ────────────────────────────────────────────────────────────── */
-#view-tipo { padding: 32px; display: flex; flex-direction: column; animation: fadeUp .35s ease; }
-.tipo-opts { display: flex; flex-direction: column; gap: 14px; margin-top: 40px; }
-.opt-card {
-  background: var(--s1); border: 1px solid var(--border); border-radius: 16px;
-  padding: 24px 20px; cursor: pointer; display: flex; align-items: center;
-  gap: 18px; text-align: left; width: 100%; transition: all .15s ease;
-}
-.opt-card:hover, .opt-card:active { background: var(--adim2); border-color: rgba(242,224,200,.28); transform: scale(1.015); }
-.opt-icon  { font-size: 42px; flex-shrink: 0; }
-.opt-title { font-family: 'Bebas Neue', cursive; font-size: 24px; letter-spacing: 2px; line-height: 1; }
-.opt-desc  { font-size: 13px; color: var(--muted); margin-top: 4px; }
-.opt-arrow { color: var(--muted); font-size: 20px; margin-left: auto; flex-shrink: 0; }
-
-/* ── VIEW: MENU ────────────────────────────────────────────────────────────── */
-#view-menu { display: flex; flex-direction: column; min-height: 100vh; }
-
-.menu-header {
-  padding: 12px 20px; border-bottom: 1px solid var(--border);
-  display: flex; align-items: center; justify-content: space-between;
-  position: sticky; top: 0; background: var(--bg); z-index: 20;
-  min-height: 56px;
-}
-.mode-pill {
-  background: var(--adim); border: 1px solid var(--border); border-radius: 8px;
-  padding: 5px 10px; font-size: 12px; color: var(--muted);
+/* ── Reset ─────────────────────────────────────────────────────────────────── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html,body{
+  background:var(--bg);color:var(--text);
+  font-family:'DM Sans',sans-serif;-webkit-font-smoothing:antialiased;min-height:100vh;
 }
 
-/* Category tabs */
-.cat-tabs-wrap {
-  position: sticky; top: 56px; background: var(--bg);
-  border-bottom: 1px solid var(--border); z-index: 19;
+/* ── Variables (defaults; JS sobreescribe --primary y --on-pri) ──────────── */
+:root{
+  --bg:      #FAF6EF;
+  --surface: #FFFFFF;
+  --primary: #3D0014;
+  --pdk:     #280009;
+  --pdim:    rgba(61,0,20,.08);
+  --pdim2:   rgba(61,0,20,.15);
+  --on-pri:  #F2E0C8;
+  --text:    #1A0008;
+  --muted:   #7A5060;
+  --border:  rgba(61,0,20,.10);
+  --shadow:  0 2px 14px rgba(61,0,20,.09);
 }
-.cat-tabs { display: flex; overflow-x: auto; padding: 0 16px; gap: 2px; scrollbar-width: none; }
-.cat-tabs::-webkit-scrollbar { display: none; }
-.cat-tab {
-  background: none; border: none; cursor: pointer;
-  padding: 13px 14px; font-size: 14px; font-weight: 500; white-space: nowrap;
-  color: var(--muted); border-bottom: 2px solid transparent; flex-shrink: 0;
-  transition: all .15s; font-family: 'DM Sans', sans-serif;
-}
-.cat-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
 
-/* Item cards */
-.menu-items { padding: 12px 16px 120px; display: flex; flex-direction: column; gap: 10px; }
-.item-card {
-  background: var(--s1); border-radius: 14px; padding: 14px;
-  display: flex; align-items: center; gap: 14px;
-  border: 1px solid var(--border); transition: border-color .15s; cursor: pointer;
-}
-.item-card.in-cart { border-color: rgba(242,224,200,.28); }
-.item-thumb {
-  width: 72px; height: 72px; border-radius: 10px; flex-shrink: 0;
-  display: flex; align-items: center; justify-content: center; font-size: 32px;
-}
-.item-info { flex: 1; min-width: 0; }
-.item-name  { font-family: 'Bebas Neue', cursive; font-size: 20px; letter-spacing: 1px; line-height: 1.15; }
-.item-desc  { font-size: 12px; color: var(--muted); margin-top: 3px; line-height: 1.5; min-height: 18px; }
-.item-price { font-family: 'Bebas Neue', cursive; font-size: 20px; color: var(--accent); margin-top: 5px; }
-.item-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
-.qty-badge  {
-  background: var(--adim); border: 1px solid rgba(242,224,200,.25);
-  border-radius: 8px; padding: 4px 10px; font-family: 'Bebas Neue', cursive;
-  font-size: 18px; color: var(--accent); min-width: 32px; text-align: center;
-}
-.btn-add {
-  width: 38px; height: 38px; border-radius: 9px; border: none; cursor: pointer;
-  background: var(--accent); color: var(--bg); font-size: 26px;
-  display: flex; align-items: center; justify-content: center; line-height: 1;
-  transition: transform .1s; flex-shrink: 0;
-}
-.btn-add:active { transform: scale(.88); }
-.btn-add.bumping { animation: bump .25s ease; }
+/* ── Animations ─────────────────────────────────────────────────────────── */
+@keyframes spin    {to{transform:rotate(360deg)}}
+@keyframes slideUp {from{transform:translateY(100%)}to{transform:translateY(0)}}
+@keyframes fadeIn  {from{opacity:0}to{opacity:1}}
 
-/* ── CART BAR (fixed) ──────────────────────────────────────────────────────── */
-#cart-bar {
-  position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
-  width: 100%; max-width: 480px;
-  background: var(--accent); padding: 14px 20px;
-  display: flex; align-items: center; justify-content: space-between;
-  z-index: 30; animation: fadeUp .25s ease;
-}
-.cb-left   { display: flex; align-items: center; gap: 10px; }
-.cb-count  { background: rgba(0,0,0,.22); border-radius: 6px; padding: 3px 10px; font-family: 'Bebas Neue', cursive; font-size: 20px; color: var(--bg); }
-.cb-label  { color: var(--bg); font-weight: 600; font-size: 15px; }
-.cb-btn    { background: var(--bg); border: none; border-radius: 8px; padding: 9px 18px; cursor: pointer; font-weight: 700; font-size: 15px; color: var(--accent); }
+/* ── App shell ───────────────────────────────────────────────────────────── */
+#app{min-height:100vh;display:flex;flex-direction:column;}
+.hidden{display:none!important;}
 
-/* ── SHEET: CARRITO ────────────────────────────────────────────────────────── */
-#sheet-cart { position: fixed; inset: 0; z-index: 40; display: flex; flex-direction: column; justify-content: flex-end; }
-.sheet-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,.72); }
-.sheet-panel {
-  position: relative; background: var(--s1); border-radius: 22px 22px 0 0;
-  max-height: 88vh; display: flex; flex-direction: column;
-  animation: slideUp .3s cubic-bezier(.32,.72,0,1);
+/* ── Header ──────────────────────────────────────────────────────────────── */
+.site-hdr{
+  background:var(--surface);border-bottom:1px solid var(--border);
+  position:sticky;top:0;z-index:20;
+  box-shadow:0 1px 8px rgba(61,0,20,.06);
 }
-.sh-handle-row { display: flex; justify-content: center; padding: 12px 0 4px; }
-.sh-handle { width: 36px; height: 4px; border-radius: 2px; background: var(--border); }
-.sh-hdr { padding: 0 20px 16px; border-bottom: 1px solid var(--border); }
-.sh-title { font-family: 'Bebas Neue', cursive; font-size: 28px; letter-spacing: 2px; }
-.sh-sub   { font-size: 13px; color: var(--muted); margin-top: 2px; }
-.sh-scroll { flex: 1; overflow-y: auto; padding: 10px 16px; }
-.sh-footer { padding: 16px 20px 28px; border-top: 1px solid var(--border); background: var(--s1); }
-
-/* Cart line */
-.cart-line { background: var(--s2); border: 1px solid var(--border); border-radius: 12px; padding: 14px; margin-bottom: 8px; }
-.cl-name   { font-weight: 600; font-size: 15px; }
-.cl-mods   { font-size: 12px; color: var(--muted); margin-top: 4px; line-height: 1.6; }
-.cl-controls { display: flex; align-items: center; gap: 7px; margin-top: 10px; }
-.cl-price  { font-family: 'Bebas Neue', cursive; font-size: 22px; color: var(--accent); margin-left: auto; }
-.qb { width: 30px; height: 30px; border-radius: 7px; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 18px; line-height: 1; }
-.qb.minus { background: var(--s3); color: var(--text); }
-.qb.plus  { background: var(--accent); color: var(--bg); }
-.qv { font-family: 'Bebas Neue', cursive; font-size: 20px; min-width: 18px; text-align: center; }
-.btn-edit { background: var(--s3); border: 1px solid var(--border); border-radius: 7px; padding: 5px 10px; color: var(--muted); cursor: pointer; font-size: 13px; }
-.btn-edit:hover { color: var(--text); }
-.btn-rm   { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 18px; padding: 4px 2px; }
-.total-row { display: flex; justify-content: space-between; margin-bottom: 16px; align-items: baseline; }
-.total-lbl { font-family: 'Bebas Neue', cursive; font-size: 22px; letter-spacing: 1px; }
-.total-amt { font-family: 'Bebas Neue', cursive; font-size: 30px; color: var(--accent); }
-
-/* ── SHEET: PERSONALIZACIÓN ────────────────────────────────────────────────── */
-#sheet-cz { position: fixed; inset: 0; z-index: 50; display: flex; flex-direction: column; justify-content: flex-end; }
-.cz-panel {
-  position: relative; background: var(--s1); border-radius: 22px 22px 0 0;
-  max-height: 92vh; display: flex; flex-direction: column;
-  animation: slideUp .3s cubic-bezier(.32,.72,0,1);
+.site-hdr-inner{
+  max-width:960px;margin:0 auto;padding:12px 20px;
+  display:flex;align-items:center;justify-content:space-between;
 }
-.cz-hdr { padding: 4px 20px 16px; border-bottom: 1px solid var(--border); }
-.cz-name { font-family: 'Bebas Neue', cursive; font-size: 26px; letter-spacing: 2px; line-height: 1.1; }
-.cz-desc { font-size: 13px; color: var(--muted); margin-top: 4px; }
-.section-lbl { font-size: 11px; color: var(--muted); letter-spacing: 2px; text-transform: uppercase; margin: 20px 0 12px; }
-.section-lbl:first-child { margin-top: 12px; }
+/* Logo */
+.logo{display:flex;align-items:center;gap:10px;}
+.logo-box{
+  background:var(--primary);border-radius:7px;
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Bebas Neue',cursive;color:var(--on-pri);flex-shrink:0;
+}
+.logo-name{font-family:'Bebas Neue',cursive;letter-spacing:4px;color:var(--primary);line-height:1;}
+/* Cart button */
+.cart-btn{
+  display:flex;align-items:center;gap:8px;
+  background:var(--pdim);border:1.5px solid var(--border);border-radius:99px;
+  padding:8px 16px;cursor:pointer;transition:all .15s;font-family:'DM Sans',sans-serif;
+}
+.cart-btn:hover{background:var(--pdim2);}
+.cart-btn.on{background:var(--primary);border-color:var(--primary);}
+.cart-btn.on .cb-count,.cart-btn.on .cb-total{color:var(--on-pri);}
+.cb-icon {font-size:18px;line-height:1;}
+.cb-count{font-family:'Bebas Neue',cursive;font-size:20px;color:var(--primary);}
+.cb-total{font-size:14px;font-weight:600;color:var(--muted);}
+
+/* ── Page content ─────────────────────────────────────────────────────────── */
+#main-content{
+  flex:1;max-width:960px;width:100%;margin:0 auto;
+  padding:0 20px 110px;/* bottom clearance for fixed nav */
+}
+.page-title{
+  font-family:'Bebas Neue',cursive;
+  font-size:clamp(2.2rem,6vw,3.4rem);
+  letter-spacing:2px;color:var(--primary);
+  padding:28px 0 22px;line-height:1;
+}
+
+/* ── Item grid ────────────────────────────────────────────────────────────── */
+.item-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(260px,1fr));
+  gap:18px;
+}
+
+/* ── Item card ────────────────────────────────────────────────────────────── */
+.item-card{
+  background:var(--surface);border-radius:16px;
+  box-shadow:var(--shadow);border:1px solid var(--border);
+  overflow:hidden;transition:transform .15s,box-shadow .15s;
+  display:flex;flex-direction:column;
+}
+.item-card:hover{transform:translateY(-2px);box-shadow:0 6px 22px rgba(61,0,20,.14);}
+.item-thumb{
+  width:100%;height:160px;
+  background:var(--primary);
+  display:flex;align-items:center;justify-content:center;font-size:60px;
+  flex-shrink:0;
+}
+.item-body{padding:16px 16px 12px;flex:1;}
+.item-name {font-family:'Bebas Neue',cursive;font-size:1.5rem;letter-spacing:1px;color:var(--text);line-height:1.15;}
+.item-desc {font-size:13px;color:var(--muted);margin-top:4px;min-height:20px;line-height:1.5;}
+.item-price{font-family:'Bebas Neue',cursive;font-size:1.65rem;color:var(--primary);margin-top:8px;}
+.item-foot {padding:0 16px 16px;}
+
+/* Drink inline row */
+.drink-row{display:flex;align-items:center;gap:10px;margin-top:8px;}
+
+/* ── Stepper ──────────────────────────────────────────────────────────────── */
+.stepper{display:flex;align-items:center;gap:6px;}
+.stbtn{
+  width:32px;height:32px;border-radius:8px;
+  border:1.5px solid var(--border);background:var(--pdim);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  font-size:18px;color:var(--primary);font-weight:700;
+  transition:all .12s;line-height:1;font-family:'DM Sans',sans-serif;
+}
+.stbtn:hover{background:var(--pdim2);}
+.stbtn.plus{background:var(--primary);border-color:var(--primary);color:var(--on-pri);}
+.stbtn.plus:hover{background:var(--pdk);}
+.stval{font-family:'Bebas Neue',cursive;font-size:1.3rem;min-width:22px;text-align:center;color:var(--text);}
+
+/* ── Buttons ──────────────────────────────────────────────────────────────── */
+.btn-pri{
+  background:var(--primary);border:none;border-radius:10px;
+  padding:13px 20px;color:var(--on-pri);font-size:15px;font-weight:600;
+  cursor:pointer;transition:background .15s,transform .1s;
+  font-family:'DM Sans',sans-serif;line-height:1;
+}
+.btn-pri:hover  {background:var(--pdk);}
+.btn-pri:active {transform:scale(.97);}
+.btn-pri.full   {width:100%;padding:16px;font-size:16px;}
+.btn-pri.sm     {padding:8px 14px;font-size:13px;}
+.btn-out{
+  background:transparent;border:1.5px solid var(--primary);border-radius:10px;
+  padding:7px 12px;color:var(--primary);font-size:13px;font-weight:600;
+  cursor:pointer;transition:all .12s;font-family:'DM Sans',sans-serif;
+}
+.btn-out:hover{background:var(--pdim);}
+.btn-ghost{background:none;border:none;cursor:pointer;color:var(--muted);font-family:'DM Sans',sans-serif;font-size:14px;padding:4px;}
+
+/* ── Bottom nav ───────────────────────────────────────────────────────────── */
+.bot-nav{
+  position:fixed;bottom:0;left:0;right:0;
+  background:var(--surface);border-top:1px solid var(--border);
+  box-shadow:0 -2px 12px rgba(61,0,20,.06);z-index:20;
+}
+.bot-nav-inner{
+  max-width:960px;margin:0 auto;
+  padding:8px 12px 10px;display:flex;gap:8px;
+}
+.nav-btn{
+  flex:1;padding:10px 6px;border-radius:12px;
+  border:1.5px solid var(--border);background:var(--surface);
+  cursor:pointer;text-align:center;transition:all .15s;
+  font-family:'DM Sans',sans-serif;
+}
+.nav-btn:hover{border-color:var(--primary);background:var(--pdim);}
+.nb-icon {font-size:22px;display:block;line-height:1.2;}
+.nb-lbl  {font-size:12px;font-weight:600;color:var(--muted);display:block;margin-top:2px;}
+
+/* ── Sheet (slide-up) ─────────────────────────────────────────────────────── */
+.sheet{position:fixed;inset:0;z-index:40;display:flex;flex-direction:column;justify-content:flex-end;}
+.sh-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.5);}
+.sh-panel{
+  position:relative;background:var(--surface);
+  border-radius:22px 22px 0 0;max-height:90vh;
+  display:flex;flex-direction:column;
+  animation:slideUp .32s cubic-bezier(.32,.72,0,1);
+}
+.sh-handle{display:flex;justify-content:center;padding:12px 0 6px;}
+.sh-handle::after{content:'';display:block;width:36px;height:4px;border-radius:2px;background:var(--border);}
+.sh-hdr{padding:4px 20px 16px;border-bottom:1px solid var(--border);}
+.sh-row{display:flex;align-items:center;justify-content:space-between;gap:12px;}
+.sh-name{font-family:'Bebas Neue',cursive;font-size:1.8rem;letter-spacing:1px;color:var(--text);}
+.sh-scroll{flex:1;overflow-y:auto;padding:14px 20px 8px;}
+.sh-foot{padding:14px 20px 24px;border-top:1px solid var(--border);}
+
+/* Sheet sections */
+.sh-sec{margin-bottom:22px;}
+.sh-sec:last-child{margin-bottom:0;}
+.sh-sec-ttl{font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:10px;}
 
 /* Ingredient chips */
-.chip-grid { display: flex; flex-wrap: wrap; gap: 8px; }
-.chip {
-  background: var(--adim); border: 1px solid rgba(242,224,200,.25);
-  border-radius: 20px; padding: 7px 14px; cursor: pointer;
-  font-size: 13px; color: var(--text); transition: all .15s;
+.chip-grid{display:flex;flex-wrap:wrap;gap:8px;}
+.chip{
+  background:var(--pdim);border:1.5px solid rgba(61,0,20,.18);border-radius:20px;
+  padding:7px 14px;cursor:pointer;font-size:13px;color:var(--text);
+  transition:all .14s;user-select:none;
 }
-.chip.off { background: var(--s3); border-color: var(--border); color: var(--muted); text-decoration: line-through; }
+.chip.off{background:#f0e8ec;border-color:rgba(61,0,20,.10);color:var(--muted);text-decoration:line-through;}
 
-/* Extra rows */
-.extra-row {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 12px 14px; background: var(--s2); border-radius: 12px;
-  border: 1px solid var(--border); margin-bottom: 8px; transition: border-color .15s;
+/* Modifier rows */
+.mod-row{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:11px 14px;background:var(--bg);border-radius:10px;
+  border:1.5px solid var(--border);margin-bottom:8px;transition:border-color .12s;
 }
-.extra-row.on { border-color: rgba(242,224,200,.28); }
-.ex-name  { font-weight: 500; font-size: 15px; }
-.ex-price { font-size: 13px; color: var(--accent); margin-left: 8px; }
-.ex-ctrl  { display: flex; align-items: center; gap: 8px; }
+.mod-row.on{border-color:var(--primary);background:var(--pdim);}
+.mod-name {font-size:15px;font-weight:500;color:var(--text);}
+.mod-price{font-size:13px;color:var(--muted);margin-top:2px;}
 
-/* ── VIEW: PAGO (stub) ─────────────────────────────────────────────────────── */
-#view-pago {
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  min-height: 100vh; padding: 32px; text-align: center; animation: fadeUp .35s ease;
+/* ── Cart sheet ───────────────────────────────────────────────────────────── */
+.cart-line{
+  display:flex;align-items:flex-start;gap:12px;
+  padding:14px 0;border-bottom:1px solid var(--border);
 }
+.cart-line:last-child{border-bottom:none;}
+.cl-body{flex:1;min-width:0;}
+.cl-name   {font-weight:600;font-size:15px;color:var(--text);}
+.cl-mods   {font-size:12px;color:var(--muted);margin-top:3px;line-height:1.6;}
+.cl-importe{font-family:'Bebas Neue',cursive;font-size:1.35rem;color:var(--primary);white-space:nowrap;}
+.cl-actions{display:flex;align-items:center;gap:8px;margin-top:9px;flex-wrap:wrap;}
+.total-row {display:flex;justify-content:space-between;align-items:baseline;padding:14px 0 16px;}
+.tot-lbl   {font-family:'Bebas Neue',cursive;font-size:1.4rem;letter-spacing:1px;}
+.tot-amt   {font-family:'Bebas Neue',cursive;font-size:2rem;color:var(--primary);}
 
-/* ── Loading ───────────────────────────────────────────────────────────────── */
-.spinner { width: 32px; height: 32px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; }
-.load-center { display: flex; justify-content: center; padding: 48px; }
-.err-box { background: rgba(255,60,60,.09); border: 1px solid rgba(255,60,60,.3); border-radius: 8px; padding: 12px 16px; font-size: 13px; color: #ff9090; margin-top: 10px; }
+/* ── Loading / Error ──────────────────────────────────────────────────────── */
+.spinner{width:36px;height:36px;border:3px solid var(--border);border-top-color:var(--primary);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto;}
+.load-c {display:flex;align-items:center;justify-content:center;padding:56px;}
+.err-box{background:#FFF0F0;border:1px solid rgba(200,0,0,.2);border-radius:10px;padding:14px;color:#C00;font-size:14px;margin:20px 0;}
+
+/* ── Pago stub ────────────────────────────────────────────────────────────── */
+.pago-view{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;text-align:center;padding:40px 20px;}
+.pago-view h2{font-family:'Bebas Neue',cursive;font-size:2.5rem;letter-spacing:2px;color:var(--primary);margin:16px 0 10px;}
+.pago-view p {color:var(--muted);font-size:15px;max-width:280px;line-height:1.6;}
   </style>
 </head>
 <body>
 <div id="app">
 
-<!-- ── VIEW: IDENTIFICACIÓN ───────────────────────────────────────────────── -->
-<div id="view-id" class="view">
-  <div class="id-glow"></div>
-  <div id="id-logo" class="logo" style="justify-content:center;margin-bottom:8px;"></div>
-  <p id="id-sub" style="color:var(--muted);font-size:11px;letter-spacing:5px;text-transform:uppercase;margin-bottom:56px;"></p>
-  <div class="id-form">
-    <div class="id-fields">
-      <div>
-        <div class="field-lbl" style="text-align:left;margin-top:0;">Tu número</div>
-        <div class="phone-wrap" id="id-phone-wrap">
-          <div class="phone-prefix">🇲🇽 +52</div>
-          <input type="tel" id="id-cel" inputmode="numeric" maxlength="10"
-            placeholder="55 1234 5678" oninput="onCelInput()">
-          <span id="id-cel-tick" class="hidden">✓</span>
-        </div>
-        <p style="font-size:12px;color:var(--muted);margin-top:10px;text-align:left;">Solo para localizar tu pedido</p>
-      </div>
-      <div>
-        <div class="field-lbl">Tu nombre</div>
-        <input class="field-input" type="text" id="id-nombre" placeholder="¿Cómo te llamamos?">
-      </div>
+  <!-- ── HEADER ─────────────────────────────────────────────────────────── -->
+  <header class="site-hdr">
+    <div class="site-hdr-inner">
+      <div class="logo" id="hdr-logo"></div>
+      <button class="cart-btn" id="cart-btn" onclick="abrirCart()">
+        <span class="cb-icon">🛒</span>
+        <span class="cb-count" id="cb-count">0</span>
+        <span class="cb-total" id="cb-total"></span>
+      </button>
     </div>
-    <button class="btn-cta" onclick="goTipo()">Ver menú →</button>
-  </div>
-</div>
+  </header>
 
-<!-- ── VIEW: TIPO DE ENTREGA ─────────────────────────────────────────────── -->
-<div id="view-tipo" class="view hidden" style="padding:32px;display:flex;flex-direction:column;">
-  <button class="btn-back" onclick="goView('view-id')">← Regresar</button>
-  <div id="tipo-logo" class="logo" style="margin-top:32px;margin-bottom:10px;"></div>
-  <h2 style="font-family:'Bebas Neue',cursive;font-size:34px;letter-spacing:2px;margin-bottom:6px;">¿Cómo lo recibes?</h2>
-  <p style="color:var(--muted);font-size:14px;margin-bottom:40px;">Elige una opción para continuar</p>
-  <div class="tipo-opts">
-    <button class="opt-card" onclick="goMenu('barra')">
-      <span class="opt-icon">🏠</span>
-      <div><div class="opt-title">En barra</div><div class="opt-desc">Comes aquí · Te avisamos cuando esté listo</div></div>
-      <span class="opt-arrow">→</span>
-    </button>
-    <button class="opt-card" onclick="goMenu('domicilio')">
-      <span class="opt-icon">🛵</span>
-      <div><div class="opt-title">A domicilio</div><div class="opt-desc">Próximamente disponible · Mapa interactivo</div></div>
-      <span class="opt-arrow">→</span>
-    </button>
+  <!-- ── CONTENIDO PRINCIPAL ────────────────────────────────────────────── -->
+  <div id="main-content">
+    <div class="load-c"><div class="spinner"></div></div>
   </div>
-</div>
 
-<!-- ── VIEW: MENÚ ────────────────────────────────────────────────────────── -->
-<div id="view-menu" class="view hidden" style="display:flex;flex-direction:column;">
-  <div class="menu-header">
-    <button class="btn-back" onclick="goView('view-tipo')">← Regresar</button>
-    <div id="menu-logo" class="logo"></div>
-    <span class="mode-pill" id="menu-mode-pill"></span>
-  </div>
-  <div class="cat-tabs-wrap">
-    <div class="cat-tabs" id="cat-tabs"></div>
-  </div>
-  <div class="menu-items" id="menu-items">
-    <div class="load-center"><div class="spinner"></div></div>
-  </div>
-</div>
-
-<!-- ── CART BAR (fixed) ──────────────────────────────────────────────────── -->
-<div id="cart-bar" class="hidden">
-  <div class="cb-left">
-    <span class="cb-count" id="cb-count">0</span>
-    <span class="cb-label">Ver pedido</span>
-  </div>
-  <button class="cb-btn" id="cb-total" onclick="abrirCart()">$0 →</button>
-</div>
-
-<!-- ── SHEET: CARRITO ───────────────────────────────────────────────────── -->
-<div id="sheet-cart" class="hidden">
-  <div class="sheet-backdrop" onclick="cerrarCart()"></div>
-  <div class="sheet-panel">
-    <div class="sh-handle-row"><div class="sh-handle"></div></div>
-    <div class="sh-hdr">
-      <div class="sh-title">Tu Pedido</div>
-      <div class="sh-sub" id="cart-sub">0 productos</div>
-    </div>
-    <div class="sh-scroll" id="cart-lines"></div>
-    <div class="sh-footer">
-      <div class="total-row">
-        <span class="total-lbl">Total</span>
-        <span class="total-amt" id="cart-total">$0</span>
-      </div>
-      <button class="btn-cta" onclick="irPago()">Continuar →</button>
-    </div>
-  </div>
-</div>
-
-<!-- ── SHEET: PERSONALIZACIÓN ──────────────────────────────────────────── -->
-<div id="sheet-cz" class="hidden">
-  <div class="sheet-backdrop" onclick="cerrarCz()"></div>
-  <div class="cz-panel">
-    <div class="sh-handle-row"><div class="sh-handle"></div></div>
-    <div class="cz-hdr">
-      <div class="cz-name" id="cz-name"></div>
-      <div class="cz-desc" id="cz-desc"></div>
-    </div>
-    <div class="sh-scroll" id="cz-body" style="padding:4px 20px 16px;"></div>
-    <div style="padding:16px 20px 28px;border-top:1px solid var(--border);background:var(--s1);">
-      <button class="btn-cta" onclick="guardarCz()">Guardar cambios</button>
-    </div>
-  </div>
-</div>
-
-<!-- ── VIEW: PAGO (stub) ─────────────────────────────────────────────────── -->
-<div id="view-pago" class="view hidden">
-  <div style="font-size:64px;margin-bottom:20px;">🚧</div>
-  <h2 style="font-family:'Bebas Neue',cursive;font-size:36px;letter-spacing:2px;margin-bottom:10px;">Pago</h2>
-  <p style="color:var(--muted);font-size:15px;margin-bottom:40px;max-width:280px;">
-    Esta sección estará disponible muy pronto. Ya puedes explorar y armar tu pedido.
-  </p>
-  <button class="btn-cta" style="max-width:280px;" onclick="goView('view-menu')">Volver al menú</button>
-</div>
+  <!-- ── BOTTOM NAV ─────────────────────────────────────────────────────── -->
+  <nav class="bot-nav" id="bot-nav">
+    <div class="bot-nav-inner" id="nav-btns"></div>
+  </nav>
 
 </div><!-- /app -->
+
+<!-- ── SHEET: PERSONALIZACIÓN ─────────────────────────────────────────────── -->
+<div class="sheet hidden" id="sheet-cz">
+  <div class="sh-backdrop" onclick="cerrarCz()"></div>
+  <div class="sh-panel">
+    <div class="sh-handle"></div>
+    <div class="sh-hdr">
+      <div class="sh-row">
+        <span class="sh-name" id="cz-name"></span>
+        <button class="btn-ghost" onclick="cerrarCz()" style="font-size:18px;">✕</button>
+      </div>
+      <!-- Cantidad -->
+      <div class="sh-row" style="margin-top:12px;">
+        <span style="font-size:13px;font-weight:500;color:var(--muted);">Cantidad</span>
+        <div class="stepper">
+          <button class="stbtn" onclick="czCant(-1)">−</button>
+          <span class="stval" id="cz-cant">1</span>
+          <button class="stbtn plus" onclick="czCant(1)">+</button>
+        </div>
+      </div>
+    </div>
+    <div class="sh-scroll" id="cz-scroll"></div>
+    <div class="sh-foot">
+      <button class="btn-pri full" id="cz-add-btn" onclick="guardarCz()">Agregar al pedido — $0</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── SHEET: CARRITO ─────────────────────────────────────────────────────── -->
+<div class="sheet hidden" id="sheet-cart">
+  <div class="sh-backdrop" onclick="cerrarCart()"></div>
+  <div class="sh-panel">
+    <div class="sh-handle"></div>
+    <div class="sh-hdr">
+      <div class="sh-row">
+        <span class="sh-name">Tu Pedido</span>
+        <button class="btn-ghost" onclick="cerrarCart()" style="font-size:18px;">✕</button>
+      </div>
+    </div>
+    <div class="sh-scroll" id="cart-lines"></div>
+    <div class="sh-foot">
+      <div class="total-row">
+        <span class="tot-lbl">Total</span>
+        <span class="tot-amt" id="cart-total-amt">$0</span>
+      </div>
+      <button class="btn-pri full" onclick="irPago()">Continuar al pago →</button>
+    </div>
+  </div>
+</div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="src/config.js"></script>
 <script src="src/supabase.js"></script>
 <script>
-// ── Constants ─────────────────────────────────────────────────────────────────
-const ORDEN_CATS = ['Hamburguesas', 'Pollo', 'Acompañamientos', 'Bebidas']
-const CATS_MOD   = ['Extras', 'Salsas']
-const CAT_ICONS  = {
-  'Hamburguesas':    '🍔',
-  'Pollo':           '🍗',
-  'Acompañamientos': '🍟',
-  'Bebidas':         '🥤',
-}
-const CAT_ANGLES = {
-  'Hamburguesas': 135, 'Pollo': 315, 'Acompañamientos': 180, 'Bebidas': 45,
-}
+// ── Constantes ────────────────────────────────────────────────────────────────
+const PAGES = [
+  { id:'res',       cat:'Hamburguesas',    label:'Res',       emoji:'🍔', title:'Hamburguesas de Res'   },
+  { id:'pollo',     cat:'Pollo',           label:'Pollo',     emoji:'🍗', title:'Hamburguesas de Pollo' },
+  { id:'papas',     cat:'Acompañamientos', label:'Papas',     emoji:'🍟', title:'Papas'                 },
+  { id:'refrescos', cat:'Bebidas',         label:'Refrescos', emoji:'🥤', title:'Refrescos'             },
+]
+const MOD_CATS  = ['Extras','Salsas']
+const MENU_CATS = ['Hamburguesas','Pollo','Acompañamientos','Bebidas']
 
-// ── State ─────────────────────────────────────────────────────────────────────
-let catalogo  = []       // menu items (excl. extras/salsas)
-let modExtras = []       // Extras category items
-let modSalsas = []       // Salsas category items
-let ingCache  = {}       // id_receta → ingredients array
-let carrito   = []       // cart: [{id_receta, nombre, precio_base, cantidad, mods, importe}]
-let czIdx     = null     // cart index being customized
-let menuLoaded = false
-let modoEntrega = 'barra'
-let activeCat = null
+// ── Estado global ─────────────────────────────────────────────────────────────
+let menuItems  = []    // ítems del menú (sin Extras/Salsas)
+let modExtras  = []    // ítems de categoría Extras
+let modSalsas  = []    // ítems de categoría Salsas
+let ingCache   = {}    // id_receta → [{producto, nombre_corto}]
+let carrito    = []    // líneas del carrito
+let drinkQty   = {}    // id_receta → qty inline para bebidas
+let currentPg  = 'res'
+
+// Estado de la hoja de personalización
+let cz = { item:null, cartIdx:null, cantidad:1, quitados:[], extras:[], nota:'' }
 
 // ── Branding ──────────────────────────────────────────────────────────────────
 function applyBranding() {
+  const p = POS.BRANDING.primaryColor  // ej. '#3D0014'
+  const d = POS.BRANDING.primaryDark   // ej. '#280009'
+  const o = POS.BRANDING.textOnPrimary // ej. '#F2E0C8'
   const r = document.documentElement.style
-  const bg = POS.BRANDING.bgColor           // e.g. #1E000A
-  const bg1 = addLum(bg, 10)
-  const bg2 = addLum(bg, 18)
-  const bg3 = addLum(bg, 26)
-  r.setProperty('--bg',     bg)
-  r.setProperty('--s1',     bg1)
-  r.setProperty('--s2',     bg2)
-  r.setProperty('--s3',     bg3)
-  r.setProperty('--accent', POS.BRANDING.accentColor)
-  document.title = POS.BRANDING.nombre
-  buildLogos()
-}
+  r.setProperty('--primary', p)
+  r.setProperty('--pdk',     d)
+  r.setProperty('--on-pri',  o)
+  // Derivar pdim desde primaryColor
+  const h = p.replace('#','')
+  const R = parseInt(h.slice(0,2),16), G = parseInt(h.slice(2,4),16), B = parseInt(h.slice(4,6),16)
+  r.setProperty('--pdim',  `rgba(${R},${G},${B},.08)`)
+  r.setProperty('--pdim2', `rgba(${R},${G},${B},.15)`)
 
-function addLum(hex, n) {
-  const r = parseInt(hex.slice(1,3),16)
-  const g = parseInt(hex.slice(3,5),16)
-  const b = parseInt(hex.slice(5,7),16)
-  return '#' + [r,g,b].map(v => Math.min(255,v+n).toString(16).padStart(2,'0')).join('')
-}
+  document.title = POS.BRANDING.nombre + ' — Menú'
 
-function buildLogos() {
-  const N = POS.BRANDING.nombre
-  const mkLogo = (sz) => `
-    <div class="logo-box" style="width:${sz*.72}px;height:${sz*.72}px;font-size:${sz*.44}px;">${N[0]}</div>
+  const N   = POS.BRANDING.nombre
+  const ltr = N[0]
+  const mkLogo = sz => `
+    <div class="logo-box" style="width:${sz*.72}px;height:${sz*.72}px;font-size:${sz*.44}px;">${ltr}</div>
     <span class="logo-name" style="font-size:${sz}px;">${N.toUpperCase()}</span>`
-  document.getElementById('id-logo').innerHTML   = mkLogo(50)
-  document.getElementById('tipo-logo').innerHTML = mkLogo(34)
-  document.getElementById('menu-logo').innerHTML = mkLogo(26)
-  document.getElementById('id-sub').textContent  = 'Haz tu pedido'
+  document.getElementById('hdr-logo').innerHTML = mkLogo(36)
 }
 
-// ── Navigation ────────────────────────────────────────────────────────────────
-function goView(id) {
-  // Close sheets
-  document.getElementById('sheet-cart').classList.add('hidden')
-  document.getElementById('sheet-cz').classList.add('hidden')
-  // Switch view
-  document.querySelectorAll('.view').forEach(v => v.classList.add('hidden'))
-  document.getElementById(id).classList.remove('hidden')
-  window.scrollTo(0, 0)
-  // Cart bar: only on menu
-  document.getElementById('cart-bar').classList.toggle('hidden', id !== 'view-menu')
-  if (id === 'view-menu') updateCartBar()
-}
-
-function goTipo() { goView('view-tipo') }   // stub — no validation
-
-function goMenu(modo) {
-  modoEntrega = modo || 'barra'
-  const pills = { 'barra': '🏠 En barra', 'domicilio': '🛵 Domicilio' }
-  document.getElementById('menu-mode-pill').textContent = pills[modoEntrega] || ''
-  goView('view-menu')
-  cargarMenu()
-}
-
-function irPago() {
-  cerrarCart()
-  goView('view-pago')
-}
-
-// ── Phone input ───────────────────────────────────────────────────────────────
-function onCelInput() {
-  const inp = document.getElementById('id-cel')
-  inp.value = inp.value.replace(/\D/g,'').slice(0,10)
-  const ok = inp.value.length === 10
-  document.getElementById('id-phone-wrap').classList.toggle('valid', ok)
-  document.getElementById('id-cel-tick').classList.toggle('hidden', !ok)
-}
-
-// ── Load catalog ──────────────────────────────────────────────────────────────
+// ── Carga de datos ────────────────────────────────────────────────────────────
 async function cargarMenu() {
-  if (menuLoaded) return
   try {
     const { data: recetas, error: e1 } = await window._db
       .from('catalogo_recetas')
@@ -520,140 +382,321 @@ async function cargarMenu() {
 
     const pm = {}; if (precios) precios.forEach(p => { pm[p.id_item] = p.precio })
 
-    modExtras = recetas.filter(r => r.categoria === 'Extras')
-      .map(r => ({ ...r, precio: pm[r.id_receta] || 0 }))
-    modSalsas = recetas.filter(r => r.categoria === 'Salsas')
-      .map(r => ({ ...r, precio: pm[r.id_receta] || 0 }))
-    catalogo  = recetas.filter(r => !CATS_MOD.includes(r.categoria))
-      .map(r => ({ id_receta: r.id_receta, nombre: r.nombre_platillo, categoria: r.categoria, precio: pm[r.id_receta] || 0 }))
+    const all = recetas.map(r => ({ id_receta:r.id_receta, nombre:r.nombre_platillo, categoria:r.categoria, precio:pm[r.id_receta]||0 }))
+    modExtras = all.filter(r => r.categoria === 'Extras')
+    modSalsas = all.filter(r => r.categoria === 'Salsas')
+    menuItems = all.filter(r => MENU_CATS.includes(r.categoria))
 
-    menuLoaded = true
-    renderTabs()
-    renderItems(activeCat || getCats()[0])
+    goPage('res')
   } catch(e) {
-    document.getElementById('menu-items').innerHTML =
-      `<div class="err-box" style="margin:24px;">Error al cargar menú: ${e.message}</div>`
+    document.getElementById('main-content').innerHTML = `<div class="err-box">Error al cargar el menú: ${e.message}</div>`
   }
 }
 
-function getCats() {
-  const present = [...new Set(catalogo.map(it => it.categoria))]
-  return [...ORDEN_CATS.filter(c => present.includes(c)), ...present.filter(c => !ORDEN_CATS.includes(c))]
-}
+// ── Navegación ────────────────────────────────────────────────────────────────
+function goPage(pgId) {
+  currentPg = pgId
+  const pg     = PAGES.find(p => p.id === pgId)
+  const others = PAGES.filter(p => p.id !== pgId)
+  const items  = getPgItems(pgId)
 
-function renderTabs() {
-  const wrap = document.getElementById('cat-tabs')
-  wrap.innerHTML = ''
-  const cats = getCats()
-  activeCat = (activeCat && cats.includes(activeCat)) ? activeCat : cats[0]
-  cats.forEach(cat => {
-    const btn = document.createElement('button')
-    btn.className = 'cat-tab' + (cat === activeCat ? ' active' : '')
-    btn.textContent = (CAT_ICONS[cat] || '🍽️') + ' ' + cat
-    btn.onclick = () => {
-      activeCat = cat
-      document.querySelectorAll('.cat-tab').forEach(b => b.classList.remove('active'))
-      btn.classList.add('active')
-      renderItems(cat)
-    }
-    wrap.appendChild(btn)
-  })
-}
+  // Contenido
+  const cont = document.getElementById('main-content')
+  cont.innerHTML = `<h1 class="page-title">${pg.title}</h1><div class="item-grid" id="item-grid"></div>`
+  const grid = document.getElementById('item-grid')
 
-function renderItems(cat) {
-  if (!cat) return
-  activeCat = cat
-  const cont = document.getElementById('menu-items')
-  cont.innerHTML = ''
-  const items = catalogo.filter(it => it.categoria === cat)
   items.forEach(it => {
-    const totalQty = carrito.filter(x => x.id_receta === it.id_receta)
-      .reduce((s, x) => s + x.cantidad, 0)
-    const angle = CAT_ANGLES[it.categoria] || 135
     const card = document.createElement('div')
-    card.className = 'item-card' + (totalQty > 0 ? ' in-cart' : '')
-    card.id = 'icard-' + it.id_receta
-    card.onclick = () => addToCart(it.id_receta, null)
-    card.innerHTML = `
-      <div class="item-thumb" style="background:linear-gradient(${angle}deg,var(--s2),var(--s3));">${CAT_ICONS[it.categoria] || '🍽️'}</div>
-      <div class="item-info">
-        <div class="item-name">${it.nombre}</div>
-        <div class="item-desc"></div>
-        <div class="item-price">$${it.precio}</div>
-      </div>
-      <div class="item-right">
-        ${totalQty > 0 ? `<div class="qty-badge" id="qbadge-${it.id_receta}">${totalQty}</div>` : ''}
-        <button class="btn-add" id="btnadd-${it.id_receta}"
-          onclick="event.stopPropagation();addToCart('${it.id_receta}',this)">+</button>
-      </div>`
-    cont.appendChild(card)
-  })
-}
-
-// ── Cart logic ────────────────────────────────────────────────────────────────
-function addToCart(id, btnEl) {
-  const it = catalogo.find(x => x.id_receta === id)
-  if (!it) return
-
-  // Aggregate identical item (no mods)
-  const same = carrito.find(x => x.id_receta === id &&
-    !x.mods.quitados.length && !x.mods.extras.length && !x.mods.nota)
-  if (same) {
-    same.cantidad++
-    same.importe = calcImporte(same)
-  } else {
-    carrito.push({
-      id_receta: it.id_receta, nombre: it.nombre,
-      precio_base: it.precio, cantidad: 1,
-      mods: { quitados: [], extras: [], nota: '' },
-      importe: it.precio
-    })
-  }
-
-  // Animate + button
-  const btn = btnEl || document.getElementById('btnadd-' + id)
-  if (btn) { btn.classList.remove('bumping'); void btn.offsetWidth; btn.classList.add('bumping') }
-
-  updateCartBar()
-
-  // Update qty badge on card
-  const totalQty = carrito.filter(x => x.id_receta === id).reduce((s, x) => s + x.cantidad, 0)
-  const right = document.getElementById('icard-' + id)?.querySelector('.item-right')
-  if (right) {
-    let badge = document.getElementById('qbadge-' + id)
-    if (!badge) {
-      badge = document.createElement('div'); badge.className = 'qty-badge'; badge.id = 'qbadge-' + id
-      right.insertBefore(badge, right.firstChild)
+    card.className = 'item-card'
+    if (it.categoria === 'Bebidas') {
+      drinkQty[it.id_receta] = drinkQty[it.id_receta] || 1
+      card.innerHTML = `
+        <div class="item-thumb">${pg.emoji}</div>
+        <div class="item-body">
+          <div class="item-name">${it.nombre}</div>
+          <div class="item-desc"></div>
+          <div class="item-price">$${it.precio}</div>
+        </div>
+        <div class="item-foot">
+          <div class="drink-row">
+            <div class="stepper">
+              <button class="stbtn" onclick="adjDrink('${it.id_receta}',-1)">−</button>
+              <span class="stval" id="dq-${it.id_receta}">${drinkQty[it.id_receta]}</span>
+              <button class="stbtn plus" onclick="adjDrink('${it.id_receta}',1)">+</button>
+            </div>
+            <button class="btn-pri sm" data-dadd="${it.id_receta}" onclick="addDrink('${it.id_receta}')">Agregar →</button>
+          </div>
+        </div>`
+    } else {
+      card.innerHTML = `
+        <div class="item-thumb">${pg.emoji}</div>
+        <div class="item-body">
+          <div class="item-name">${it.nombre}</div>
+          <div class="item-desc"></div>
+          <div class="item-price">$${it.precio}</div>
+        </div>
+        <div class="item-foot">
+          <button class="btn-pri full" onclick="abrirCz('${it.id_receta}')">Personalizar y agregar</button>
+        </div>`
     }
-    badge.textContent = totalQty
-    badge.classList.remove('bumping'); void badge.offsetWidth; badge.classList.add('bumping')
+    grid.appendChild(card)
+  })
+
+  // Navegación inferior
+  document.getElementById('bot-nav').classList.remove('hidden')
+  document.getElementById('nav-btns').innerHTML = others.map(p => `
+    <button class="nav-btn" onclick="goPage('${p.id}')">
+      <span class="nb-icon">${p.emoji}</span>
+      <span class="nb-lbl">${p.label}</span>
+    </button>`).join('')
+}
+
+function getPgItems(pgId) {
+  switch(pgId) {
+    case 'res':       return menuItems.filter(it => it.categoria === 'Hamburguesas')
+    case 'pollo':     return menuItems.filter(it => it.categoria === 'Pollo')
+    case 'papas':     return menuItems.filter(it => it.categoria === 'Acompañamientos')
+    case 'refrescos': return menuItems.filter(it => it.categoria === 'Bebidas' && it.nombre !== 'Limonada')
+    default: return []
   }
-  document.getElementById('icard-' + id)?.classList.add('in-cart')
 }
 
-function calcImporte(item) {
-  const extSum = item.mods.extras
-    .filter(e => (e.qty || 0) > 0)
-    .reduce((s, e) => s + (e.precio || 0) * (e.qty || 1), 0)
-  return (item.precio_base + extSum) * item.cantidad
+// ── Bebidas (inline) ──────────────────────────────────────────────────────────
+function adjDrink(id, delta) {
+  drinkQty[id] = Math.max(1, (drinkQty[id]||1) + delta)
+  const el = document.getElementById('dq-' + id)
+  if (el) el.textContent = drinkQty[id]
 }
 
+function addDrink(id) {
+  const it = menuItems.find(x => x.id_receta === id)
+  if (!it) return
+  const qty = drinkQty[id] || 1
+  const same = carrito.find(x => x.id_receta === id && !x.mods.extras.length && !x.mods.nota)
+  if (same) {
+    same.cantidad += qty; same.importe = same.precio_base * same.cantidad
+  } else {
+    carrito.push({ id_receta:it.id_receta, nombre:it.nombre, precio_base:it.precio,
+      cantidad:qty, mods:{quitados:[],extras:[],nota:''}, importe:it.precio*qty })
+  }
+  drinkQty[id] = 1
+  const el = document.getElementById('dq-' + id); if (el) el.textContent = 1
+  updateCartBar()
+  const btn = document.querySelector(`[data-dadd="${id}"]`)
+  if (btn) {
+    const orig = btn.textContent
+    btn.textContent = '✓ Agregado'; btn.style.background = '#22c55e'
+    setTimeout(() => { btn.textContent = orig; btn.style.background = '' }, 1200)
+  }
+}
+
+// ── Personalización ───────────────────────────────────────────────────────────
+function getItemType(it) {
+  if (it.categoria === 'Bebidas')          return 'drink'
+  if (it.categoria === 'Acompañamientos')  return 'side'
+  return 'burger'  // Hamburguesas, Pollo
+}
+
+async function abrirCz(idReceta, cartIdx = null) {
+  const item = menuItems.find(x => x.id_receta === idReceta)
+  if (!item) return
+
+  if (cartIdx !== null && carrito[cartIdx]) {
+    const c = carrito[cartIdx]
+    cz = { item, cartIdx, cantidad:c.cantidad,
+      quitados:[...c.mods.quitados], extras:c.mods.extras.map(e=>({...e})), nota:c.mods.nota }
+  } else {
+    cz = { item, cartIdx:null, cantidad:1, quitados:[], extras:[], nota:'' }
+  }
+
+  document.getElementById('cz-name').textContent = item.nombre
+  document.getElementById('cz-cant').textContent = cz.cantidad
+  document.getElementById('sheet-cz').classList.remove('hidden')
+  actualizarCzBtn()
+
+  const type   = getItemType(item)
+  const scroll = document.getElementById('cz-scroll')
+  scroll.innerHTML = ''
+
+  if (type === 'burger' || type === 'side') {
+    // Sección ingredientes — carga async
+    const ingDiv = document.createElement('div'); ingDiv.className = 'sh-sec'; ingDiv.id = 'ing-sec'
+    ingDiv.innerHTML = `<div class="sh-sec-ttl">Ingredientes</div><div class="load-c" style="padding:16px;" id="ing-spinner"><div class="spinner" style="width:24px;height:24px;"></div></div>`
+    scroll.appendChild(ingDiv)
+
+    // Extras (solo hamburguesas)
+    if (type === 'burger' && modExtras.length) {
+      scroll.insertAdjacentHTML('beforeend', buildModSec('Extras', modExtras, 'ex'))
+    }
+    // Salsas (hamburgesas y papas)
+    if (modSalsas.length) {
+      scroll.insertAdjacentHTML('beforeend', buildModSec('Salsas', modSalsas, 'sa'))
+    }
+  }
+
+  // Nota (todos excepto bebidas puras)
+  if (type !== 'drink') {
+    scroll.insertAdjacentHTML('beforeend', `
+      <div class="sh-sec">
+        <div class="sh-sec-ttl">Nota especial</div>
+        <textarea id="cz-nota" rows="2"
+          style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:10px;
+                 font-family:'DM Sans',sans-serif;font-size:14px;color:var(--text);
+                 background:var(--bg);resize:none;line-height:1.5;"
+          placeholder="Instrucción especial para cocina..."
+          oninput="cz.nota=this.value">${cz.nota||''}</textarea>
+      </div>`)
+  }
+
+  // Cargar ingredientes async
+  if (type !== 'drink') {
+    if (!ingCache[idReceta]) {
+      const { data } = await window._db
+        .from('receta_ingredientes')
+        .select('producto, id_producto, productos(nombre_corto)')
+        .eq('tenant_id', POS.TENANT_ID)
+        .eq('id_receta', idReceta)
+        .eq('activo', true)
+      ingCache[idReceta] = data || []
+    }
+    // Verificar que la hoja sigue abierta para este ítem
+    if (cz.item?.id_receta !== idReceta) return
+
+    const ings    = ingCache[idReceta]
+    const ingSec  = document.getElementById('ing-sec')
+    if (!ingSec) return
+
+    if (ings.length) {
+      ingSec.innerHTML = `<div class="sh-sec-ttl">Ingredientes — toca para quitar</div>
+        <div class="chip-grid">${ings.map(ing => {
+          const display = ing.productos?.nombre_corto || ing.producto
+          const isOff   = cz.quitados.includes(ing.producto)
+          return `<div class="chip${isOff?' off':''}" data-ing="${ing.producto}" data-disp="${display}"
+            onclick="toggleChip(this)">${isOff?'✕ ':''}${display}</div>`
+        }).join('')}</div>`
+    } else {
+      ingSec.innerHTML = `<div class="sh-sec-ttl">Ingredientes</div>
+        <p style="font-size:13px;color:var(--muted);">Sin ingredientes registrados.</p>`
+    }
+  }
+}
+
+function buildModSec(title, mods, pfx) {
+  return `<div class="sh-sec">
+    <div class="sh-sec-ttl">${title}</div>
+    ${mods.map(m => {
+      const obj = cz.extras.find(e => e.id === m.id_receta)
+      const qty = obj?.qty || 0
+      return `<div class="mod-row${qty>0?' on':''}" id="${pfx}-${m.id_receta}">
+        <div>
+          <div class="mod-name">${m.nombre}</div>
+          ${m.precio>0?`<div class="mod-price">+$${m.precio}</div>`:''}
+        </div>
+        <div class="stepper" id="${pfx}ctrl-${m.id_receta}">
+          ${qty>0?`<button class="stbtn" onclick="adjMod('${m.id_receta}',-1)">−</button>
+                   <span class="stval">${qty}</span>`:''}
+          <button class="stbtn plus" onclick="adjMod('${m.id_receta}',1)">+</button>
+        </div>
+      </div>`
+    }).join('')}
+  </div>`
+}
+
+function toggleChip(el) {
+  el.classList.toggle('off')
+  const ing  = el.dataset.ing
+  const disp = el.dataset.disp
+  if (el.classList.contains('off')) {
+    el.textContent = '✕ ' + disp
+    if (!cz.quitados.includes(ing)) cz.quitados.push(ing)
+  } else {
+    el.textContent = disp
+    cz.quitados = cz.quitados.filter(q => q !== ing)
+  }
+}
+
+function adjMod(id, delta) {
+  const def = [...modExtras, ...modSalsas].find(m => m.id_receta === id)
+  if (!def) return
+  let obj = cz.extras.find(e => e.id === id)
+  if (!obj) {
+    if (delta < 0) return
+    obj = { id, nombre:def.nombre, precio:def.precio, qty:0 }
+    cz.extras.push(obj)
+  }
+  obj.qty = Math.max(0, (obj.qty||0) + delta)
+  if (obj.qty === 0) cz.extras = cz.extras.filter(e => e.id !== id)
+
+  const qty = obj.qty
+  for (const pfx of ['ex','sa']) {
+    const ctrl = document.getElementById(`${pfx}ctrl-${id}`)
+    const row  = document.getElementById(`${pfx}-${id}`)
+    if (!ctrl) continue
+    ctrl.innerHTML = qty > 0
+      ? `<button class="stbtn" onclick="adjMod('${id}',-1)">−</button>
+         <span class="stval">${qty}</span>
+         <button class="stbtn plus" onclick="adjMod('${id}',1)">+</button>`
+      : `<button class="stbtn plus" onclick="adjMod('${id}',1)">+</button>`
+    if (row) row.classList.toggle('on', qty > 0)
+  }
+  actualizarCzBtn()
+}
+
+function czCant(delta) {
+  cz.cantidad = Math.max(1, cz.cantidad + delta)
+  document.getElementById('cz-cant').textContent = cz.cantidad
+  actualizarCzBtn()
+}
+
+function actualizarCzBtn() {
+  const extSum = cz.extras.filter(e => e.qty > 0).reduce((s, e) => s + e.precio * e.qty, 0)
+  const total  = ((cz.item?.precio || 0) + extSum) * cz.cantidad
+  const btn    = document.getElementById('cz-add-btn')
+  if (btn) btn.textContent = (cz.cartIdx !== null ? 'Actualizar — ' : 'Agregar al pedido — ') + '$' + total
+}
+
+function guardarCz() {
+  const notaEl = document.getElementById('cz-nota')
+  if (notaEl) cz.nota = notaEl.value.trim()
+  const extSum = cz.extras.filter(e => e.qty > 0).reduce((s, e) => s + e.precio * e.qty, 0)
+  const importe = ((cz.item?.precio||0) + extSum) * cz.cantidad
+  const entry = {
+    id_receta:  cz.item.id_receta,
+    nombre:     cz.item.nombre,
+    precio_base:cz.item.precio,
+    cantidad:   cz.cantidad,
+    mods: {
+      quitados:[...cz.quitados],
+      extras:  cz.extras.filter(e => e.qty > 0).map(e => ({...e})),
+      nota:    cz.nota,
+    },
+    importe,
+  }
+  const wasEditing = cz.cartIdx !== null
+  if (wasEditing) carrito[cz.cartIdx] = entry
+  else carrito.push(entry)
+  cerrarCz()
+  updateCartBar()
+  if (wasEditing) setTimeout(abrirCart, 80)
+}
+
+function cerrarCz() {
+  document.getElementById('sheet-cz').classList.add('hidden')
+  cz = { item:null, cartIdx:null, cantidad:1, quitados:[], extras:[], nota:'' }
+}
+
+// ── Carrito ───────────────────────────────────────────────────────────────────
 function updateCartBar() {
   const count = carrito.reduce((s, i) => s + i.cantidad, 0)
   const total = carrito.reduce((s, i) => s + i.importe, 0)
-  const bar = document.getElementById('cart-bar')
-  if (count > 0) {
-    bar.classList.remove('hidden')
-    document.getElementById('cb-count').textContent = count
-    document.getElementById('cb-total').textContent = '$' + total + ' →'
-  } else {
-    bar.classList.add('hidden')
-  }
+  const btn   = document.getElementById('cart-btn')
+  document.getElementById('cb-count').textContent = count > 0 ? count : '0'
+  document.getElementById('cb-total').textContent = count > 0 ? '$' + total : ''
+  btn.classList.toggle('on', count > 0)
 }
 
-// ── Cart sheet ────────────────────────────────────────────────────────────────
 function abrirCart() {
-  renderCartSheet()
+  renderCart()
   document.getElementById('sheet-cart').classList.remove('hidden')
 }
 
@@ -661,194 +704,85 @@ function cerrarCart() {
   document.getElementById('sheet-cart').classList.add('hidden')
 }
 
-function renderCartSheet() {
-  const cont  = document.getElementById('cart-lines')
-  const count = carrito.reduce((s, i) => s + i.cantidad, 0)
+function renderCart() {
+  const lines = document.getElementById('cart-lines')
   const total = carrito.reduce((s, i) => s + i.importe, 0)
-  document.getElementById('cart-sub').textContent   = count + (count === 1 ? ' producto' : ' productos')
-  document.getElementById('cart-total').textContent = '$' + total
+  document.getElementById('cart-total-amt').textContent = '$' + total
 
-  cont.innerHTML = ''
   if (carrito.length === 0) {
-    cont.innerHTML = '<div style="text-align:center;padding:36px;color:var(--muted);">Carrito vacío — ¡agrega algo rico! 🍔</div>'
+    lines.innerHTML = `<div style="text-align:center;padding:44px;color:var(--muted);">
+      <div style="font-size:48px;margin-bottom:12px;">🛒</div>
+      Carrito vacío — ¡elige algo rico!
+    </div>`
     return
   }
 
+  lines.innerHTML = ''
   carrito.forEach((item, idx) => {
     const parts = []
     if (item.mods.quitados.length) parts.push('Sin: ' + item.mods.quitados.join(', '))
-    if (item.mods.extras.filter(e=>(e.qty||0)>0).length)
-      parts.push('+ ' + item.mods.extras.filter(e=>(e.qty||0)>0).map(e => ((e.qty>1)?e.qty+'× ':'')+e.nombre).join(', '))
+    const activeEx = item.mods.extras.filter(e => (e.qty||0) > 0)
+    if (activeEx.length) parts.push(activeEx.map(e => ((e.qty>1)?(e.qty+'× '):'') + e.nombre).join(', '))
     if (item.mods.nota) parts.push('📝 ' + item.mods.nota)
 
     const line = document.createElement('div'); line.className = 'cart-line'
     line.innerHTML = `
-      <div class="cl-name">${item.nombre}</div>
-      ${parts.length ? `<div class="cl-mods">${parts.join(' · ')}</div>` : ''}
-      <div class="cl-controls">
-        <button class="qb minus" onclick="cambiarCant(${idx},-1)">−</button>
-        <span class="qv">${item.cantidad}</span>
-        <button class="qb plus"  onclick="cambiarCant(${idx},1)">+</button>
-        <button class="btn-edit" onclick="abrirCz(${idx})">✏️ Personalizar</button>
-        <span class="cl-price">$${item.importe}</span>
-        <button class="btn-rm" onclick="quitarItem(${idx})">×</button>
-      </div>`
-    cont.appendChild(line)
+      <div class="cl-body">
+        <div class="cl-name">${item.nombre}</div>
+        ${parts.length?`<div class="cl-mods">${parts.join(' · ')}</div>`:''}
+        <div class="cl-actions">
+          <div class="stepper">
+            <button class="stbtn" onclick="cartCant(${idx},-1)">−</button>
+            <span class="stval">${item.cantidad}</span>
+            <button class="stbtn plus" onclick="cartCant(${idx},1)">+</button>
+          </div>
+          <button class="btn-out" onclick="editarCart(${idx})">✏️ Editar</button>
+          <button class="btn-ghost" style="color:#C00;font-size:18px;" onclick="quitarCart(${idx})">✕</button>
+        </div>
+      </div>
+      <span class="cl-importe">$${item.importe}</span>`
+    lines.appendChild(line)
   })
 }
 
-function cambiarCant(idx, delta) {
+function cartCant(idx, delta) {
   carrito[idx].cantidad = Math.max(1, carrito[idx].cantidad + delta)
-  carrito[idx].importe  = calcImporte(carrito[idx])
-  updateCartBar(); renderCartSheet()
+  const extSum = carrito[idx].mods.extras.filter(e=>(e.qty||0)>0).reduce((s,e)=>s+e.precio*e.qty,0)
+  carrito[idx].importe  = (carrito[idx].precio_base + extSum) * carrito[idx].cantidad
+  renderCart(); updateCartBar()
 }
 
-function quitarItem(idx) {
-  const id = carrito[idx].id_receta
+function quitarCart(idx) {
   carrito.splice(idx, 1)
-  updateCartBar(); renderCartSheet()
-  const remaining = carrito.filter(x => x.id_receta === id).reduce((s,x) => s + x.cantidad, 0)
-  const badge = document.getElementById('qbadge-' + id)
-  const card  = document.getElementById('icard-'  + id)
-  if (remaining === 0) {
-    badge?.remove()
-    card?.classList.remove('in-cart')
-  } else if (badge) {
-    badge.textContent = remaining
-  }
+  renderCart(); updateCartBar()
 }
 
-// ── Customization sheet ───────────────────────────────────────────────────────
-async function abrirCz(idx) {
-  czIdx = idx
-  const item = carrito[idx]
-  document.getElementById('cz-name').textContent = item.nombre
-  document.getElementById('cz-desc').textContent = ''
-  const body = document.getElementById('cz-body')
-  body.innerHTML = '<div class="load-center"><div class="spinner"></div></div>'
-  document.getElementById('sheet-cz').classList.remove('hidden')
-
-  // Load ingredients (cached)
-  if (!ingCache[item.id_receta]) {
-    const { data } = await window._db
-      .from('receta_ingredientes')
-      .select('producto, id_producto, productos(nombre_corto)')
-      .eq('tenant_id', POS.TENANT_ID)
-      .eq('id_receta', item.id_receta)
-      .eq('activo',    true)
-    ingCache[item.id_receta] = data || []
-  }
-  if (czIdx !== idx) return  // navigated away during fetch
-
-  const ings = ingCache[item.id_receta]
-  let html = ''
-
-  // Ingredient chips
-  if (ings.length) {
-    html += '<div class="section-lbl">Ingredientes — toca para quitar</div><div class="chip-grid" id="cz-chips">'
-    ings.forEach(ing => {
-      const display  = ing.productos?.nombre_corto || ing.producto
-      const isOff    = item.mods.quitados.includes(ing.producto)
-      html += `<div class="chip${isOff?' off':''}" data-ing="${ing.producto}" data-display="${display}" onclick="toggleChip(this)">${isOff?'✕ ':''}${display}</div>`
-    })
-    html += '</div>'
-  }
-
-  // Extras
-  if (modExtras.length) {
-    html += '<div class="section-lbl">Extras</div>'
-    html += modExtras.map(ex => buildExtraRow(item, ex)).join('')
-  }
-
-  // Salsas
-  if (modSalsas.length) {
-    html += '<div class="section-lbl">Salsas</div>'
-    html += modSalsas.map(sa => buildExtraRow(item, sa)).join('')
-  }
-
-  // Nota
-  html += `<div class="section-lbl">Nota especial</div>
-    <textarea style="width:100%;background:var(--s2);border:1px solid var(--border);border-radius:10px;
-      padding:12px 14px;color:var(--text);font-size:14px;resize:none;min-height:72px;font-family:'DM Sans',sans-serif;"
-      id="cz-nota" placeholder="Instrucción especial para cocina...">${item.mods.nota || ''}</textarea>
-    <div style="height:16px;"></div>`
-
-  body.innerHTML = html
+async function editarCart(idx) {
+  cerrarCart()
+  await abrirCz(carrito[idx].id_receta, idx)
 }
 
-function buildExtraRow(item, ex) {
-  const sel = item.mods.extras.find(e => e.id === ex.id_receta)
-  const qty = sel?.qty || 0
-  return `<div class="extra-row${qty>0?' on':''}" id="ex-${ex.id_receta}">
-    <div><span class="ex-name">${ex.nombre_platillo}</span>${ex.precio>0?`<span class="ex-price">+$${ex.precio}</span>`:''}</div>
-    <div class="ex-ctrl" id="exc-${ex.id_receta}">
-      ${qty>0?`<button class="qb minus" onclick="cambiarExtra('${ex.id_receta}',-1)">−</button>
-               <span class="qv" id="exv-${ex.id_receta}">${qty}</span>`:''}
-      <button class="qb plus" onclick="cambiarExtra('${ex.id_receta}',1)">+</button>
-    </div>
-  </div>`
+// ── Pago (stub) ───────────────────────────────────────────────────────────────
+function irPago() {
+  cerrarCart()
+  document.getElementById('bot-nav').classList.add('hidden')
+  document.getElementById('main-content').innerHTML = `
+    <div class="pago-view">
+      <div style="font-size:64px;">🚧</div>
+      <h2>Pago próximamente</h2>
+      <p>Esta sección estará disponible muy pronto.<br>Tu pedido está guardado.</p>
+      <button class="btn-pri" style="margin-top:32px;max-width:260px;" onclick="volverMenu()">← Volver al menú</button>
+    </div>`
 }
 
-function toggleChip(el) {
-  el.classList.toggle('off')
-  el.textContent = el.classList.contains('off') ? '✕ ' + el.dataset.display : el.dataset.display
-}
-
-function cambiarExtra(exId, delta) {
-  if (czIdx === null) return
-  const item  = carrito[czIdx]
-  const allEx = [...modExtras, ...modSalsas]
-  const def   = allEx.find(e => e.id_receta === exId)
-  if (!def) return
-
-  let obj = item.mods.extras.find(e => e.id === exId)
-  if (!obj) {
-    if (delta < 0) return
-    obj = { id: exId, nombre: def.nombre_platillo, precio: def.precio, qty: 0 }
-    item.mods.extras.push(obj)
-  }
-  obj.qty = Math.max(0, (obj.qty || 0) + delta)
-  if (obj.qty === 0) item.mods.extras = item.mods.extras.filter(e => e.id !== exId)
-
-  // Update UI
-  const row = document.getElementById('ex-' + exId)
-  const ctrl = document.getElementById('exc-' + exId)
-  const newQty = obj.qty || 0
-  if (row)  row.classList.toggle('on', newQty > 0)
-  if (ctrl) ctrl.innerHTML = newQty > 0
-    ? `<button class="qb minus" onclick="cambiarExtra('${exId}',-1)">−</button>
-       <span class="qv" id="exv-${exId}">${newQty}</span>
-       <button class="qb plus" onclick="cambiarExtra('${exId}',1)">+</button>`
-    : `<button class="qb plus" onclick="cambiarExtra('${exId}',1)">+</button>`
-}
-
-function guardarCz() {
-  if (czIdx === null) return
-  const item = carrito[czIdx]
-  // Quitados
-  item.mods.quitados = []
-  document.querySelectorAll('#cz-chips .chip.off').forEach(chip => {
-    item.mods.quitados.push(chip.dataset.ing)
-  })
-  // Nota
-  const notaEl = document.getElementById('cz-nota')
-  item.mods.nota = notaEl ? notaEl.value.trim() : ''
-  // Recalculate
-  item.importe = calcImporte(item)
-  cerrarCz()
-  updateCartBar()
-  if (!document.getElementById('sheet-cart').classList.contains('hidden')) renderCartSheet()
-}
-
-function cerrarCz() {
-  document.getElementById('sheet-cz').classList.add('hidden')
-  czIdx = null
+function volverMenu() {
+  goPage(currentPg)
 }
 
 // ── Bootstrap ─────────────────────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', () => {
   applyBranding()
-  goView('view-id')
+  cargarMenu()
 })
 </script>
 </body>
