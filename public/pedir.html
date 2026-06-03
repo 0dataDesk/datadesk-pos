@@ -183,10 +183,8 @@ html,body{
 .sh-scroll{flex:1;overflow-y:auto;padding:14px 20px 8px;}
 .sh-foot{padding:14px 20px 24px;border-top:1px solid var(--border);}
 
-/* Sheet sections */
-.sh-sec{margin-bottom:22px;}
-.sh-sec:last-child{margin-bottom:0;}
-.sh-sec-ttl{font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:10px;}
+/* Sheet section labels */
+.sh-sec-ttl{font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:12px;}
 
 /* Ingredient chips — ON by default */
 .chip-grid{display:flex;flex-wrap:wrap;gap:8px;}
@@ -207,6 +205,51 @@ html,body{
 /* Salsa grid — 2 cols on mobile, full row on wider screens */
 .chip-grid-2{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
 @media(min-width:480px){.chip-grid-2{grid-template-columns:repeat(4,1fr);}}
+
+/* ── Bump microanimation (CSS-only, triggered by :active) ─────────────────── */
+@keyframes bump{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
+
+/* ── Section spacing ─────────────────────────────────────────────────────── */
+.sh-sec{margin-bottom:28px;}
+.sh-sec:last-child{margin-bottom:0;}
+
+/* ── Personalization rows ─────────────────────────────────────────────────── */
+.cz-row{
+  display:flex;align-items:center;gap:14px;
+  border-radius:18px;padding:14px 16px;margin-bottom:12px;
+  cursor:pointer;transition:all .18s ease;user-select:none;
+}
+.cz-row:not(.off):active,.cz-row:not(.off):active *{animation:bump .12s ease;}
+.cz-row.on{background:var(--primary);box-shadow:0 4px 12px rgba(61,0,20,.28);}
+.cz-row.off{background:var(--surface);opacity:.55;}
+.cz-row-body{flex:1;min-width:0;}
+.cz-row-name{font-size:15px;font-weight:600;line-height:1.2;display:block;}
+.cz-row.on  .cz-row-name{color:var(--on-pri);}
+.cz-row.off .cz-row-name{color:var(--primary);text-decoration:line-through;}
+.cz-row-price{font-size:12px;font-weight:500;margin-top:2px;display:block;}
+.cz-row.on  .cz-row-price{color:var(--on-pri);opacity:.8;}
+.cz-row.off .cz-row-price{color:var(--muted);}
+.cz-row-qty{display:flex;align-items:center;gap:8px;flex-shrink:0;}
+.cz-row.off .cz-row-qty{display:none;}
+/* Quantity circles */
+.qty-circ{
+  width:36px;height:36px;border-radius:50%;border:none;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  font-size:20px;font-weight:700;line-height:1;font-family:'DM Sans',sans-serif;
+}
+.qty-circ:active{animation:bump .12s ease;}
+.cz-row.on .qty-circ{background:rgba(255,255,255,.18);color:var(--on-pri);}
+.cz-row.on .qty-circ:hover{background:rgba(255,255,255,.3);}
+.qty-n{font-family:'Bebas Neue',cursive;font-size:1.3rem;min-width:22px;text-align:center;}
+.cz-row.on .qty-n{color:var(--on-pri);}
+/* Salsa pill chips */
+.salsa-chip{
+  border-radius:999px;padding:11px 0;cursor:pointer;
+  font-size:14px;font-weight:600;text-align:center;transition:all .15s;user-select:none;
+}
+.salsa-chip:active{animation:bump .12s ease;}
+.salsa-chip.off{background:var(--surface);color:var(--primary);border:1.5px solid var(--border);opacity:.65;}
+.salsa-chip.on{background:var(--primary);color:var(--on-pri);border:1.5px solid var(--primary);box-shadow:0 4px 12px rgba(61,0,20,.28);opacity:1;}
 
 /* ── Cart sheet ───────────────────────────────────────────────────────────── */
 .cart-line{
@@ -334,7 +377,7 @@ let drinkQty   = {}    // id_receta → qty inline para bebidas
 let currentPg  = 'res'
 
 // Estado de la hoja de personalización
-let cz = { item:null, cartIdx:null, cantidad:1, quitados:[], extras:[], nota:'' }
+let cz = { item:null, cartIdx:null, cantidad:1, ingredientes:[], extras:[], salsas:[], nota:'' }
 
 // ── Branding ──────────────────────────────────────────────────────────────────
 function applyBranding() {
@@ -483,7 +526,7 @@ function addDrink(id) {
     same.cantidad += qty; same.importe = same.precio_base * same.cantidad
   } else {
     carrito.push({ id_receta:it.id_receta, nombre:it.nombre, precio_base:it.precio,
-      cantidad:qty, mods:{quitados:[],extras:[],nota:''}, importe:it.precio*qty })
+      cantidad:qty, mods:{ingredientes:[],extras:[],salsas:[],nota:''}, importe:it.precio*qty })
   }
   drinkQty[id] = 1
   const el = document.getElementById('dq-' + id); if (el) el.textContent = 1
@@ -500,62 +543,37 @@ function addDrink(id) {
 function getItemType(it) {
   if (it.categoria === 'Bebidas')          return 'drink'
   if (it.categoria === 'Acompañamientos')  return 'side'
-  return 'burger'  // Hamburguesas, Pollo
+  return 'burger'
+}
+
+// ¿El nombre de un extra se superpone con algún ingrediente? (tolerancia substring)
+function extraOverlapsIng(extraNombre, ingNombres) {
+  const ex = extraNombre.toLowerCase().trim()
+  return ingNombres.some(ing => { const i = ing.toLowerCase().trim(); return i.includes(ex) || ex.includes(i) })
 }
 
 async function abrirCz(idReceta, cartIdx = null) {
   const item = menuItems.find(x => x.id_receta === idReceta)
   if (!item) return
 
-  if (cartIdx !== null && carrito[cartIdx]) {
-    const c = carrito[cartIdx]
-    cz = { item, cartIdx, cantidad:c.cantidad,
-      quitados:[...c.mods.quitados], extras:c.mods.extras.map(e=>({...e})), nota:c.mods.nota }
-  } else {
-    cz = { item, cartIdx:null, cantidad:1, quitados:[], extras:[], nota:'' }
+  const savedMods = (cartIdx !== null && carrito[cartIdx]) ? carrito[cartIdx].mods : null
+  cz = {
+    item, cartIdx,
+    cantidad: (cartIdx !== null && carrito[cartIdx]) ? carrito[cartIdx].cantidad : 1,
+    ingredientes: [], extras: [], salsas: [],
+    nota: savedMods?.nota || ''
   }
 
   document.getElementById('cz-name').textContent = item.nombre
   document.getElementById('cz-cant').textContent = cz.cantidad
   document.getElementById('sheet-cz').classList.remove('hidden')
-  actualizarCzBtn()
 
   const type   = getItemType(item)
   const scroll = document.getElementById('cz-scroll')
-  scroll.innerHTML = ''
+  scroll.innerHTML = `<div class="sh-sec"><div class="load-c" style="padding:16px;"><div class="spinner" style="width:24px;height:24px;"></div></div></div>`
 
-  if (type === 'burger' || type === 'side') {
-    // Sección ingredientes — carga async
-    const ingDiv = document.createElement('div'); ingDiv.className = 'sh-sec'; ingDiv.id = 'ing-sec'
-    ingDiv.innerHTML = `<div class="sh-sec-ttl">Ingredientes</div><div class="load-c" style="padding:16px;" id="ing-spinner"><div class="spinner" style="width:24px;height:24px;"></div></div>`
-    scroll.appendChild(ingDiv)
-
-    // Extras (solo hamburguesas, con precio por chip)
-    if (type === 'burger' && modExtras.length) {
-      scroll.insertAdjacentHTML('beforeend', buildModSec('Extras', modExtras, false))
-    }
-    // Salsas (hamburguesas y papas, precio en título)
-    if (modSalsas.length) {
-      scroll.insertAdjacentHTML('beforeend', buildModSec('Salsas — $15 c/u', modSalsas, true))
-    }
-  }
-
-  // Nota (todos excepto bebidas puras)
   if (type !== 'drink') {
-    scroll.insertAdjacentHTML('beforeend', `
-      <div class="sh-sec">
-        <div class="sh-sec-ttl">Nota especial</div>
-        <textarea id="cz-nota" rows="2"
-          style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:10px;
-                 font-family:'DM Sans',sans-serif;font-size:14px;color:var(--text);
-                 background:var(--bg);resize:none;line-height:1.5;"
-          placeholder="Instrucción especial para cocina..."
-          oninput="cz.nota=this.value">${cz.nota||''}</textarea>
-      </div>`)
-  }
-
-  // Cargar ingredientes async
-  if (type !== 'drink') {
+    // Cargar ingredientes (con caché)
     if (!ingCache[idReceta]) {
       const { data } = await window._db
         .from('receta_ingredientes')
@@ -565,73 +583,142 @@ async function abrirCz(idReceta, cartIdx = null) {
         .eq('activo', true)
       ingCache[idReceta] = data || []
     }
-    // Verificar que la hoja sigue abierta para este ítem
-    if (cz.item?.id_receta !== idReceta) return
+    if (cz.item?.id_receta !== idReceta) return  // usuario navegó fuera
 
-    const ings    = ingCache[idReceta]
-    const ingSec  = document.getElementById('ing-sec')
-    if (!ingSec) return
+    const ings = ingCache[idReceta]
 
-    if (ings.length) {
-      ingSec.innerHTML = `<div class="sh-sec-ttl">Ingredientes — toca para quitar</div>
-        <div class="chip-grid">${ings.map(ing => {
-          const display = ing.productos?.nombre_corto || ing.producto
-          const isOff   = cz.quitados.includes(ing.producto)
-          return `<div class="chip${isOff?' off':''}" data-ing="${ing.producto}" data-disp="${display}"
-            onclick="toggleChip(this)">${isOff?'✕ ':''}${display}</div>`
-        }).join('')}</div>`
-    } else {
-      ingSec.remove()  // AJUSTE 2: sin ingredientes → ocultar sección completamente
+    // Inicializar ingredientes
+    cz.ingredientes = ings.map(ing => {
+      const id     = ing.id_producto || ing.producto
+      const nombre = ing.productos?.nombre_corto || ing.producto
+      const saved  = savedMods?.ingredientes?.find(s => s.id === id)
+      return { id, nombre, qty: saved?.qty ?? 1, on: saved?.on ?? true }
+    })
+
+    // Inicializar extras (solo burgers, filtrar duplicados de ingredientes)
+    if (type === 'burger') {
+      const ingNames = cz.ingredientes.map(i => i.nombre.toLowerCase())
+      cz.extras = modExtras
+        .filter(ex => !extraOverlapsIng(ex.nombre, ingNames))
+        .map(ex => {
+          const saved = savedMods?.extras?.find(s => s.id === ex.id_receta)
+          return { id: ex.id_receta, nombre: ex.nombre, precio: ex.precio, qty: saved?.qty ?? 0 }
+        })
     }
+
+    // Inicializar salsas
+    cz.salsas = (savedMods?.salsas || []).map(s => ({ id: s.id, nombre: s.nombre }))
+
+    // Construir cuerpo del sheet
+    scroll.innerHTML = ''
+    buildCzBody(type, scroll)
+  }
+
+  // Nota (no en bebidas)
+  if (type !== 'drink') {
+    scroll.insertAdjacentHTML('beforeend', `
+      <div class="sh-sec">
+        <div class="sh-sec-ttl">Nota especial</div>
+        <textarea id="cz-nota" rows="2"
+          style="width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:14px;
+                 font-family:'DM Sans',sans-serif;font-size:14px;font-weight:500;color:var(--text);
+                 background:var(--surface);resize:none;line-height:1.5;"
+          placeholder="Instrucción especial..."
+          oninput="cz.nota=this.value">${cz.nota||''}</textarea>
+      </div>`)
+  }
+
+  actualizarCzBtn()
+}
+
+function buildCzBody(type, scroll) {
+  // 1 — Ingredientes (si los hay)
+  if (cz.ingredientes.length) {
+    const rows = cz.ingredientes.map((ing, i) => `
+      <div class="cz-row ${ing.on?'on':'off'}" id="ing-row-${i}" onclick="toggleIngRow(${i})">
+        <div class="cz-row-body"><span class="cz-row-name">${ing.nombre}</span></div>
+        <div class="cz-row-qty" onclick="event.stopPropagation()">
+          <button class="qty-circ" onclick="adjIngQty(${i},-1)">−</button>
+          <span class="qty-n" id="ing-qty-${i}">${ing.qty}</span>
+          <button class="qty-circ" onclick="adjIngQty(${i},1)">+</button>
+        </div>
+      </div>`).join('')
+    scroll.insertAdjacentHTML('beforeend',
+      `<div class="sh-sec"><div class="sh-sec-ttl">Ingredientes</div>${rows}</div>`)
+  }
+
+  // 2 — Extras (solo burgers)
+  if (type === 'burger' && cz.extras.length) {
+    const rows = cz.extras.map((ex, i) => `
+      <div class="cz-row ${ex.qty>0?'on':'off'}" id="ext-row-${i}" onclick="toggleExtraRow(${i})">
+        <div class="cz-row-body">
+          <span class="cz-row-name">${ex.nombre}</span>
+          <span class="cz-row-price">+$${ex.precio}</span>
+        </div>
+        <div class="cz-row-qty" onclick="event.stopPropagation()">
+          <button class="qty-circ" onclick="adjExtraQty(${i},-1)">−</button>
+          <span class="qty-n" id="ext-qty-${i}">${ex.qty}</span>
+          <button class="qty-circ" onclick="adjExtraQty(${i},1)">+</button>
+        </div>
+      </div>`).join('')
+    scroll.insertAdjacentHTML('beforeend',
+      `<div class="sh-sec"><div class="sh-sec-ttl">Extras</div>${rows}</div>`)
+  }
+
+  // 3 — Salsas (burgers y sides) — chips pill 2/4 cols
+  if (modSalsas.length) {
+    const chips = modSalsas.map(sa => {
+      const label = sa.nombre.replace(/^Salsa\s+/i, '')
+      const isOn  = cz.salsas.some(s => s.id === sa.id_receta)
+      return `<div class="salsa-chip ${isOn?'on':'off'}" id="salsa-${sa.id_receta}"
+        onclick="toggleSalsa('${sa.id_receta}','${label}',${sa.precio||15})">${label}</div>`
+    }).join('')
+    scroll.insertAdjacentHTML('beforeend',
+      `<div class="sh-sec"><div class="sh-sec-ttl">Salsas — $15 c/u</div><div class="chip-grid-2">${chips}</div></div>`)
   }
 }
 
-// isSalsa=true → grid 2 cols, strip "Salsa " prefix, no price per chip
-// isSalsa=false → flex-wrap, show "+$precio" on each chip
-function buildModSec(title, mods, isSalsa) {
-  const gridClass = isSalsa ? 'chip-grid-2' : 'chip-grid'
-  return `<div class="sh-sec">
-    <div class="sh-sec-ttl">${title}</div>
-    <div class="${gridClass}">${mods.map(m => {
-      const isOn = cz.extras.some(e => e.id === m.id_receta)
-      let label
-      if (isSalsa) {
-        // Strip "Salsa " prefix → "Furia Original", "Hot Honey", etc.
-        label = m.nombre.replace(/^Salsa\s+/i, '')
-      } else {
-        // Extras: name + price hint
-        label = m.nombre + (m.precio > 0 ? ` <span style="opacity:.6;font-size:11px;">+$${m.precio}</span>` : '')
-      }
-      return `<div class="chip-mod${isOn?' on':''}" id="mod-${m.id_receta}"
-        onclick="toggleMod('${m.id_receta}')">${label}</div>`
-    }).join('')}</div>
-  </div>`
+// Ingredient row handlers
+function toggleIngRow(i) {
+  cz.ingredientes[i].on = !cz.ingredientes[i].on
+  const row = document.getElementById('ing-row-' + i)
+  if (row) row.className = 'cz-row ' + (cz.ingredientes[i].on ? 'on' : 'off')
+  actualizarCzBtn()
+}
+function adjIngQty(i, delta) {
+  if (!cz.ingredientes[i].on) return
+  cz.ingredientes[i].qty = Math.max(1, (cz.ingredientes[i].qty || 1) + delta)
+  const el = document.getElementById('ing-qty-' + i)
+  if (el) el.textContent = cz.ingredientes[i].qty
 }
 
-function toggleChip(el) {
-  el.classList.toggle('off')
-  const ing  = el.dataset.ing
-  const disp = el.dataset.disp
-  if (el.classList.contains('off')) {
-    el.textContent = '✕ ' + disp
-    if (!cz.quitados.includes(ing)) cz.quitados.push(ing)
-  } else {
-    el.textContent = disp
-    cz.quitados = cz.quitados.filter(q => q !== ing)
-  }
+// Extra row handlers
+function toggleExtraRow(i) {
+  cz.extras[i].qty = cz.extras[i].qty > 0 ? 0 : 1
+  const on  = cz.extras[i].qty > 0
+  const row = document.getElementById('ext-row-' + i)
+  if (row) row.className = 'cz-row ' + (on ? 'on' : 'off')
+  const el = document.getElementById('ext-qty-' + i)
+  if (el) el.textContent = cz.extras[i].qty
+  actualizarCzBtn()
+}
+function adjExtraQty(i, delta) {
+  cz.extras[i].qty = Math.max(0, (cz.extras[i].qty || 0) + delta)
+  const on  = cz.extras[i].qty > 0
+  const row = document.getElementById('ext-row-' + i)
+  if (row) row.className = 'cz-row ' + (on ? 'on' : 'off')
+  const el = document.getElementById('ext-qty-' + i)
+  if (el) el.textContent = cz.extras[i].qty
+  actualizarCzBtn()
 }
 
-function toggleMod(id) {
-  const def = [...modExtras, ...modSalsas].find(m => m.id_receta === id)
-  if (!def) return
-  const idx = cz.extras.findIndex(e => e.id === id)
-  if (idx >= 0) {
-    cz.extras.splice(idx, 1)              // ya estaba ON → apagar
-  } else {
-    cz.extras.push({ id, nombre:def.nombre, precio:def.precio })  // OFF → encender
-  }
-  const el = document.getElementById('mod-' + id)
-  if (el) el.classList.toggle('on', cz.extras.some(e => e.id === id))
+// Salsa chip handler
+function toggleSalsa(id, nombre, precio) {
+  const idx = cz.salsas.findIndex(s => s.id === id)
+  if (idx >= 0) cz.salsas.splice(idx, 1)
+  else cz.salsas.push({ id, nombre, precio: precio || 15 })
+  const el = document.getElementById('salsa-' + id)
+  if (el) el.className = 'salsa-chip ' + (cz.salsas.some(s => s.id === id) ? 'on' : 'off')
   actualizarCzBtn()
 }
 
@@ -642,26 +729,29 @@ function czCant(delta) {
 }
 
 function actualizarCzBtn() {
-  const extSum = cz.extras.reduce((s, e) => s + (e.precio || 0), 0)
-  const total  = ((cz.item?.precio || 0) + extSum) * cz.cantidad
-  const btn    = document.getElementById('cz-add-btn')
+  const extrasSum = cz.extras.filter(e => e.qty > 0).reduce((s, e) => s + e.precio * e.qty, 0)
+  const salsasSum = cz.salsas.reduce((s, sa) => s + (sa.precio || 15), 0)
+  const total     = ((cz.item?.precio || 0) + extrasSum + salsasSum) * cz.cantidad
+  const btn       = document.getElementById('cz-add-btn')
   if (btn) btn.textContent = (cz.cartIdx !== null ? 'Actualizar — ' : 'Agregar al pedido — ') + '$' + total
 }
 
 function guardarCz() {
   const notaEl = document.getElementById('cz-nota')
   if (notaEl) cz.nota = notaEl.value.trim()
-  const extSum  = cz.extras.reduce((s, e) => s + (e.precio || 0), 0)
-  const importe = ((cz.item?.precio||0) + extSum) * cz.cantidad
+  const extrasSum = cz.extras.filter(e => e.qty > 0).reduce((s, e) => s + e.precio * e.qty, 0)
+  const salsasSum = cz.salsas.reduce((s, sa) => s + (sa.precio || 15), 0)
+  const importe   = ((cz.item?.precio || 0) + extrasSum + salsasSum) * cz.cantidad
   const entry = {
-    id_receta:  cz.item.id_receta,
-    nombre:     cz.item.nombre,
-    precio_base:cz.item.precio,
-    cantidad:   cz.cantidad,
+    id_receta:   cz.item.id_receta,
+    nombre:      cz.item.nombre,
+    precio_base: cz.item.precio,
+    cantidad:    cz.cantidad,
     mods: {
-      quitados: [...cz.quitados],
-      extras:   cz.extras.map(e => ({ id:e.id, nombre:e.nombre, precio:e.precio })),
-      nota:     cz.nota,
+      ingredientes: cz.ingredientes.map(i => ({ id:i.id, nombre:i.nombre, qty:i.qty, on:i.on })),
+      extras:       cz.extras.filter(e => e.qty > 0).map(e => ({ id:e.id, nombre:e.nombre, precio:e.precio, qty:e.qty })),
+      salsas:       cz.salsas.map(s => ({ id:s.id, nombre:s.nombre })),
+      nota:         cz.nota,
     },
     importe,
   }
@@ -675,7 +765,7 @@ function guardarCz() {
 
 function cerrarCz() {
   document.getElementById('sheet-cz').classList.add('hidden')
-  cz = { item:null, cartIdx:null, cantidad:1, quitados:[], extras:[], nota:'' }
+  cz = { item:null, cartIdx:null, cantidad:1, ingredientes:[], extras:[], salsas:[], nota:'' }
 }
 
 // ── Carrito ───────────────────────────────────────────────────────────────────
@@ -713,9 +803,19 @@ function renderCart() {
   lines.innerHTML = ''
   carrito.forEach((item, idx) => {
     const parts = []
-    if (item.mods.quitados.length) parts.push('Sin: ' + item.mods.quitados.join(', '))
-    if (item.mods.extras.length) parts.push(item.mods.extras.map(e => e.nombre).join(', '))
-    if (item.mods.nota) parts.push('📝 ' + item.mods.nota)
+    const m = item.mods
+    // Ingredientes apagados → "Sin: x, y"
+    const sinIngr = (m.ingredientes||[]).filter(i => !i.on).map(i => i.nombre)
+    if (sinIngr.length) parts.push('Sin: ' + sinIngr.join(', '))
+    // Ingredientes dobles → "×2 nombre"
+    const dblIngr = (m.ingredientes||[]).filter(i => i.on && i.qty > 1).map(i => `×${i.qty} ${i.nombre}`)
+    if (dblIngr.length) parts.push(dblIngr.join(', '))
+    // Extras
+    const exA = (m.extras||[]).filter(e => (e.qty||0) > 0)
+    if (exA.length) parts.push(exA.map(e => (e.qty > 1 ? e.qty + '× ' : '') + e.nombre).join(', '))
+    // Salsas
+    if ((m.salsas||[]).length) parts.push(m.salsas.map(s => s.nombre).join(', '))
+    if (m.nota) parts.push('📝 ' + m.nota)
 
     const line = document.createElement('div'); line.className = 'cart-line'
     line.innerHTML = `
@@ -739,8 +839,10 @@ function renderCart() {
 
 function cartCant(idx, delta) {
   carrito[idx].cantidad = Math.max(1, carrito[idx].cantidad + delta)
-  const extSum = carrito[idx].mods.extras.reduce((s, e) => s + (e.precio || 0), 0)
-  carrito[idx].importe  = (carrito[idx].precio_base + extSum) * carrito[idx].cantidad
+  const m = carrito[idx].mods
+  const extrasSum = (m.extras||[]).filter(e => (e.qty||0) > 0).reduce((s,e) => s + e.precio * e.qty, 0)
+  const salsasSum = (m.salsas||[]).reduce((s, sa) => s + (sa.precio||15), 0)
+  carrito[idx].importe  = (carrito[idx].precio_base + extrasSum + salsasSum) * carrito[idx].cantidad
   renderCart(); updateCartBar()
 }
 
