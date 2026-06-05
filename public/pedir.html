@@ -247,19 +247,32 @@ html,body{
 .salsa-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;}
 @media(min-width:400px){.salsa-grid{grid-template-columns:repeat(3,1fr);}}
 .salsa-card{
-  border-radius:14px;padding:14px 8px 10px;cursor:pointer;
+  border-radius:16px;padding:12px 8px 10px;cursor:pointer;
   text-align:center;border:1.5px solid var(--border);
-  background:var(--surface);transition:all .15s;user-select:none;
-  display:flex;flex-direction:column;align-items:center;gap:3px;
+  background:var(--surface);transition:all .18s;user-select:none;
+  display:flex;flex-direction:column;align-items:center;gap:4px;
+  min-height:90px;justify-content:center;
 }
-.salsa-card:active{animation:bump .12s ease;}
-.salsa-card.on{background:var(--primary);border-color:var(--primary);}
-.sc-emoji{font-size:22px;line-height:1.3;}
-.salsa-card.on .sc-emoji{font-family:'Bebas Neue',cursive;font-size:28px;color:var(--on-pri);line-height:1.1;}
+.salsa-card:active{transform:scale(.96);}
+/* ON: background + border set inline per-salsa; text always white */
+.salsa-card.on .sc-name{color:#fff;}
+.salsa-card.on .sc-price{color:rgba(255,255,255,.7);}
+.sc-emoji{font-size:24px;line-height:1.3;}
 .sc-name{font-size:11px;font-weight:600;color:var(--text);}
-.salsa-card.on .sc-name{color:var(--on-pri);}
 .sc-price{font-size:10px;color:var(--muted);}
-.salsa-card.on .sc-price{color:var(--on-pri);opacity:.7;}
+/* Salsa counter controls (visible when ON) */
+.sc-controls{display:flex;align-items:center;gap:6px;margin-bottom:2px;}
+.sc-adj{
+  width:28px;height:28px;border-radius:50%;
+  border:1.5px solid rgba(255,255,255,.4);
+  background:rgba(255,255,255,.18);color:#fff;cursor:pointer;
+  font-size:16px;font-weight:700;line-height:1;
+  display:flex;align-items:center;justify-content:center;
+  transition:background .12s;flex-shrink:0;
+}
+.sc-adj:hover{background:rgba(255,255,255,.32);}
+.sc-adj:active{animation:bump .12s ease;}
+.sc-qty{font-family:'Bebas Neue',cursive;font-size:1.5rem;color:#fff;min-width:20px;text-align:center;line-height:1;}
 
 /* ── Cart sheet ───────────────────────────────────────────────────────────── */
 .cart-line{
@@ -883,23 +896,35 @@ function buildCzBody(type, scroll) {
       `<div class="sh-sec"><div class="sh-sec-ttl">Extras</div>${rows}</div>`)
   }
 
-  // 3 — Salsas (burgers y sides) — tarjetas de sabor
+  // 3 — Salsas (burgers y sides) — tarjetas de sabor diferenciadas
   if (modSalsas.length) {
     const cards = modSalsas.map(sa => {
-      const label  = sa.nombre.replace(/^Salsa\s+/i, '')
-      const entry  = cz.salsas.find(s => s.id === sa.id_receta)
-      const isOn   = !!entry
-      const emoji  = getSalsaEmoji(sa.nombre)
-      const precio = sa.precio || 15
+      const label    = sa.nombre.replace(/^Salsa\s+/i, '')
+      const entry    = cz.salsas.find(s => s.id === sa.id_receta)
+      const isOn     = !!entry
+      const precio   = sa.precio || 15
+      const safeName = sa.nombre.replace(/'/g, "\\'")
+      const colorStyle = isOn ? `style="background:${getSalsaColor(sa.nombre)};border-color:${getSalsaColor(sa.nombre)};"` : ''
+      const inner = isOn
+        ? `<div class="sc-controls">
+             <button class="sc-adj" onclick="event.stopPropagation();adjSalsaQty('${sa.id_receta}','${safeName}',${precio},-1)">−</button>
+             <span class="sc-qty">${entry.cantidad}</span>
+             <button class="sc-adj" onclick="event.stopPropagation();adjSalsaQty('${sa.id_receta}','${safeName}',${precio},1)">+</button>
+           </div>
+           <span class="sc-name">${label}</span>
+           <span class="sc-price">+$${precio}</span>`
+        : `<span class="sc-emoji">${getSalsaEmoji(sa.nombre)}</span>
+           <span class="sc-name">${label}</span>
+           <span class="sc-price">+$${precio}</span>`
       return `<div class="salsa-card ${isOn?'on':'off'}" id="salsa-card-${sa.id_receta}"
-          onclick="toggleSalsa('${sa.id_receta}','${sa.nombre.replace(/'/g,"\\'")}',${precio})">
-          <span class="sc-emoji">${isOn ? String(entry.cantidad) : emoji}</span>
-          <span class="sc-name">${label}</span>
-          <span class="sc-price">+$${precio}</span>
-        </div>`
+        ${colorStyle}
+        onclick="activarSalsa('${sa.id_receta}','${safeName}',${precio})">${inner}</div>`
     }).join('')
     scroll.insertAdjacentHTML('beforeend',
-      `<div class="sh-sec"><div class="sh-sec-ttl">Salsas</div><div class="salsa-grid">${cards}</div></div>`)
+      `<div class="sh-sec" style="border-top:1px solid var(--border);padding-top:20px;margin-top:4px;">
+        <div class="sh-sec-ttl">Salsas — $15 c/u</div>
+        <div class="salsa-grid">${cards}</div>
+      </div>`)
   }
 }
 
@@ -937,34 +962,74 @@ function adjExtraQty(i, delta) {
   actualizarCzBtn()
 }
 
-// Salsa emoji helper
+// Salsa helpers
 function getSalsaEmoji(nombre) {
   const n = nombre.toLowerCase()
-  if (n.includes('furia'))                        return '🔥'
-  if (n.includes('ranch'))                        return '🌿'
-  if (n.includes('bbq'))                          return '🍖'
-  if (n.includes('hot honey'))                    return '🍯🌶'
+  if (n.includes('hot honey'))                      return '🍯🌶'
+  if (n.includes('furia'))                          return '🔥'
+  if (n.includes('ranch'))                          return '🌿'
+  if (n.includes('bbq'))                            return '🍖'
   if (n.includes('honey') || n.includes('mustard')) return '🍯'
   return '🧄'
 }
+function getSalsaColor(nombre) {
+  const n = nombre.toLowerCase()
+  if (n.includes('hot honey')) return '#E67E22'
+  if (n.includes('furia'))     return '#C0392B'
+  if (n.includes('ranch'))     return '#27AE60'
+  if (n.includes('bbq'))       return '#6D4C41'
+  if (n.includes('honey') || n.includes('mustard')) return '#F39C12'
+  return '#555555'
+}
 
-// Salsa card handler
-function toggleSalsa(id, nombre, precio) {
-  const idx = cz.salsas.findIndex(s => s.id === id)
-  if (idx >= 0) {
-    cz.salsas[idx].cantidad = (cz.salsas[idx].cantidad || 1) + 1
-    if (cz.salsas[idx].cantidad > 3) cz.salsas.splice(idx, 1)
+// Render the inner HTML of a salsa card (and set inline style)
+function updateSalsaCard(card, sa, entry) {
+  const label  = sa.nombre.replace(/^Salsa\s+/i, '')
+  const precio = sa.precio || 15
+  const isOn   = !!entry
+  card.className = 'salsa-card ' + (isOn ? 'on' : 'off')
+  if (isOn) {
+    const color = getSalsaColor(sa.nombre)
+    card.style.background   = color
+    card.style.borderColor  = color
+    const safeName = sa.nombre.replace(/'/g, "\\'")
+    card.innerHTML = `
+      <div class="sc-controls">
+        <button class="sc-adj" onclick="event.stopPropagation();adjSalsaQty('${sa.id_receta}','${safeName}',${precio},-1)">−</button>
+        <span class="sc-qty">${entry.cantidad}</span>
+        <button class="sc-adj" onclick="event.stopPropagation();adjSalsaQty('${sa.id_receta}','${safeName}',${precio},1)">+</button>
+      </div>
+      <span class="sc-name">${label}</span>
+      <span class="sc-price">+$${precio}</span>`
   } else {
-    cz.salsas.push({ id, nombre, precio: precio || 15, cantidad: 1 })
+    card.style.background  = ''
+    card.style.borderColor = ''
+    card.innerHTML = `
+      <span class="sc-emoji">${getSalsaEmoji(sa.nombre)}</span>
+      <span class="sc-name">${label}</span>
+      <span class="sc-price">+$${precio}</span>`
   }
+}
+
+// Activate salsa (tap on OFF card)
+function activarSalsa(id, nombre, precio) {
+  if (cz.salsas.find(s => s.id === id)) return  // ya está ON
+  cz.salsas.push({ id, nombre, precio: precio || 15, cantidad: 1 })
   const card = document.getElementById('salsa-card-' + id)
-  if (card) {
-    const entry  = cz.salsas.find(s => s.id === id)
-    const isOn   = !!entry
-    card.className = 'salsa-card ' + (isOn ? 'on' : 'off')
-    const emojiEl  = card.querySelector('.sc-emoji')
-    if (emojiEl) emojiEl.textContent = isOn ? String(entry.cantidad) : getSalsaEmoji(nombre)
-  }
+  const sa   = modSalsas.find(s => s.id_receta === id)
+  if (card && sa) updateSalsaCard(card, sa, cz.salsas.find(s => s.id === id))
+  actualizarCzBtn()
+}
+
+// Adjust salsa quantity (from − / + buttons)
+function adjSalsaQty(id, nombre, precio, delta) {
+  const idx = cz.salsas.findIndex(s => s.id === id)
+  if (idx < 0) return
+  cz.salsas[idx].cantidad = Math.max(0, Math.min(9, cz.salsas[idx].cantidad + delta))
+  if (cz.salsas[idx].cantidad === 0) cz.salsas.splice(idx, 1)
+  const card = document.getElementById('salsa-card-' + id)
+  const sa   = modSalsas.find(s => s.id_receta === id)
+  if (card && sa) updateSalsaCard(card, sa, cz.salsas.find(s => s.id === id))
   actualizarCzBtn()
 }
 
@@ -1063,6 +1128,7 @@ function renderCart() {
     if ((m.salsas||[]).length) parts.push(m.salsas.map(s => s.nombre).join(', '))
     if (m.nota) parts.push('📝 ' + m.nota)
 
+    const esBebida = menuItems.some(m => m.id_receta === item.id_receta && m.categoria === 'Bebidas')
     const line = document.createElement('div'); line.className = 'cart-line'
     line.innerHTML = `
       <div class="cl-body">
@@ -1074,7 +1140,7 @@ function renderCart() {
             <span class="stval">${item.cantidad}</span>
             <button class="stbtn plus" onclick="cartCant(${idx},1)">+</button>
           </div>
-          <button class="btn-out" onclick="editarCart(${idx})">✏️ Editar</button>
+          ${esBebida ? '' : `<button class="btn-out" onclick="editarCart(${idx})">✏️ Editar</button>`}
           <button class="btn-ghost" style="color:#C00;font-size:18px;" onclick="quitarCart(${idx})">✕</button>
         </div>
       </div>
@@ -1087,7 +1153,7 @@ function cartCant(idx, delta) {
   carrito[idx].cantidad = Math.max(1, carrito[idx].cantidad + delta)
   const m = carrito[idx].mods
   const extrasSum = (m.extras||[]).filter(e => (e.qty||0) > 0).reduce((s,e) => s + e.precio * e.qty, 0)
-  const salsasSum = (m.salsas||[]).reduce((s, sa) => s + (sa.precio||15), 0)
+  const salsasSum = (m.salsas||[]).reduce((s, sa) => s + (sa.cantidad||1) * (sa.precio||15), 0)
   carrito[idx].importe  = (carrito[idx].precio_base + extrasSum + salsasSum) * carrito[idx].cantidad
   renderCart(); updateCartBar()
 }
