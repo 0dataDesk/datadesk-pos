@@ -1218,8 +1218,8 @@ function generarFolio() {
 function irPago() {
   cerrarCart()
 
-  // Generar folio y PIN para esta orden
-  ordenActual = { folio: generarFolio(), pin: generarPin() }
+  // Generar folio y PIN para esta orden (waMensaje se agrega más abajo)
+  ordenActual = { folio: generarFolio(), pin: generarPin(), waMensaje: '' }
 
   const total = carrito.reduce((s, i) => s + i.importe, 0)
   const esDomicilio = sesionCliente.tipo_entrega === 'domicilio'
@@ -1228,16 +1228,56 @@ function irPago() {
     ? `<div style="font-size:13px;color:var(--muted);margin-top:4px;line-height:1.5;">${sesionCliente.direccion_entrega}</div>`
     : ''
 
-  const lineas = carrito.map(it => `
-    <div style="display:flex;justify-content:space-between;align-items:baseline;
-                padding:8px 0;border-bottom:1px solid var(--border);">
-      <span style="font-size:14px;color:var(--text);flex:1;">
-        ${it.nombre}
-        <span style="color:var(--muted);font-size:13px;"> × ${it.cantidad}</span>
-      </span>
-      <span style="font-family:'Bebas Neue',cursive;font-size:1.15rem;
-                   color:var(--primary);white-space:nowrap;margin-left:12px;">$${it.importe}</span>
-    </div>`).join('')
+  // Helper: construye array de strings de modificaciones de un ítem
+  function modsDeItem(m) {
+    const lines = []
+    const sinIngr = (m.ingredientes||[]).filter(i => !i.on).map(i => i.nombre)
+    if (sinIngr.length) lines.push('Sin: ' + sinIngr.join(', '))
+    const dblIngr = (m.ingredientes||[]).filter(i => i.on && i.qty > 1).map(i => `×${i.qty} ${i.nombre}`)
+    if (dblIngr.length) lines.push(dblIngr.join(', '))
+    const exA = (m.extras||[]).filter(e => (e.qty||0) > 0)
+    if (exA.length) lines.push(exA.map(e => '+ ' + (e.qty > 1 ? `${e.qty}× ` : '') + e.nombre).join(', '))
+    const salsas = (m.salsas||[]).filter(s => (s.cantidad||1) > 0)
+    if (salsas.length) lines.push(salsas.map(s => s.nombre + (s.cantidad > 1 ? ` ×${s.cantidad}` : '')).join(', '))
+    if (m.nota) lines.push('📝 ' + m.nota)
+    return lines
+  }
+
+  const lineas = carrito.map(it => {
+    const mLines = modsDeItem(it.mods)
+    const modsHtml = mLines.length
+      ? mLines.map(l => `<div style="font-size:11px;color:var(--muted);margin-top:2px;margin-left:12px;">${l}</div>`).join('')
+      : ''
+    return `
+    <div style="padding:8px 0;border-bottom:1px solid var(--border);">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;">
+        <span style="font-size:14px;color:var(--text);flex:1;">
+          ${it.nombre}
+          <span style="color:var(--muted);font-size:13px;"> × ${it.cantidad}</span>
+        </span>
+        <span style="font-family:'Bebas Neue',cursive;font-size:1.15rem;
+                     color:var(--primary);white-space:nowrap;margin-left:12px;">$${it.importe}</span>
+      </div>
+      ${modsHtml}
+    </div>`
+  }).join('')
+
+  // Mensaje WA (gancho para cuando se active el botón)
+  const waLineas = carrito.map(it => {
+    const mLines = modsDeItem(it.mods)
+    const modsText = mLines.length ? '\n' + mLines.map(l => '    ' + l).join('\n') : ''
+    return `• ${it.nombre} ×${it.cantidad} — $${it.importe}${modsText}`
+  }).join('\n')
+  const waMensaje = [
+    `*${POS.BRANDING.nombre} — Pedido ${ordenActual.folio}*`,
+    `Entrega: ${tipoLabel}`,
+    esDomicilio && sesionCliente.direccion_entrega ? sesionCliente.direccion_entrega : '',
+    '',
+    waLineas,
+    '',
+    `*Total: $${total}*`,
+  ].filter(l => l !== null && l !== undefined).join('\n').trim()
+  ordenActual.waMensaje = waMensaje
 
   document.getElementById('bot-nav').classList.add('hidden')
   document.getElementById('main-content').innerHTML = `
