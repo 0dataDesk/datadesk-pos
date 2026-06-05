@@ -611,6 +611,9 @@ let carrito    = []    // líneas del carrito
 let drinkQty   = {}    // id_receta → qty inline para bebidas
 let currentPg  = 'res'
 
+// Orden activa (folio + pin generados al confirmar)
+let ordenActual = null
+
 // Estado de la hoja de personalización
 let cz = { item:null, cartIdx:null, cantidad:1, ingredientes:[], extras:[], salsas:[], nota:'' }
 
@@ -1202,21 +1205,136 @@ async function editarCart(idx) {
   await abrirCz(carrito[idx].id_receta, idx)
 }
 
-// ── Pago (stub) ───────────────────────────────────────────────────────────────
+// ── Generadores de folio y PIN ────────────────────────────────────────────────
+function generarPin() {
+  return Math.floor(1000 + Math.random() * 9000).toString()
+}
+function generarFolio() {
+  const n = String(Date.now() % 100000).padStart(5, '0')
+  return (POS.BRANDING.nombre.slice(0,3).toUpperCase()) + '-' + n
+}
+
+// ── Ticket de orden ───────────────────────────────────────────────────────────
 function irPago() {
   cerrarCart()
+
+  // Generar folio y PIN para esta orden
+  ordenActual = { folio: generarFolio(), pin: generarPin() }
+
+  const total = carrito.reduce((s, i) => s + i.importe, 0)
+  const esDomicilio = sesionCliente.tipo_entrega === 'domicilio'
+  const tipoLabel   = esDomicilio ? '🛵 A domicilio' : '🏠 En barra'
+  const dirHtml     = esDomicilio && sesionCliente.direccion_entrega
+    ? `<div style="font-size:13px;color:var(--muted);margin-top:4px;line-height:1.5;">${sesionCliente.direccion_entrega}</div>`
+    : ''
+
+  const lineas = carrito.map(it => `
+    <div style="display:flex;justify-content:space-between;align-items:baseline;
+                padding:8px 0;border-bottom:1px solid var(--border);">
+      <span style="font-size:14px;color:var(--text);flex:1;">
+        ${it.nombre}
+        <span style="color:var(--muted);font-size:13px;"> × ${it.cantidad}</span>
+      </span>
+      <span style="font-family:'Bebas Neue',cursive;font-size:1.15rem;
+                   color:var(--primary);white-space:nowrap;margin-left:12px;">$${it.importe}</span>
+    </div>`).join('')
+
   document.getElementById('bot-nav').classList.add('hidden')
   document.getElementById('main-content').innerHTML = `
-    <div class="pago-view">
-      <div style="font-size:64px;">🚧</div>
-      <h2>Pago próximamente</h2>
-      <p>Esta sección estará disponible muy pronto.<br>Tu pedido está guardado.</p>
-      <button class="btn-pri" style="margin-top:32px;max-width:260px;" onclick="volverMenu()">← Volver al menú</button>
+    <div style="max-width:420px;margin:32px auto 80px;padding:0 4px;">
+
+      <!-- Ticket card -->
+      <div style="background:var(--surface);border-radius:20px;
+                  box-shadow:0 4px 24px rgba(61,0,20,.12);
+                  border:1px solid var(--border);overflow:hidden;">
+
+        <!-- Cabecera -->
+        <div style="background:var(--primary);padding:24px 24px 20px;text-align:center;">
+          <div style="font-family:'Bebas Neue',cursive;font-size:2rem;
+                      letter-spacing:3px;color:var(--on-pri);line-height:1;">
+            ${POS.BRANDING.nombre.toUpperCase()}
+          </div>
+          <div style="font-size:13px;color:var(--on-pri);opacity:.75;margin-top:4px;">
+            Tu pedido está listo para confirmar
+          </div>
+        </div>
+
+        <!-- Folio + tipo -->
+        <div style="padding:18px 24px 14px;border-bottom:1px solid var(--border);">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+            <div>
+              <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;
+                          text-transform:uppercase;color:var(--muted);margin-bottom:4px;">Folio</div>
+              <div style="font-family:'Bebas Neue',cursive;font-size:1.6rem;
+                          color:var(--primary);letter-spacing:1px;">${ordenActual.folio}</div>
+            </div>
+            <div style="text-align:right;">
+              <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;
+                          text-transform:uppercase;color:var(--muted);margin-bottom:4px;">Entrega</div>
+              <div style="font-size:15px;font-weight:600;color:var(--text);">${tipoLabel}</div>
+              ${dirHtml}
+            </div>
+          </div>
+        </div>
+
+        <!-- Líneas del pedido -->
+        <div style="padding:4px 24px 8px;">
+          ${lineas}
+        </div>
+
+        <!-- Total -->
+        <div style="padding:14px 24px 18px;border-top:1px solid var(--border);
+                    display:flex;justify-content:space-between;align-items:baseline;">
+          <span style="font-family:'Bebas Neue',cursive;font-size:1.3rem;
+                       letter-spacing:1px;color:var(--text);">Total</span>
+          <span style="font-family:'Bebas Neue',cursive;font-size:2rem;
+                       color:var(--primary);">$${total}</span>
+        </div>
+
+        <!-- PIN oculto -->
+        <div style="background:var(--pdim);border-top:1px solid var(--border);
+                    padding:16px 24px;text-align:center;">
+          <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;
+                      text-transform:uppercase;color:var(--muted);margin-bottom:8px;">
+            Contraseña de entrega
+          </div>
+          <div style="font-family:'Bebas Neue',cursive;font-size:2rem;
+                      letter-spacing:12px;color:var(--primary);line-height:1;">
+            ★ ★ ★ ★
+          </div>
+          <div style="font-size:12px;color:var(--muted);margin-top:8px;font-style:italic;">
+            Se enviará por WhatsApp al confirmar
+          </div>
+        </div>
+
+      </div><!-- /ticket card -->
+
+      <!-- Acciones -->
+      <div style="display:flex;flex-direction:column;gap:12px;margin-top:20px;">
+        <button class="btn-pri full" disabled data-wa-ready="false"
+          style="opacity:.5;cursor:not-allowed;">
+          Enviar por WhatsApp 📲
+        </button>
+        <button class="btn-ghost" style="font-size:15px;padding:10px;"
+          onclick="resetSesion()">
+          ← Volver al menú
+        </button>
+      </div>
+
     </div>`
 }
 
-function volverMenu() {
+// ── Reset de sesión ───────────────────────────────────────────────────────────
+function resetSesion() {
+  carrito      = []
+  ordenActual  = null
+  document.getElementById('bot-nav').classList.remove('hidden')
+  updateCartBar()
   goPage(currentPg)
+}
+
+function volverMenu() {
+  resetSesion()
 }
 
 // ── Flujo de identificación ────────────────────────────────────────────────────
