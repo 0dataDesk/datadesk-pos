@@ -7,6 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <style>
 /* ── Reset ─────────────────────────────────────────────────────────────────── */
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
@@ -275,10 +276,180 @@ html,body{
 .pago-view{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;text-align:center;padding:40px 20px;}
 .pago-view h2{font-family:'Bebas Neue',cursive;font-size:2.5rem;letter-spacing:2px;color:var(--primary);margin:16px 0 10px;}
 .pago-view p {color:var(--muted);font-size:15px;max-width:280px;line-height:1.6;}
+
+/* ── Intake screens (P1, P2, P3, bloq) ───────────────────────────────────── */
+.fullscreen{
+  min-height:100vh;background:var(--bg);
+  display:flex;flex-direction:column;
+  padding:0 20px;
+  animation:fadeIn .3s ease;
+}
+.intake-inner{
+  width:100%;max-width:440px;margin:0 auto;
+  padding:56px 0 48px;
+  display:flex;flex-direction:column;align-items:center;
+}
+.intake-logo{margin-bottom:16px;}
+.intake-title{
+  font-family:'Bebas Neue',cursive;
+  font-size:clamp(2.4rem,8vw,3.2rem);letter-spacing:2px;
+  color:var(--primary);text-align:center;line-height:1;margin-bottom:8px;
+}
+.intake-sub{
+  font-size:14px;color:var(--muted);text-align:center;
+  margin-bottom:28px;line-height:1.6;
+}
+.intake-card{
+  background:var(--surface);border-radius:18px;padding:22px;
+  box-shadow:var(--shadow);width:100%;
+  display:flex;flex-direction:column;gap:16px;margin-bottom:14px;
+}
+.intake-field label{
+  display:block;font-size:11px;font-weight:700;letter-spacing:1.5px;
+  text-transform:uppercase;color:var(--muted);margin-bottom:8px;
+}
+.intake-input{
+  width:100%;background:var(--bg);border:1.5px solid var(--border);border-radius:12px;
+  padding:13px 16px;font-size:16px;font-family:'DM Sans',sans-serif;
+  font-weight:500;color:var(--text);transition:border-color .2s;
+}
+.intake-input:focus{border-color:rgba(61,0,20,.35);outline:none;}
+textarea.intake-input{resize:none;line-height:1.5;}
+.intake-hint{font-size:13px;color:var(--muted);line-height:1.5;text-align:center;margin-top:4px;}
+.intake-err{
+  background:rgba(200,0,0,.06);border:1px solid rgba(200,0,0,.2);
+  border-radius:10px;padding:10px 14px;font-size:13px;color:#B00020;
+  width:100%;margin-top:6px;
+}
+.btn-back{
+  align-self:flex-start;background:none;border:none;cursor:pointer;
+  color:var(--muted);font-family:'DM Sans',sans-serif;font-size:14px;
+  display:flex;align-items:center;gap:6px;padding:0 0 20px;transition:color .15s;
+}
+.btn-back:hover{color:var(--text);}
+.btn-pri:disabled{opacity:.5;cursor:not-allowed;}
+
+/* P2 — delivery type grid */
+.tipo-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;width:100%;}
+@media(max-width:360px){.tipo-grid{grid-template-columns:1fr;}}
+.tipo-card{
+  background:var(--surface);border-radius:18px;padding:28px 14px;
+  box-shadow:var(--shadow);cursor:pointer;text-align:center;
+  transition:all .15s ease;border:1.5px solid var(--border);
+  font-family:'DM Sans',sans-serif;
+}
+.tipo-card:hover{border-color:var(--primary);background:var(--pdim);transform:translateY(-2px);}
+.tipo-card:active{transform:scale(.97);}
+.tc-icon {font-size:40px;display:block;margin-bottom:10px;}
+.tc-title{font-family:'Bebas Neue',cursive;font-size:1.4rem;letter-spacing:2px;color:var(--primary);display:block;}
+.tc-desc {font-size:12px;color:var(--muted);margin-top:4px;display:block;}
+
+/* P3 — Leaflet map */
+#mapa-entrega{
+  width:100%;height:300px;border-radius:14px;overflow:hidden;
+  box-shadow:0 4px 18px rgba(61,0,20,.12);margin-bottom:10px;
+}
+.zona-status{
+  font-size:13px;font-weight:600;padding:8px 14px;border-radius:8px;
+  text-align:center;margin-bottom:14px;width:100%;
+}
+.zona-status.ok {background:rgba(34,197,94,.1);color:#166534;}
+.zona-status.err{background:rgba(200,0,0,.08);color:#B00020;}
+
+/* Blocking screen */
+.bloq-content{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  text-align:center;min-height:80vh;padding:32px;max-width:360px;margin:0 auto;
+}
+.bloq-icon {font-size:60px;margin-bottom:20px;}
+.bloq-title{
+  font-family:'Bebas Neue',cursive;font-size:2.2rem;letter-spacing:2px;
+  color:var(--primary);margin-bottom:14px;line-height:1;
+}
+.bloq-msg{font-size:15px;color:var(--muted);line-height:1.7;margin-bottom:32px;}
   </style>
 </head>
 <body>
-<div id="app">
+
+<!-- ── SCREEN 1: IDENTIFICACIÓN + VALIDACIÓN DE ZONA ─────────────────────── -->
+<div id="screen-id" class="fullscreen">
+  <div class="intake-inner">
+    <div class="intake-logo" id="p1-logo"></div>
+    <h1 class="intake-title">Bienvenido</h1>
+    <p class="intake-sub">Tu pedido, directo desde aquí</p>
+    <div class="intake-card">
+      <div class="intake-field">
+        <label for="p1-nombre">Tu nombre</label>
+        <input class="intake-input" type="text" id="p1-nombre"
+          placeholder="¿Cómo te llamamos?" autocomplete="given-name">
+      </div>
+      <div class="intake-field">
+        <label for="p1-cel">WhatsApp</label>
+        <input class="intake-input" type="tel" id="p1-cel"
+          placeholder="10 dígitos" maxlength="10" inputmode="numeric"
+          oninput="this.value=this.value.replace(/\D/g,'').slice(0,10)">
+      </div>
+    </div>
+    <p class="intake-hint">Te pediremos permiso para usar tu ubicación.<br>Solo entregamos dentro de nuestra zona de cobertura.</p>
+    <div class="intake-err hidden" id="p1-err"></div>
+    <button class="btn-pri full" id="p1-btn" onclick="continuar_p1()"
+      style="margin-top:20px;">Continuar →</button>
+  </div>
+</div>
+
+<!-- ── SCREEN 2: TIPO DE ENTREGA ─────────────────────────────────────────── -->
+<div id="screen-tipo" class="fullscreen hidden">
+  <div class="intake-inner">
+    <button class="btn-back" onclick="mostrarPantalla('screen-id')">← Atrás</button>
+    <div class="intake-logo" id="p2-logo"></div>
+    <h1 class="intake-title" id="p2-saludo">¡Hola!</h1>
+    <p class="intake-sub">¿Cómo lo quieres?</p>
+    <div class="tipo-grid">
+      <button class="tipo-card" onclick="elegirTipoEntrega('barra')">
+        <span class="tc-icon">🏠</span>
+        <span class="tc-title">En barra</span>
+        <span class="tc-desc">Recoge en el mostrador</span>
+      </button>
+      <button class="tipo-card" onclick="elegirTipoEntrega('domicilio')">
+        <span class="tc-icon">🛵</span>
+        <span class="tc-title">A domicilio</span>
+        <span class="tc-desc">Lo llevamos contigo</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ── SCREEN 3: MAPA DE ENTREGA ─────────────────────────────────────────── -->
+<div id="screen-mapa" class="fullscreen hidden">
+  <div class="intake-inner" style="max-width:520px;">
+    <button class="btn-back" onclick="mostrarPantalla('screen-tipo')">← Atrás</button>
+    <h1 class="intake-title" style="margin-top:4px;">¿Dónde te lo llevamos?</h1>
+    <p class="intake-sub">Arrastra el pin a tu ubicación exacta.</p>
+    <div id="mapa-entrega"></div>
+    <div class="zona-status err" id="zona-status">Mueve el pin para indicar tu ubicación</div>
+    <div class="intake-card" style="margin-bottom:14px;">
+      <div class="intake-field">
+        <label for="p3-referencias">Referencias (opcional)</label>
+        <textarea class="intake-input" id="p3-referencias" rows="3"
+          placeholder="Depto, timbre, color de fachada, instrucciones para el repartidor"></textarea>
+      </div>
+    </div>
+    <button class="btn-pri full" id="btn-continuar-mapa"
+      onclick="continuar_p3()" disabled>Continuar al menú →</button>
+  </div>
+</div>
+
+<!-- ── SCREEN BLOQUEO (zona / permiso / error) ────────────────────────────── -->
+<div id="screen-bloq" class="fullscreen hidden">
+  <div class="bloq-content">
+    <div class="bloq-icon" id="bloq-icon">📍</div>
+    <h2 class="bloq-title" id="bloq-title">Sin cobertura</h2>
+    <p class="bloq-msg"  id="bloq-msg"></p>
+    <button class="btn-pri hidden" id="bloq-btn" style="max-width:260px;">Reintentar</button>
+  </div>
+</div>
+
+<div id="app" class="hidden">
 
   <!-- ── HEADER ─────────────────────────────────────────────────────────── -->
   <header class="site-hdr">
@@ -353,6 +524,7 @@ html,body{
   </div>
 </div>
 
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="src/config.js"></script>
 <script src="src/supabase.js"></script>
@@ -379,6 +551,21 @@ let currentPg  = 'res'
 // Estado de la hoja de personalización
 let cz = { item:null, cartIdx:null, cantidad:1, ingredientes:[], extras:[], salsas:[], nota:'' }
 
+// ── Estado de identificación + entrega ────────────────────────────────────────
+let cfg = {}   // filas de config_pos
+const sesionCliente = {
+  nombre:'', celular:'', tipo_entrega:'',
+  cliente_lat:null, cliente_lng:null,
+  entrega_lat:null, entrega_lng:null, direccion_entrega:''
+}
+// Control de carga del menú
+let menuDataReady  = false
+let menuLoadPromise = null
+// Leaflet map (P3)
+let leafletMap    = null
+let leafletMarker = null
+let pinLat = null, pinLng = null, pinInZone = false
+
 // ── Branding ──────────────────────────────────────────────────────────────────
 function applyBranding() {
   const p = POS.BRANDING.primaryColor  // ej. '#3D0014'
@@ -402,6 +589,8 @@ function applyBranding() {
     <div class="logo-box" style="width:${sz*.72}px;height:${sz*.72}px;font-size:${sz*.44}px;">${ltr}</div>
     <span class="logo-name" style="font-size:${sz}px;">${N.toUpperCase()}</span>`
   document.getElementById('hdr-logo').innerHTML = mkLogo(36)
+  document.getElementById('p1-logo').innerHTML  = mkLogo(48)
+  document.getElementById('p2-logo').innerHTML  = mkLogo(36)
 }
 
 // ── Carga de datos ────────────────────────────────────────────────────────────
@@ -431,10 +620,10 @@ async function cargarMenu() {
     modExtras = all.filter(r => r.categoria === 'Extras')
     modSalsas = all.filter(r => r.categoria === 'Salsas')
     menuItems = all.filter(r => MENU_CATS.includes(r.categoria))
-
-    goPage('res')
+    menuDataReady = true
   } catch(e) {
     document.getElementById('main-content').innerHTML = `<div class="err-box">Error al cargar el menú: ${e.message}</div>`
+    // No re-throw: promise resolves even on error
   }
 }
 
@@ -873,10 +1062,215 @@ function volverMenu() {
   goPage(currentPg)
 }
 
+// ── Flujo de identificación ────────────────────────────────────────────────────
+
+// Haversine distance (km)
+function haversine(lat1, lng1, lat2, lng2) {
+  const R = 6371
+  const dLat = (lat2 - lat1) * Math.PI / 180
+  const dLng = (lng2 - lng1) * Math.PI / 180
+  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)**2
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a))
+}
+
+// Screen switcher (hides all intake screens + app, shows one)
+function mostrarPantalla(id) {
+  ;['screen-id','screen-tipo','screen-mapa','screen-bloq'].forEach(s => {
+    document.getElementById(s).classList.toggle('hidden', s !== id)
+  })
+  document.getElementById('app').classList.add('hidden')
+}
+
+// Show the main menu app (hides all intake screens)
+function entrarAlMenu() {
+  ;['screen-id','screen-tipo','screen-mapa','screen-bloq'].forEach(s => {
+    document.getElementById(s).classList.add('hidden')
+  })
+  document.getElementById('app').classList.remove('hidden')
+  if (menuDataReady) {
+    goPage('res')
+  } else {
+    // Show spinner while menu data finishes loading
+    document.getElementById('main-content').innerHTML = '<div class="load-c"><div class="spinner"></div></div>'
+    document.getElementById('bot-nav').classList.add('hidden')
+    menuLoadPromise.then(() => {
+      document.getElementById('bot-nav').classList.remove('hidden')
+      goPage('res')
+    })
+  }
+}
+
+// ── P1: Identificación ────────────────────────────────────────────────────────
+function continuar_p1() {
+  const nombre = document.getElementById('p1-nombre').value.trim()
+  const cel    = document.getElementById('p1-cel').value.trim()
+  const err    = document.getElementById('p1-err')
+  err.classList.add('hidden')
+
+  if (!nombre) { err.textContent = 'Ingresa tu nombre.'; err.classList.remove('hidden'); return }
+  if (!/^\d{10}$/.test(cel)) { err.textContent = 'WhatsApp debe tener 10 dígitos.'; err.classList.remove('hidden'); return }
+
+  sesionCliente.nombre  = nombre
+  sesionCliente.celular = cel
+
+  const btn = document.getElementById('p1-btn')
+  btn.disabled = true; btn.textContent = 'Verificando ubicación...'
+
+  if (!navigator.geolocation) {
+    btn.disabled = false; btn.textContent = 'Continuar →'
+    mostrarBloqueo('error'); return
+  }
+
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      btn.disabled = false; btn.textContent = 'Continuar →'
+      const { latitude: lat, longitude: lng } = pos.coords
+      sesionCliente.cliente_lat = lat
+      sesionCliente.cliente_lng = lng
+
+      // Validar zona si config_pos lo tiene
+      if (cfg.punto_cero_lat && cfg.punto_cero_lng && cfg.radio_km) {
+        const dist = haversine(cfg.punto_cero_lat, cfg.punto_cero_lng, lat, lng)
+        if (dist > cfg.radio_km) { mostrarBloqueo('zona', cfg.radio_km); return }
+      }
+
+      document.getElementById('p2-saludo').textContent = '¡Hola, ' + nombre + '!'
+      mostrarPantalla('screen-tipo')
+    },
+    geoErr => {
+      btn.disabled = false; btn.textContent = 'Continuar →'
+      mostrarBloqueo(geoErr.code === 1 ? 'denied' : 'error')
+    },
+    { timeout: 10000, maximumAge: 60000 }
+  )
+}
+
+// ── P1: Blocking screen ───────────────────────────────────────────────────────
+function mostrarBloqueo(tipo, radio) {
+  const icon  = document.getElementById('bloq-icon')
+  const title = document.getElementById('bloq-title')
+  const msg   = document.getElementById('bloq-msg')
+  const btn   = document.getElementById('bloq-btn')
+  btn.classList.add('hidden')
+
+  if (tipo === 'zona') {
+    icon.textContent  = '📍'
+    title.textContent = 'Fuera de cobertura'
+    msg.textContent   = `Estás fuera de nuestra zona de entrega. Por ahora solo servimos en un radio de ${radio || cfg.radio_km || 3} km.`
+  } else if (tipo === 'denied') {
+    icon.textContent  = '📵'
+    title.textContent = 'Permiso requerido'
+    msg.textContent   = 'Necesitamos tu ubicación para confirmar que estás en nuestra zona. Activa el permiso en la configuración de tu navegador e intenta de nuevo.'
+    btn.textContent   = 'Reintentar'
+    btn.onclick       = () => mostrarPantalla('screen-id')
+    btn.classList.remove('hidden')
+  } else {
+    icon.textContent  = '⚠️'
+    title.textContent = 'Error de ubicación'
+    msg.textContent   = 'No pudimos obtener tu ubicación. Verifica que el permiso esté habilitado e intenta de nuevo.'
+    btn.textContent   = 'Reintentar'
+    btn.onclick       = () => mostrarPantalla('screen-id')
+    btn.classList.remove('hidden')
+  }
+  mostrarPantalla('screen-bloq')
+}
+
+// ── P2: Tipo de entrega ───────────────────────────────────────────────────────
+function elegirTipoEntrega(tipo) {
+  sesionCliente.tipo_entrega = tipo
+  if (tipo === 'barra') {
+    entrarAlMenu()
+  } else {
+    mostrarPantalla('screen-mapa')
+    setTimeout(() => initMap(), 150)
+  }
+}
+
+// ── P3: Mapa Leaflet ──────────────────────────────────────────────────────────
+function initMap() {
+  const lat0   = cfg.punto_cero_lat || 19.4326
+  const lng0   = cfg.punto_cero_lng || -99.1332
+  const radioM = (cfg.radio_km || 3) * 1000
+
+  if (leafletMap) { leafletMap.invalidateSize(); return }
+
+  leafletMap = L.map('mapa-entrega').setView([lat0, lng0], 16)
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© <a href="https://www.openstreetmap.org/copyright">OSM</a>',
+    maxZoom: 19
+  }).addTo(leafletMap)
+
+  // Coverage zone circle
+  const color = POS.BRANDING.primaryColor || '#3D0014'
+  L.circle([lat0, lng0], {
+    radius: radioM, color, weight: 2, opacity: 0.55,
+    fillColor: color, fillOpacity: 0.13
+  }).addTo(leafletMap)
+
+  // Draggable marker: start at client's detected location
+  const startLat = sesionCliente.cliente_lat || lat0
+  const startLng = sesionCliente.cliente_lng || lng0
+  pinLat = startLat; pinLng = startLng
+
+  leafletMarker = L.marker([startLat, startLng], {
+    draggable: true, title: 'Arrastra para ajustar'
+  }).addTo(leafletMap)
+
+  leafletMarker.on('dragend', () => {
+    const p = leafletMarker.getLatLng()
+    pinLat = p.lat; pinLng = p.lng
+    actualizarEstadoMapa()
+  })
+
+  actualizarEstadoMapa()
+  setTimeout(() => leafletMap.invalidateSize(), 200)
+}
+
+function actualizarEstadoMapa() {
+  if (!cfg.punto_cero_lat || !cfg.punto_cero_lng || pinLat === null) return
+  const dist  = haversine(cfg.punto_cero_lat, cfg.punto_cero_lng, pinLat, pinLng)
+  const radio = cfg.radio_km || 3
+  pinInZone   = dist <= radio
+
+  const status = document.getElementById('zona-status')
+  const btn    = document.getElementById('btn-continuar-mapa')
+  if (status) {
+    status.textContent = pinInZone
+      ? '✓ Dentro de la zona de entrega'
+      : `Fuera de zona — máximo ${radio} km (${dist.toFixed(1)} km de distancia)`
+    status.className = 'zona-status ' + (pinInZone ? 'ok' : 'err')
+  }
+  if (btn) btn.disabled = !pinInZone
+}
+
+function continuar_p3() {
+  if (!pinInZone || pinLat === null) return
+  sesionCliente.entrega_lat       = pinLat
+  sesionCliente.entrega_lng       = pinLng
+  sesionCliente.direccion_entrega = (document.getElementById('p3-referencias')?.value || '').trim()
+  entrarAlMenu()
+}
+
 // ── Bootstrap ─────────────────────────────────────────────────────────────────
-window.addEventListener('DOMContentLoaded', () => {
+window.addEventListener('DOMContentLoaded', async () => {
   applyBranding()
-  cargarMenu()
+
+  // Cargar config_pos (punto_cero, radio_km, etc.)
+  try {
+    const { data } = await window._db
+      .from('config_pos')
+      .select('*')
+      .eq('tenant_id', POS.TENANT_ID)
+      .single()
+    cfg = data || {}
+  } catch(e) { cfg = {} }
+
+  // Iniciar carga del menú en paralelo (en background)
+  menuLoadPromise = cargarMenu()
+
+  // Mostrar pantalla 1 (el menú ya está cargando en segundo plano)
+  mostrarPantalla('screen-id')
 })
 </script>
 </body>
