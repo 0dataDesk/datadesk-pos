@@ -618,7 +618,8 @@ let ordenActual = null
 let cz = { item:null, cartIdx:null, cantidad:1, ingredientes:[], extras:[], salsas:[], nota:'' }
 
 // ── Estado de identificación + entrega ────────────────────────────────────────
-let cfg = {}   // filas de config_pos
+let cfg = {}         // filas de config_pos
+let zonaActiva = null // fila de config_pos_zonas (lat, lng, radio_km, nombre)
 const sesionCliente = {
   nombre:'', celular:'', tipo_entrega:'',
   cliente_lat:null, cliente_lng:null,
@@ -1444,10 +1445,10 @@ function continuar_p1() {
       sesionCliente.cliente_lat = lat
       sesionCliente.cliente_lng = lng
 
-      // Validar zona si config_pos lo tiene
-      if (cfg.punto_cero_lat && cfg.punto_cero_lng && cfg.radio_km) {
-        const dist = haversine(cfg.punto_cero_lat, cfg.punto_cero_lng, lat, lng)
-        if (dist > cfg.radio_km) { mostrarBloqueo('zona', cfg.radio_km); return }
+      // Validar zona si hay zona activa configurada
+      if (zonaActiva !== null) {
+        const dist = haversine(zonaActiva.lat, zonaActiva.lng, lat, lng)
+        if (dist > zonaActiva.radio_km) { mostrarBloqueo('zona', zonaActiva.radio_km); return }
       }
 
       document.getElementById('p2-saludo').textContent = '¡Hola, ' + nombre + '!'
@@ -1472,7 +1473,7 @@ function mostrarBloqueo(tipo, radio) {
   if (tipo === 'zona') {
     icon.textContent  = '📍'
     title.textContent = 'Fuera de cobertura'
-    msg.textContent   = `Estás fuera de nuestra zona de entrega. Por ahora solo servimos en un radio de ${radio || cfg.radio_km || 3} km.`
+    msg.textContent   = `Estás fuera de nuestra zona de entrega. Por ahora solo servimos en un radio de ${radio || zonaActiva?.radio_km || 3} km.`
   } else if (tipo === 'denied') {
     icon.textContent  = '📵'
     title.textContent = 'Permiso requerido'
@@ -1504,9 +1505,9 @@ function elegirTipoEntrega(tipo) {
 
 // ── P3: Mapa Leaflet ──────────────────────────────────────────────────────────
 function initMap() {
-  const lat0   = cfg.punto_cero_lat || 19.4326
-  const lng0   = cfg.punto_cero_lng || -99.1332
-  const radioM = (cfg.radio_km || 3) * 1000
+  const lat0   = zonaActiva?.lat  || 19.4326
+  const lng0   = zonaActiva?.lng  || -99.1332
+  const radioM = (zonaActiva?.radio_km || 3) * 1000
 
   if (leafletMap) { leafletMap.invalidateSize(); return }
 
@@ -1545,9 +1546,9 @@ function initMap() {
 }
 
 function actualizarEstadoMapa() {
-  if (!cfg.punto_cero_lat || !cfg.punto_cero_lng || pinLat === null) return
-  const dist  = haversine(cfg.punto_cero_lat, cfg.punto_cero_lng, pinLat, pinLng)
-  const radio = cfg.radio_km || 3
+  if (zonaActiva === null || pinLat === null) return
+  const dist  = haversine(zonaActiva.lat, zonaActiva.lng, pinLat, pinLng)
+  const radio = zonaActiva.radio_km || 3
   pinInZone   = dist <= radio
 
   const status = document.getElementById('zona-status')
@@ -1561,9 +1562,11 @@ function actualizarEstadoMapa() {
 }
 
 function actualizarBtnMapa() {
-  const numExt = (document.getElementById('p3-num-ext')?.value || '').trim()
-  const btn    = document.getElementById('btn-continuar-mapa')
-  if (btn) btn.disabled = !(pinInZone && numExt)
+  const numExt    = (document.getElementById('p3-num-ext')?.value || '').trim()
+  const btn       = document.getElementById('btn-continuar-mapa')
+  // Si no hay zona activa, no restringir por zona — solo pedir número exterior
+  const zonaOk   = zonaActiva === null ? true : pinInZone
+  if (btn) btn.disabled = !(zonaOk && numExt)
 }
 
 async function geocodificarReverso(lat, lng) {
@@ -1594,7 +1597,8 @@ async function geocodificarReverso(lat, lng) {
 
 function continuar_p3() {
   const numExt = (document.getElementById('p3-num-ext')?.value || '').trim()
-  if (!pinInZone || pinLat === null || !numExt) return
+  const zonaOk = zonaActiva === null ? true : pinInZone
+  if (!zonaOk || pinLat === null || !numExt) return
   const numInt      = (document.getElementById('p3-num-int')?.value || '').trim()
   const entreCalles = (document.getElementById('p3-entre-calles')?.value || '').trim()
   const senas       = (document.getElementById('p3-senas')?.value || '').trim()
@@ -1618,7 +1622,7 @@ function continuar_p3() {
 window.addEventListener('DOMContentLoaded', async () => {
   applyBranding()
 
-  // Cargar config_pos (punto_cero, radio_km, etc.)
+  // Cargar config_pos
   try {
     const { data } = await window._db
       .from('config_pos')
@@ -1627,6 +1631,18 @@ window.addEventListener('DOMContentLoaded', async () => {
       .single()
     cfg = data || {}
   } catch(e) { cfg = {} }
+
+  // Cargar zona activa desde config_pos_zonas
+  if (cfg.zona_activa_id) {
+    try {
+      const { data: zona } = await window._db
+        .from('config_pos_zonas')
+        .select('lat, lng, radio_km, nombre')
+        .eq('id', cfg.zona_activa_id)
+        .single()
+      zonaActiva = zona || null
+    } catch(e) { zonaActiva = null }
+  }
 
   // Iniciar carga del menú en paralelo (en background)
   menuLoadPromise = cargarMenu()
