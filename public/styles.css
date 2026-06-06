@@ -1,15 +1,15 @@
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Inter:wght@300;400;500;600&display=swap');
 
 :root {
-  --c-primary:       #3D0014;
-  --c-primary-dark:  #280009;
-  --c-accent:        #F2E0C8;
-  --c-accent-dark:   #D9C0A3;
-  --c-on-primary:    #F2E0C8;
-  --c-on-accent:     #280009;
-  --c-bg:            #1E000A;
-  --c-surface:       #2E0010;
-  --c-card:          #3A0012;
+  --c-primary:       #792c24;
+  --c-primary-dark:  #5a1f19;
+  --c-accent:        #ffefc5;
+  --c-accent-dark:   #e8d4a8;
+  --c-on-primary:    #ffefc5;
+  --c-on-accent:     #792c24;
+  --c-bg:            #1a0a08;
+  --c-surface:       #2a100c;
+  --c-card:          #361410;
   --c-border:        rgba(242,224,200,0.15);
   --c-text:          #F2E0C8;
   --c-text-muted:    rgba(242,224,200,0.55);

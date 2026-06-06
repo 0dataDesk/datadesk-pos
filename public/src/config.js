@@ -6,12 +6,12 @@ const POS = {
   LISTA_PRECIO: 'mostrador',
   BRANDING: {
     nombre: 'Furia',
-    primaryColor: '#3D0014',
-    primaryDark: '#280009',
-    accentColor: '#F2E0C8',
-    accentDark: '#D9C0A3',
-    textOnPrimary: '#F2E0C8',
-    textOnAccent: '#280009',
-    bgColor: '#1E000A'
+    primaryColor: '#792c24',
+    primaryDark: '#5a1f19',
+    accentColor: '#ffefc5',
+    accentDark: '#e8d4a8',
+    textOnPrimary: '#ffefc5',
+    textOnAccent: '#792c24',
+    bgColor: '#1a0a08'
   }
 }
