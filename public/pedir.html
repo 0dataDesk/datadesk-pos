@@ -6,7 +6,7 @@
   <title>Menú</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@900&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <style>
 /* ── Reset ─────────────────────────────────────────────────────────────────── */
@@ -53,11 +53,10 @@ html,body{
 /* Logo */
 .logo{display:flex;align-items:center;gap:10px;}
 .logo-box{
-  background:var(--primary);border-radius:7px;
   display:flex;align-items:center;justify-content:center;
-  font-family:'Bebas Neue',cursive;color:var(--on-pri);flex-shrink:0;
+  color:var(--primary);flex-shrink:0;
 }
-.logo-name{font-family:'Bebas Neue',cursive;letter-spacing:4px;color:var(--primary);line-height:1;}
+.logo-name{font-family:'Barlow Condensed',sans-serif;font-weight:900;letter-spacing:4px;color:var(--primary);line-height:1;}
 /* Cart button */
 .cart-btn{
   display:flex;align-items:center;gap:8px;
@@ -68,7 +67,7 @@ html,body{
 .cart-btn.on{background:var(--primary);border-color:var(--primary);}
 .cart-btn.on .cb-count,.cart-btn.on .cb-total{color:var(--on-pri);}
 .cb-icon {font-size:18px;line-height:1;}
-.cb-count{font-family:'Bebas Neue',cursive;font-size:20px;color:var(--primary);}
+.cb-count{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:20px;color:var(--primary);}
 .cb-total{font-size:14px;font-weight:600;color:var(--muted);}
 
 /* ── Page content ─────────────────────────────────────────────────────────── */
@@ -77,7 +76,7 @@ html,body{
   padding:0 20px 110px;/* bottom clearance for fixed nav */
 }
 .page-title{
-  font-family:'Bebas Neue',cursive;
+  font-family:'Barlow Condensed',sans-serif;font-weight:900;
   font-size:clamp(2.2rem,6vw,3.4rem);
   letter-spacing:2px;color:var(--primary);
   padding:28px 0 22px;line-height:1;
@@ -104,7 +103,7 @@ html,body{
   position:absolute;top:10px;right:10px;z-index:2;
   width:24px;height:24px;border-radius:50%;
   background:var(--primary);color:var(--on-pri);
-  font-family:'Bebas Neue',cursive;font-size:14px;
+  font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:14px;
   display:flex;align-items:center;justify-content:center;
   box-shadow:0 2px 6px rgba(61,0,20,.35);
   pointer-events:none;
@@ -114,7 +113,7 @@ html,body{
   position:absolute;top:2px;right:8px;
   width:18px;height:18px;border-radius:50%;
   background:var(--primary);color:var(--on-pri);
-  font-family:'Bebas Neue',cursive;font-size:11px;
+  font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:11px;
   display:flex;align-items:center;justify-content:center;
   pointer-events:none;
 }
@@ -125,10 +124,10 @@ html,body{
   flex-shrink:0;
 }
 .item-body{padding:16px 16px 12px;flex:1;}
-.item-name {font-family:'Bebas Neue',cursive;font-size:1.5rem;letter-spacing:1px;color:var(--text);line-height:1.15;}
+.item-name {font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:1.5rem;letter-spacing:1px;color:var(--text);line-height:1.15;}
 .item-desc    {font-size:13px;color:var(--muted);margin-top:4px;line-height:1.5;}
 .item-tagline {font-size:13px;font-weight:700;color:var(--primary);margin-top:5px;line-height:1.3;}
-.item-price{font-family:'Bebas Neue',cursive;font-size:1.65rem;color:var(--primary);margin-top:8px;}
+.item-price{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:1.65rem;color:var(--primary);margin-top:8px;}
 .item-foot {padding:0 16px 16px;}
 
 /* Drink inline row */
@@ -146,7 +145,7 @@ html,body{
 .stbtn:hover{background:var(--pdim2);}
 .stbtn.plus{background:var(--primary);border-color:var(--primary);color:var(--on-pri);}
 .stbtn.plus:hover{background:var(--pdk);}
-.stval{font-family:'Bebas Neue',cursive;font-size:1.3rem;min-width:22px;text-align:center;color:var(--text);}
+.stval{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:1.3rem;min-width:22px;text-align:center;color:var(--text);}
 
 /* ── Buttons ──────────────────────────────────────────────────────────────── */
 .btn-pri{
@@ -200,7 +199,7 @@ html,body{
 .sh-handle::after{content:'';display:block;width:36px;height:4px;border-radius:2px;background:var(--border);}
 .sh-hdr{padding:4px 20px 16px;border-bottom:1px solid var(--border);}
 .sh-row{display:flex;align-items:center;justify-content:space-between;gap:12px;}
-.sh-name{font-family:'Bebas Neue',cursive;font-size:1.8rem;letter-spacing:1px;color:var(--text);}
+.sh-name{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:1.8rem;letter-spacing:1px;color:var(--text);}
 .sh-scroll{flex:1;overflow-y:auto;padding:14px 20px 8px;}
 .sh-foot{padding:14px 20px 24px;border-top:1px solid var(--border);}
 
@@ -261,7 +260,7 @@ html,body{
 .qty-circ:active{animation:bump .12s ease;}
 .cz-row.on .qty-circ{background:rgba(61,0,20,.12);color:#3D0014;}
 .cz-row.on .qty-circ:hover{background:rgba(61,0,20,.2);}
-.qty-n{font-family:'Bebas Neue',cursive;font-size:1.3rem;min-width:22px;text-align:center;}
+.qty-n{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:1.3rem;min-width:22px;text-align:center;}
 .cz-row.on .qty-n{color:#3D0014;}
 /* Salsa cards grid */
 .salsa-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;}
@@ -292,7 +291,7 @@ html,body{
 }
 .sc-adj:hover{background:rgba(255,255,255,.32);}
 .sc-adj:active{animation:bump .12s ease;}
-.sc-qty{font-family:'Bebas Neue',cursive;font-size:1.5rem;color:#fff;min-width:20px;text-align:center;line-height:1;}
+.sc-qty{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:1.5rem;color:#fff;min-width:20px;text-align:center;line-height:1;}
 
 /* ── Cart sheet ───────────────────────────────────────────────────────────── */
 .cart-line{
@@ -303,11 +302,11 @@ html,body{
 .cl-body{flex:1;min-width:0;}
 .cl-name   {font-weight:600;font-size:15px;color:var(--text);}
 .cl-mods   {font-size:12px;color:var(--muted);margin-top:3px;line-height:1.6;}
-.cl-importe{font-family:'Bebas Neue',cursive;font-size:1.35rem;color:var(--primary);white-space:nowrap;}
+.cl-importe{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:1.35rem;color:var(--primary);white-space:nowrap;}
 .cl-actions{display:flex;align-items:center;gap:8px;margin-top:9px;flex-wrap:wrap;}
 .total-row {display:flex;justify-content:space-between;align-items:baseline;padding:14px 0 16px;}
-.tot-lbl   {font-family:'Bebas Neue',cursive;font-size:1.4rem;letter-spacing:1px;}
-.tot-amt   {font-family:'Bebas Neue',cursive;font-size:2rem;color:var(--primary);}
+.tot-lbl   {font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:1.4rem;letter-spacing:1px;}
+.tot-amt   {font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:2rem;color:var(--primary);}
 
 /* ── Loading / Error ──────────────────────────────────────────────────────── */
 .spinner{width:36px;height:36px;border:3px solid var(--border);border-top-color:var(--primary);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto;}
@@ -319,7 +318,7 @@ html,body{
 
 /* ── Pago stub ────────────────────────────────────────────────────────────── */
 .pago-view{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;text-align:center;padding:40px 20px;}
-.pago-view h2{font-family:'Bebas Neue',cursive;font-size:2.5rem;letter-spacing:2px;color:var(--primary);margin:16px 0 10px;}
+.pago-view h2{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:2.5rem;letter-spacing:2px;color:var(--primary);margin:16px 0 10px;}
 .pago-view p {color:var(--muted);font-size:15px;max-width:280px;line-height:1.6;}
 
 /* ── Intake screens (P1, P2, P3, bloq) ───────────────────────────────────── */
@@ -336,7 +335,7 @@ html,body{
 }
 .intake-logo{margin-bottom:16px;}
 .intake-title{
-  font-family:'Bebas Neue',cursive;
+  font-family:'Barlow Condensed',sans-serif;font-weight:900;
   font-size:clamp(2.4rem,8vw,3.2rem);letter-spacing:2px;
   color:var(--primary);text-align:center;line-height:1;margin-bottom:8px;
 }
@@ -386,7 +385,7 @@ textarea.intake-input{resize:none;line-height:1.5;}
 .tipo-card:hover{border-color:var(--primary);background:var(--pdim);transform:translateY(-2px);}
 .tipo-card:active{transform:scale(.97);}
 .tc-icon {font-size:40px;display:block;margin-bottom:10px;}
-.tc-title{font-family:'Bebas Neue',cursive;font-size:1.4rem;letter-spacing:2px;color:var(--primary);display:block;}
+.tc-title{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:1.4rem;letter-spacing:2px;color:var(--primary);display:block;}
 .tc-desc {font-size:12px;color:var(--muted);margin-top:4px;display:block;}
 
 /* P3 — Leaflet map */
@@ -408,7 +407,7 @@ textarea.intake-input{resize:none;line-height:1.5;}
 }
 .bloq-icon {font-size:60px;margin-bottom:20px;}
 .bloq-title{
-  font-family:'Bebas Neue',cursive;font-size:2.2rem;letter-spacing:2px;
+  font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:2.2rem;letter-spacing:2px;
   color:var(--primary);margin-bottom:14px;line-height:1;
 }
 .bloq-msg{font-size:15px;color:var(--muted);line-height:1.7;margin-bottom:32px;}
@@ -633,6 +632,28 @@ let leafletMap    = null
 let leafletMarker = null
 let pinLat = null, pinLng = null, pinInZone = false
 
+// ── Flama SVG (logo Furia) ────────────────────────────────────────────────────
+const FLAMA_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 130" fill="currentColor" width="100%" height="100%">
+  <path d="
+    M50,125
+    C30,125 15,110 15,88
+    C15,72 22,62 28,54
+    C28,66 34,70 38,68
+    C32,58 35,42 44,28
+    C44,42 52,50 54,58
+    C58,48 56,36 50,24
+    C64,34 74,52 74,70
+    C78,64 78,54 74,44
+    C84,56 88,72 85,90
+    C82,108 68,125 50,125Z
+    M50,105
+    C44,105 40,100 42,92
+    C44,86 50,82 52,76
+    C54,82 58,88 56,96
+    C54,102 52,105 50,105Z
+  "/>
+</svg>`
+
 // ── Branding ──────────────────────────────────────────────────────────────────
 function applyBranding() {
   const p = POS.BRANDING.primaryColor  // ej. '#3D0014'
@@ -651,9 +672,8 @@ function applyBranding() {
   document.title = POS.BRANDING.nombre + ' — Menú'
 
   const N   = POS.BRANDING.nombre
-  const ltr = N[0]
   const mkLogo = sz => `
-    <div class="logo-box" style="width:${sz*.72}px;height:${sz*.72}px;font-size:${sz*.44}px;">${ltr}</div>
+    <div class="logo-box" style="width:${sz*.72}px;height:${sz*.72}px;color:var(--primary);">${FLAMA_SVG}</div>
     <span class="logo-name" style="font-size:${sz}px;">${N.toUpperCase()}</span>`
   document.getElementById('hdr-logo').innerHTML = mkLogo(36)
   document.getElementById('p1-logo').innerHTML  = mkLogo(48)
@@ -938,7 +958,10 @@ function buildCzBody(type, scroll) {
       const isOn     = !!entry
       const precio   = sa.precio || 15
       const safeName = sa.nombre.replace(/'/g, "\\'")
-      const colorStyle = isOn ? `style="background:${getSalsaColor(sa.nombre)};border-color:${getSalsaColor(sa.nombre)};"` : ''
+      const sColor    = getSalsaColor(sa.nombre)
+      const colorStyle = isOn
+        ? `style="background:${sColor};border-color:${sColor};"`
+        : `style="background:${hexToRgba(sColor,0.18)};border-color:${hexToRgba(sColor,0.40)};"`
       const inner = isOn
         ? `<div class="sc-controls">
              <button class="sc-adj" onclick="event.stopPropagation();adjSalsaQty('${sa.id_receta}','${safeName}',${precio},-1)">−</button>
@@ -947,8 +970,8 @@ function buildCzBody(type, scroll) {
            </div>
            <span class="sc-name">${label}</span>
            <span class="sc-price">+$${precio}</span>`
-        : `<span class="sc-emoji">${getSalsaEmoji(sa.nombre)}</span>
-           <span class="sc-name">${label}</span>
+        : `<span class="sc-emoji" style="opacity:0.85;">${getSalsaEmoji(sa.nombre)}</span>
+           <span class="sc-name" style="color:${hexToRgba(sColor,0.75)};">${label}</span>
            <span class="sc-price">+$${precio}</span>`
       return `<div class="salsa-card ${isOn?'on':'off'}" id="salsa-card-${sa.id_receta}"
         ${colorStyle}
@@ -996,6 +1019,15 @@ function adjExtraQty(i, delta) {
   actualizarCzBtn()
 }
 
+// ── Color helpers ─────────────────────────────────────────────────────────────
+function hexToRgba(hex, alpha) {
+  const h = hex.replace('#', '')
+  const r = parseInt(h.slice(0,2), 16)
+  const g = parseInt(h.slice(2,4), 16)
+  const b = parseInt(h.slice(4,6), 16)
+  return `rgba(${r},${g},${b},${alpha})`
+}
+
 // Salsa helpers
 function getSalsaEmoji(nombre) {
   const n = nombre.toLowerCase()
@@ -1036,11 +1068,12 @@ function updateSalsaCard(card, sa, entry) {
       <span class="sc-name">${label}</span>
       <span class="sc-price">+$${precio}</span>`
   } else {
-    card.style.background  = ''
-    card.style.borderColor = ''
+    const sColor = getSalsaColor(sa.nombre)
+    card.style.background  = hexToRgba(sColor, 0.18)
+    card.style.borderColor = hexToRgba(sColor, 0.40)
     card.innerHTML = `
-      <span class="sc-emoji">${getSalsaEmoji(sa.nombre)}</span>
-      <span class="sc-name">${label}</span>
+      <span class="sc-emoji" style="opacity:0.85;">${getSalsaEmoji(sa.nombre)}</span>
+      <span class="sc-name" style="color:${hexToRgba(sColor,0.75)};">${label}</span>
       <span class="sc-price">+$${precio}</span>`
   }
 }
@@ -1256,7 +1289,7 @@ function irPago() {
           ${it.nombre}
           <span style="color:var(--muted);font-size:13px;"> × ${it.cantidad}</span>
         </span>
-        <span style="font-family:'Bebas Neue',cursive;font-size:1.15rem;
+        <span style="font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:1.15rem;
                      color:var(--primary);white-space:nowrap;margin-left:12px;">$${it.importe}</span>
       </div>
       ${modsHtml}
@@ -1291,7 +1324,7 @@ function irPago() {
 
         <!-- Cabecera -->
         <div style="background:var(--primary);padding:24px 24px 20px;text-align:center;">
-          <div style="font-family:'Bebas Neue',cursive;font-size:2rem;
+          <div style="font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:2rem;
                       letter-spacing:3px;color:var(--on-pri);line-height:1;">
             ${POS.BRANDING.nombre.toUpperCase()}
           </div>
@@ -1306,7 +1339,7 @@ function irPago() {
             <div>
               <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;
                           text-transform:uppercase;color:var(--muted);margin-bottom:4px;">Folio</div>
-              <div style="font-family:'Bebas Neue',cursive;font-size:1.6rem;
+              <div style="font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:1.6rem;
                           color:var(--primary);letter-spacing:1px;">${ordenActual.folio}</div>
             </div>
             <div style="text-align:right;">
@@ -1326,9 +1359,9 @@ function irPago() {
         <!-- Total -->
         <div style="padding:14px 24px 18px;border-top:1px solid var(--border);
                     display:flex;justify-content:space-between;align-items:baseline;">
-          <span style="font-family:'Bebas Neue',cursive;font-size:1.3rem;
+          <span style="font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:1.3rem;
                        letter-spacing:1px;color:var(--text);">Total</span>
-          <span style="font-family:'Bebas Neue',cursive;font-size:2rem;
+          <span style="font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:2rem;
                        color:var(--primary);">$${total}</span>
         </div>
 
@@ -1339,7 +1372,7 @@ function irPago() {
                       text-transform:uppercase;color:var(--muted);margin-bottom:8px;">
             Contraseña de entrega
           </div>
-          <div style="font-family:'Bebas Neue',cursive;font-size:2.4rem;
+          <div style="font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:2.4rem;
                       letter-spacing:18px;color:var(--primary);line-height:1;
                       padding-left:18px;">
             * * * *
