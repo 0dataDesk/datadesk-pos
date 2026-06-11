@@ -942,6 +942,19 @@ async function abrirCz(idReceta, cartIdx = null) {
     // Inicializar salsas
     cz.salsas = (savedMods?.salsas || []).map(s => ({ id: s.id, nombre: s.nombre }))
 
+    // Garantizar que bebidasCombo esté cargado
+    if (bebidasCombo.length === 0) {
+      const { data: beb } = await window._db
+        .from('productos')
+        .select('id_producto, nombre_corto')
+        .eq('tenant_id', POS.TENANT_ID)
+        .eq('activo', true)
+        .in('id_producto', ['BEB-027','BEB-028','BEB-029','BEB-030','BEB-031',
+                            'BEB-032','BEB-033','BEB-034','BEB-035','BEB-036'])
+        .order('id_producto')
+      bebidasCombo = beb || []
+    }
+
     // Construir cuerpo del sheet
     scroll.innerHTML = ''
     buildCzBody(type, scroll)
