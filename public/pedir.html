@@ -741,17 +741,17 @@ async function cargarMenu() {
     menuItems = all.filter(r => MENU_CATS.includes(r.categoria))
     menuDataReady = true
 
-    const { data: bebidas } = await window._db
+    const { data: bebidas, error: eBeb } = await window._db
       .from('productos')
       .select('id_producto, nombre_corto')
       .eq('tenant_id', POS.TENANT_ID)
-      .in('id_producto', [
-        'BEB-027','BEB-028','BEB-029','BEB-030','BEB-031',
-        'BEB-032','BEB-033','BEB-034','BEB-035','BEB-036'
-      ])
       .eq('activo', true)
+      .gte('id_producto', 'BEB-027')
+      .lte('id_producto', 'BEB-036')
       .order('id_producto')
+    if (eBeb) console.error('Error bebidas combo:', eBeb)
     bebidasCombo = bebidas || []
+    console.log('bebidasCombo cargadas:', bebidasCombo.length)
   } catch(e) {
     document.getElementById('main-content').innerHTML = `<div class="err-box">Error al cargar el menú: ${e.message}</div>`
     // No re-throw: promise resolves even on error
@@ -1034,31 +1034,34 @@ function buildCzBody(type, scroll) {
   // 4 — Combo Papas + Bebida (solo burgers)
   if (type === 'burger') {
     const comboOn = cz.combo.activo
-    const bebidasHtml = bebidasCombo.map(b => {
-      const sel = cz.combo.bebida_id === b.id_producto
-      const safeName = b.nombre_corto.replace(/'/g, "\\'")
-      return `<div class="chip-mod ${sel ? 'on' : ''}"
-        style="${sel ? 'background:var(--primary);border-color:var(--primary);color:var(--on-pri);' : ''}"
-        onclick="seleccionarBebidaCombo('${b.id_producto}','${safeName}')">
-        ${b.nombre_corto}
-      </div>`
-    }).join('')
-    scroll.insertAdjacentHTML('beforeend', `
-      <div class="sh-sec" style="border-top:1px solid var(--border);padding-top:20px;margin-top:4px;">
+    const comboRow = `
+      <div class="sh-sec">
         <div class="sh-sec-ttl">Agregar Combo — +$60</div>
-        <div class="cz-row ${comboOn ? 'on' : 'off'}" id="combo-toggle-row"
-          style="background:${comboOn ? 'var(--primary)' : 'var(--bg)'};"
-          onclick="toggleCombo()">
+        <div class="cz-row ${comboOn ? 'on' : 'off'}" id="combo-row"
+             style="cursor:pointer;" onclick="toggleCombo()">
           <div class="cz-row-body">
-            <span class="cz-row-name" style="color:${comboOn ? 'var(--on-pri)' : ''};">Combo Papas + Bebida</span>
-            <span class="cz-row-price" style="color:${comboOn ? 'var(--on-pri)' : ''};opacity:${comboOn ? '.7' : '1'};">+$60</span>
+            <span class="cz-row-name">Combo Papas + Bebida</span>
+            <span class="cz-row-price">+$60</span>
           </div>
         </div>
-        <div id="combo-bebida-sel" style="display:${comboOn ? 'block' : 'none'};margin-top:12px;">
-          <div class="sh-sec-ttl">Elige tu bebida</div>
-          <div class="chip-grid-2">${bebidasHtml}</div>
+        <div id="combo-bebidas-wrap" style="margin-top:10px;${comboOn ? '' : 'display:none;'}">
+          <div class="sh-sec-ttl" style="margin-bottom:8px;">Elige tu bebida</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+            ${bebidasCombo.map(b => {
+              const sel = cz.combo.bebida_id === b.id_producto
+              return `<div onclick="seleccionarBebidaCombo('${b.id_producto}','${b.nombre_corto.replace(/'/g, "\\'")}')"
+                style="padding:10px 8px;border-radius:12px;text-align:center;cursor:pointer;font-size:13px;font-weight:600;
+                  border:1.5px solid ${sel ? 'var(--primary)' : 'var(--border)'};
+                  background:${sel ? 'var(--primary)' : 'var(--bg)'};
+                  color:${sel ? 'var(--on-pri)' : 'var(--text)'}"
+                id="beb-chip-${b.id_producto}">
+                ${b.nombre_corto}
+              </div>`
+            }).join('')}
+          </div>
         </div>
-      </div>`)
+      </div>`
+    scroll.insertAdjacentHTML('beforeend', comboRow)
   }
 }
 
@@ -1180,34 +1183,26 @@ function adjSalsaQty(id, nombre, precio, delta) {
 // Combo handlers
 function toggleCombo() {
   cz.combo.activo = !cz.combo.activo
-  if (!cz.combo.activo) cz.combo = { activo: false, bebida_id: null, bebida_nombre: null }
-  const row = document.getElementById('combo-toggle-row')
-  const sel = document.getElementById('combo-bebida-sel')
-  if (row) {
-    row.className = 'cz-row ' + (cz.combo.activo ? 'on' : 'off')
-    row.style.background = cz.combo.activo ? 'var(--primary)' : 'var(--bg)'
-    const name  = row.querySelector('.cz-row-name')
-    const price = row.querySelector('.cz-row-price')
-    if (name)  name.style.color   = cz.combo.activo ? 'var(--on-pri)' : ''
-    if (price) { price.style.color = cz.combo.activo ? 'var(--on-pri)' : ''; price.style.opacity = cz.combo.activo ? '.7' : '1' }
+  if (!cz.combo.activo) {
+    cz.combo.bebida_id = null
+    cz.combo.bebida_nombre = null
   }
-  if (sel) sel.style.display = cz.combo.activo ? 'block' : 'none'
+  const row = document.getElementById('combo-row')
+  if (row) row.className = 'cz-row ' + (cz.combo.activo ? 'on' : 'off')
+  const wrap = document.getElementById('combo-bebidas-wrap')
+  if (wrap) wrap.style.display = cz.combo.activo ? '' : 'none'
   actualizarCzBtn()
 }
 
 function seleccionarBebidaCombo(id, nombre) {
-  cz.combo.bebida_id     = id
+  cz.combo.bebida_id = id
   cz.combo.bebida_nombre = nombre
-  const sel = document.getElementById('combo-bebida-sel')
-  if (sel) {
-    sel.querySelectorAll('.chip-mod').forEach(chip => {
-      const isThis = chip.getAttribute('onclick').includes("'" + id + "'")
-      chip.className           = 'chip-mod' + (isThis ? ' on' : '')
-      chip.style.background    = isThis ? 'var(--primary)' : ''
-      chip.style.borderColor   = isThis ? 'var(--primary)' : ''
-      chip.style.color         = isThis ? 'var(--on-pri)' : ''
-    })
-  }
+  document.querySelectorAll('[id^="beb-chip-"]').forEach(el => {
+    const sel = el.id === 'beb-chip-' + id
+    el.style.background  = sel ? 'var(--primary)' : 'var(--bg)'
+    el.style.borderColor = sel ? 'var(--primary)' : 'var(--border)'
+    el.style.color       = sel ? 'var(--on-pri)' : 'var(--text)'
+  })
   actualizarCzBtn()
 }
 
