@@ -641,6 +641,8 @@ let carrito    = []    // líneas del carrito
 let drinkQty   = {}    // id_receta → qty inline para bebidas
 let currentPg   = 'res'
 let bebidasCombo = []  // bebidas disponibles para combo
+let bebidaSeleccionada = { id: null, nombre: null }
+let refrescoQty = 1
 
 // Orden activa (folio + pin generados al confirmar)
 let ordenActual = null
@@ -768,6 +770,12 @@ function goPage(pgId) {
 
   // Contenido
   const cont = document.getElementById('main-content')
+
+  if (pgId === 'refrescos') {
+    renderRefrescosPage(cont, pg, others)
+    return
+  }
+
   cont.innerHTML = `<h1 class="page-title">${pg.title}</h1><div class="item-grid" id="item-grid"></div>`
   const grid = document.getElementById('item-grid')
 
@@ -840,6 +848,144 @@ function getPgItems(pgId) {
     default: items = []
   }
   return items.sort((a, b) => a.precio - b.precio)  // AJUSTE 5: precio ascendente
+}
+
+// ── Página de Bebidas con selector de sabor ───────────────────────────────────
+const EXCLUIR_SABORES = ['BEB-031','BEB-026','BEB-006']
+const PRECIO_REFRESCO = 40
+
+function renderRefrescosPage(cont, pg, others) {
+  bebidaSeleccionada = { id: null, nombre: null }
+  refrescoQty = 1
+
+  const aguaItems = getPgItems('refrescos').filter(it => /agua/i.test(it.nombre))
+  const sabores   = bebidasCombo.filter(b => !EXCLUIR_SABORES.includes(b.id_producto))
+
+  const chipsHtml = sabores.length
+    ? sabores.map(b => `
+        <div id="sabor-chip-${b.id_producto}"
+          onclick="seleccionarSabor('${b.id_producto}','${b.nombre_corto.replace(/'/g,"\\'")}');"
+          style="padding:10px 8px;border-radius:12px;text-align:center;cursor:pointer;
+            font-size:13px;font-weight:600;
+            border:1.5px solid var(--border);background:var(--bg);color:var(--text);">
+          ${b.nombre_corto}
+        </div>`).join('')
+    : '<p style="color:var(--muted);font-size:13px;margin-top:8px;">Cargando sabores...</p>'
+
+  const inCartRef = carrito.filter(e => e.id_receta === 'RBE-004').reduce((s,e) => s + e.cantidad, 0)
+  const badgeRef  = inCartRef > 0 ? `<span class="item-badge">${inCartRef}</span>` : ''
+
+  const aguaCardsHtml = aguaItems.map(it => {
+    drinkQty[it.id_receta] = drinkQty[it.id_receta] || 1
+    const inCart = carrito.filter(e => e.id_receta === it.id_receta).reduce((s,e) => s + e.cantidad, 0)
+    const badge  = inCart > 0 ? `<span class="item-badge">${inCart}</span>` : ''
+    return `<div class="item-card">
+      ${badge}
+      <div class="item-thumb">${pg.emoji}</div>
+      <div class="item-body">
+        <div class="item-name">${it.nombre}</div>
+        ${it.descripcion ? `<div class="item-desc" style="font-style:italic;">${it.descripcion}</div>` : ''}
+        <div class="item-price">$${it.precio}</div>
+      </div>
+      <div class="item-foot">
+        <div class="drink-row">
+          <div class="stepper">
+            <button class="stbtn" onclick="adjDrink('${it.id_receta}',-1)">−</button>
+            <span class="stval" id="dq-${it.id_receta}">${drinkQty[it.id_receta]}</span>
+            <button class="stbtn plus" onclick="adjDrink('${it.id_receta}',1)">+</button>
+          </div>
+          <button class="btn-pri sm" data-dadd="${it.id_receta}" onclick="addDrink('${it.id_receta}')">Agregar →</button>
+        </div>
+      </div>
+    </div>`
+  }).join('')
+
+  cont.innerHTML = `
+    <h1 class="page-title">${pg.title}</h1>
+    <div class="item-grid" id="item-grid">
+      <div class="item-card" style="grid-column:1/-1;max-width:420px;">
+        ${badgeRef}
+        <div class="item-thumb">${pg.emoji}</div>
+        <div class="item-body">
+          <div class="item-name">Refresco</div>
+          <div class="item-desc" style="font-style:italic;">Elige tu sabor</div>
+          <div class="item-price">$${PRECIO_REFRESCO}</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px;">
+            ${chipsHtml}
+          </div>
+        </div>
+        <div class="item-foot">
+          <div class="drink-row">
+            <div class="stepper">
+              <button class="stbtn" onclick="adjRefrescoQty(-1)">−</button>
+              <span class="stval" id="refresco-qty">1</span>
+              <button class="stbtn plus" onclick="adjRefrescoQty(1)">+</button>
+            </div>
+            <button class="btn-pri sm" id="refresco-add-btn" onclick="addRefresco()"
+              disabled style="opacity:.5;cursor:not-allowed;">Elige un sabor</button>
+          </div>
+        </div>
+      </div>
+      ${aguaCardsHtml}
+    </div>`
+
+  document.getElementById('bot-nav').classList.remove('hidden')
+  document.getElementById('main-content').style.paddingRight = ''
+  actualizarPanelOrdenes()
+  document.getElementById('nav-btns').innerHTML = others.map(p => {
+    const navQty = carrito
+      .filter(e => { const m = menuItems.find(x => x.id_receta === e.id_receta); return m && m.categoria === p.cat })
+      .reduce((s, e) => s + e.cantidad, 0)
+    const navBadge = navQty > 0 ? `<span class="nav-badge">${navQty}</span>` : ''
+    return `<button class="nav-btn" onclick="goPage('${p.id}')">
+      ${navBadge}
+      <span class="nb-icon">${p.emoji}</span>
+      <span class="nb-lbl">${p.label}</span>
+    </button>`
+  }).join('')
+}
+
+function seleccionarSabor(id, nombre) {
+  bebidaSeleccionada = { id, nombre }
+  document.querySelectorAll('[id^="sabor-chip-"]').forEach(el => {
+    const sel = el.id === 'sabor-chip-' + id
+    el.style.background  = sel ? 'var(--primary)' : 'var(--bg)'
+    el.style.borderColor = sel ? 'var(--primary)' : 'var(--border)'
+    el.style.color       = sel ? 'var(--on-pri)' : 'var(--text)'
+  })
+  const btn = document.getElementById('refresco-add-btn')
+  if (btn) { btn.textContent = 'Agregar →'; btn.disabled = false; btn.style.opacity = ''; btn.style.cursor = '' }
+}
+
+function adjRefrescoQty(delta) {
+  refrescoQty = Math.max(1, refrescoQty + delta)
+  const el = document.getElementById('refresco-qty')
+  if (el) el.textContent = refrescoQty
+}
+
+function addRefresco() {
+  if (!bebidaSeleccionada.id) return
+  carrito.push({
+    id_receta:   'RBE-004',
+    nombre:      bebidaSeleccionada.nombre,
+    precio_base: PRECIO_REFRESCO,
+    cantidad:    refrescoQty,
+    mods:        { ingredientes:[], extras:[], salsas:[], nota:'', sabor_id: bebidaSeleccionada.id, sabor_nombre: bebidaSeleccionada.nombre },
+    importe:     PRECIO_REFRESCO * refrescoQty,
+  })
+  bebidaSeleccionada = { id: null, nombre: null }
+  refrescoQty = 1
+  updateCartBar()
+  const btn = document.getElementById('refresco-add-btn')
+  if (btn) {
+    btn.textContent = '✓ Agregado'; btn.style.background = '#22c55e'
+    setTimeout(() => {
+      if (btn) {
+        btn.textContent = 'Elige un sabor'; btn.style.background = ''
+        btn.disabled = true; btn.style.opacity = '.5'; btn.style.cursor = 'not-allowed'
+      }
+    }, 1200)
+  }
 }
 
 // ── Bebidas (inline) ──────────────────────────────────────────────────────────
@@ -1316,6 +1462,7 @@ function renderCart() {
   carrito.forEach((item, idx) => {
     const parts = []
     const m = item.mods
+    if (m.sabor_nombre) parts.push('🥤 ' + m.sabor_nombre)
     // Ingredientes apagados → "Sin: x, y"
     const sinIngr = (m.ingredientes||[]).filter(i => !i.on).map(i => i.nombre)
     if (sinIngr.length) parts.push('Sin: ' + sinIngr.join(', '))
@@ -1394,6 +1541,7 @@ function mostrarResumen() {
 
   function modsDeItem(m) {
     const lines = []
+    if (m.sabor_nombre) lines.push('🥤 ' + m.sabor_nombre)
     const sin = (m.ingredientes||[]).filter(i => !i.on).map(i => i.nombre)
     if (sin.length) lines.push('Sin: ' + sin.join(', '))
     const dbl = (m.ingredientes||[]).filter(i => i.on && i.qty > 1).map(i => `×${i.qty} ${i.nombre}`)
