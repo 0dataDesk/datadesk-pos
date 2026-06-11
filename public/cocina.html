@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
@@ -26,6 +26,7 @@
 <div class="kds-page">
   <div class="kds-header">
     <h1 id="kds-tenant-nombre">Cocina</h1>
+    <span id="kds-conn" style="font-size:0.75rem;font-weight:600;">🟡 Conectando...</span>
     <span class="kds-clock" id="kds-clock">00:00:00</span>
   </div>
   <div class="kds-body">
@@ -260,7 +261,23 @@ function suscribirRealtime() {
         }
       }
     })
-    .subscribe()
+    .subscribe((status) => {
+      const ind = document.getElementById('kds-conn')
+      if (status === 'SUBSCRIBED') {
+        ind.textContent = '🟢 En vivo'
+        ind.style.color = '#2ECC71'
+      } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
+        ind.textContent = '🔴 Desconectado — reconectando...'
+        ind.style.color = '#FF6B6B'
+        setTimeout(() => {
+          window._db.removeAllChannels()
+          suscribirRealtime()
+        }, 3000)
+      } else {
+        ind.textContent = '🟡 Conectando...'
+        ind.style.color = '#FFD166'
+      }
+    })
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────────
@@ -275,3 +292,4 @@ window.addEventListener('DOMContentLoaded', async () => {
 </script>
 </body>
 </html>
+
