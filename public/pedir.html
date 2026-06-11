@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
@@ -1248,155 +1248,96 @@ function generarFolio() {
   return (POS.BRANDING.nombre.slice(0,3).toUpperCase()) + '-' + n
 }
 
-// ── Ticket de orden ───────────────────────────────────────────────────────────
-function irPago() {
-  cerrarCart()
+// ── Cierre real de orden ──────────────────────────────────────────────────────
+async function irPago() {
+  if (carrito.length === 0) return
+  const cartBtn = document.getElementById('cart-btn')
+  if (cartBtn) cartBtn.disabled = true
 
-  // Generar folio y PIN para esta orden (waMensaje se agrega más abajo)
-  ordenActual = { folio: generarFolio(), pin: generarPin(), waMensaje: '' }
+  const folio    = 'FUR-' + String(Date.now() % 100000).padStart(5, '0')
+  const pin      = String(Math.floor(1000 + Math.random() * 9000))
+  const subtotal = carrito.reduce((s, i) => s + i.importe, 0)
 
-  const total = carrito.reduce((s, i) => s + i.importe, 0)
-  const esDomicilio = sesionCliente.tipo_entrega === 'domicilio'
-  const tipoLabel   = esDomicilio ? '🛵 A domicilio' : '🏠 En barra'
-  const dirHtml     = esDomicilio && sesionCliente.direccion_entrega
-    ? `<div style="font-size:13px;color:var(--muted);margin-top:4px;line-height:1.5;">${sesionCliente.direccion_entrega}</div>`
-    : ''
+  try {
+    const { data: venta, error: e1 } = await window._db
+      .from('ventas')
+      .insert({
+        tenant_id:         POS.TENANT_ID,
+        folio,
+        canal:             'mostrador',
+        metodo_pago:       'efectivo',
+        subtotal,
+        total:             subtotal,
+        estado:            'cerrada',
+        creado_por:        'operador',
+        cliente_nombre:    'Cliente',
+        cliente_celular:   '0000000000',
+        tipo_entrega:      'barra',
+        direccion_entrega: null,
+        entrega_lat:       null,
+        entrega_lng:       null,
+        pin_entrega:       pin
+      })
+      .select('id')
+      .single()
+    if (e1) throw e1
 
-  // Helper: construye array de strings de modificaciones de un ítem
-  function modsDeItem(m) {
-    const lines = []
-    const sinIngr = (m.ingredientes||[]).filter(i => !i.on).map(i => i.nombre)
-    if (sinIngr.length) lines.push('Sin: ' + sinIngr.join(', '))
-    const dblIngr = (m.ingredientes||[]).filter(i => i.on && i.qty > 1).map(i => `×${i.qty} ${i.nombre}`)
-    if (dblIngr.length) lines.push(dblIngr.join(', '))
-    const exA = (m.extras||[]).filter(e => (e.qty||0) > 0)
-    if (exA.length) lines.push(exA.map(e => '+ ' + (e.qty > 1 ? `${e.qty}× ` : '') + e.nombre).join(', '))
-    const salsas = (m.salsas||[]).filter(s => (s.cantidad||1) > 0)
-    if (salsas.length) lines.push(salsas.map(s => s.nombre + (s.cantidad > 1 ? ` ×${s.cantidad}` : '')).join(', '))
-    if (m.nota) lines.push('📝 ' + m.nota)
-    return lines
+    const { error: e2 } = await window._db
+      .from('venta_items')
+      .insert(carrito.map(it => ({
+        tenant_id:       POS.TENANT_ID,
+        id_venta:        venta.id,
+        id_item:         it.id_receta,
+        tipo_item:       'receta',
+        nombre:          it.nombre,
+        cantidad:        it.cantidad,
+        precio_unitario: it.precio_base,
+        importe:         it.importe,
+        modificadores:   it.mods,
+        notas:           it.mods.nota || null
+      })))
+    if (e2) throw e2
+
+    const { error: e3 } = await window._db
+      .from('ordenes_cocina')
+      .insert({
+        tenant_id:           POS.TENANT_ID,
+        id_venta:            venta.id,
+        estado:              'pendiente',
+        tiempo_objetivo_seg: 420,
+        tiempo_limite_seg:   600,
+        confirmada_en:       new Date().toISOString()
+      })
+    if (e3) throw e3
+
+    cerrarOrdenExitosa(folio)
+  } catch(err) {
+    alert('Error al registrar la orden:\n' + (err.message || JSON.stringify(err)))
+  } finally {
+    if (cartBtn) cartBtn.disabled = false
   }
+}
 
-  const lineas = carrito.map(it => {
-    const mLines = modsDeItem(it.mods)
-    const modsHtml = mLines.length
-      ? mLines.map(l => `<div style="font-size:11px;color:var(--muted);margin-top:2px;margin-left:12px;">${l}</div>`).join('')
-      : ''
-    return `
-    <div style="padding:8px 0;border-bottom:1px solid var(--border);">
-      <div style="display:flex;justify-content:space-between;align-items:baseline;">
-        <span style="font-size:14px;color:var(--text);flex:1;">
-          ${it.nombre}
-          <span style="color:var(--muted);font-size:13px;"> × ${it.cantidad}</span>
-        </span>
-        <span style="font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:1.15rem;
-                     color:var(--primary);white-space:nowrap;margin-left:12px;">$${it.importe}</span>
-      </div>
-      ${modsHtml}
-    </div>`
-  }).join('')
-
-  // Mensaje WA (gancho para cuando se active el botón)
-  const waLineas = carrito.map(it => {
-    const mLines = modsDeItem(it.mods)
-    const modsText = mLines.length ? '\n' + mLines.map(l => '    ' + l).join('\n') : ''
-    return `• ${it.nombre} ×${it.cantidad} — $${it.importe}${modsText}`
-  }).join('\n')
-  const waMensaje = [
-    `*${POS.BRANDING.nombre} — Pedido ${ordenActual.folio}*`,
-    `Entrega: ${tipoLabel}`,
-    esDomicilio && sesionCliente.direccion_entrega ? sesionCliente.direccion_entrega : '',
-    '',
-    waLineas,
-    '',
-    `*Total: $${total}*`,
-  ].filter(l => l !== null && l !== undefined).join('\n').trim()
-  ordenActual.waMensaje = waMensaje
-
+function cerrarOrdenExitosa(folio) {
+  cerrarCart()
   document.getElementById('bot-nav').classList.add('hidden')
   document.getElementById('main-content').innerHTML = `
-    <div style="max-width:420px;margin:32px auto 80px;padding:0 4px;">
-
-      <!-- Ticket card -->
-      <div style="background:var(--surface);border-radius:20px;
-                  box-shadow:0 4px 24px rgba(61,0,20,.12);
-                  border:1px solid var(--border);overflow:hidden;">
-
-        <!-- Cabecera -->
-        <div style="background:var(--primary);padding:24px 24px 20px;text-align:center;">
-          <div style="font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:2rem;
-                      letter-spacing:3px;color:var(--on-pri);line-height:1;">
-            ${POS.BRANDING.nombre.toUpperCase()}
-          </div>
-          <div style="font-size:13px;color:var(--on-pri);opacity:.75;margin-top:4px;">
-            Tu pedido está listo para confirmar
-          </div>
-        </div>
-
-        <!-- Folio + tipo -->
-        <div style="padding:18px 24px 14px;border-bottom:1px solid var(--border);">
-          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
-            <div>
-              <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;
-                          text-transform:uppercase;color:var(--muted);margin-bottom:4px;">Folio</div>
-              <div style="font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:1.6rem;
-                          color:var(--primary);letter-spacing:1px;">${ordenActual.folio}</div>
-            </div>
-            <div style="text-align:right;">
-              <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;
-                          text-transform:uppercase;color:var(--muted);margin-bottom:4px;">Entrega</div>
-              <div style="font-size:15px;font-weight:600;color:var(--text);">${tipoLabel}</div>
-              ${dirHtml}
-            </div>
-          </div>
-        </div>
-
-        <!-- Líneas del pedido -->
-        <div style="padding:4px 24px 8px;">
-          ${lineas}
-        </div>
-
-        <!-- Total -->
-        <div style="padding:14px 24px 18px;border-top:1px solid var(--border);
-                    display:flex;justify-content:space-between;align-items:baseline;">
-          <span style="font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:1.3rem;
-                       letter-spacing:1px;color:var(--text);">Total</span>
-          <span style="font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:2rem;
-                       color:var(--primary);">$${total}</span>
-        </div>
-
-        <!-- PIN oculto -->
-        <div style="background:var(--pdim);border-top:1px solid var(--border);
-                    padding:16px 24px;text-align:center;">
-          <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;
-                      text-transform:uppercase;color:var(--muted);margin-bottom:8px;">
-            Contraseña de entrega
-          </div>
-          <div style="font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:2.4rem;
-                      letter-spacing:18px;color:var(--primary);line-height:1;
-                      padding-left:18px;">
-            * * * *
-          </div>
-          <div style="font-size:12px;color:var(--muted);margin-top:8px;font-style:italic;">
-            Se enviará por WhatsApp al confirmar
-          </div>
-        </div>
-
-      </div><!-- /ticket card -->
-
-      <!-- Acciones -->
-      <div style="display:flex;flex-direction:column;gap:12px;margin-top:20px;">
-        <button class="btn-pri full" disabled data-wa-ready="false"
-          style="opacity:.5;cursor:not-allowed;">
-          Enviar por WhatsApp 📲
-        </button>
-        <button class="btn-ghost" style="font-size:15px;padding:10px;"
-          onclick="resetSesion()">
-          ← Volver al menú
-        </button>
+    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;
+                min-height:70vh;text-align:center;padding:40px 20px;">
+      <div style="font-size:80px;line-height:1;margin-bottom:20px;">✅</div>
+      <div style="font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:2.8rem;
+                  letter-spacing:3px;color:var(--primary);line-height:1;margin-bottom:12px;">
+        ORDEN REGISTRADA
       </div>
-
+      <div style="font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:1.6rem;
+                  color:var(--primary);letter-spacing:2px;margin-bottom:16px;">
+        ${folio}
+      </div>
+      <div style="font-size:13px;color:var(--muted);">Regresando al menú...</div>
     </div>`
+  carrito = []
+  updateCartBar()
+  setTimeout(() => goPage('res'), 2000)
 }
 
 // ── Reset de sesión ───────────────────────────────────────────────────────────
@@ -1680,9 +1621,13 @@ window.addEventListener('DOMContentLoaded', async () => {
   // Iniciar carga del menú en paralelo (en background)
   menuLoadPromise = cargarMenu()
 
-  // Mostrar pantalla 1 (el menú ya está cargando en segundo plano)
-  mostrarPantalla('screen-id')
+  // Modo operador emergencia: saltar todas las pantallas de intake
+  sesionCliente.nombre       = 'Cliente'
+  sesionCliente.celular      = '0000000000'
+  sesionCliente.tipo_entrega = 'barra'
+  entrarAlMenu()
 })
 </script>
 </body>
 </html>
+
