@@ -750,7 +750,7 @@ async function cargarMenu() {
       .eq('tenant_id', POS.TENANT_ID)
       .eq('activo', true)
       .in('id_producto', [
-        'BEB-027','BEB-028','BEB-029','BEB-030','BEB-031',
+        'BEB-026','BEB-027','BEB-028','BEB-029','BEB-030','BEB-031',
         'BEB-032','BEB-033','BEB-034','BEB-035','BEB-036'
       ])
       .order('id_producto')
@@ -845,7 +845,7 @@ function getPgItems(pgId) {
     case 'res':       items = menuItems.filter(it => it.categoria === 'Hamburguesas'); break
     case 'pollo':     items = menuItems.filter(it => it.categoria === 'Pollo'); break
     case 'papas':     items = menuItems.filter(it => it.categoria === 'Acompañamientos'); break
-    case 'refrescos': items = menuItems.filter(it => it.categoria === 'Bebidas' && it.nombre !== 'Limonada' && !it.nombre.toLowerCase().includes('agua')); break
+    case 'refrescos': items = menuItems.filter(it => it.categoria === 'Bebidas' && !it.nombre.toLowerCase().startsWith('limonada')); break
     default: items = []
   }
   return items.sort((a, b) => a.precio - b.precio)  // AJUSTE 5: precio ascendente
@@ -876,6 +876,35 @@ function renderRefrescosPage(cont, pg, others) {
   const badgeRef  = inCartRef > 0 ? `<span class="item-badge">${inCartRef}</span>` : ''
 
 
+  const aguaItems = [
+    { id: 'RBE-005', nombre: 'Agua Natural',  precio: 25 },
+    { id: 'RBE-006', nombre: 'Agua Mineral',  precio: 30 },
+  ]
+
+  const aguaCardsHtml = aguaItems.map(a => {
+    const inCart = carrito.filter(e => e.id_receta === a.id).reduce((s,e) => s + e.cantidad, 0)
+    const badge  = inCart > 0 ? `<span class="item-badge">${inCart}</span>` : ''
+    return `
+      <div class="item-card" id="agua-card-${a.id}">
+        ${badge}
+        <div class="item-thumb">💧</div>
+        <div class="item-body">
+          <div class="item-name">${a.nombre}</div>
+          <div class="item-price">$${a.precio}</div>
+        </div>
+        <div class="item-foot">
+          <div class="drink-row">
+            <div class="stepper">
+              <button class="stbtn" onclick="adjAguaQty('${a.id}',-1)">−</button>
+              <span class="stval" id="agua-qty-${a.id}">1</span>
+              <button class="stbtn plus" onclick="adjAguaQty('${a.id}',1)">+</button>
+            </div>
+            <button class="btn-pri sm" onclick="addAgua('${a.id}','${a.nombre}',${a.precio})">Agregar →</button>
+          </div>
+        </div>
+      </div>`
+  }).join('')
+
   cont.innerHTML = `
     <h1 class="page-title">${pg.title}</h1>
     <div class="item-grid" id="item-grid">
@@ -902,6 +931,7 @@ function renderRefrescosPage(cont, pg, others) {
           </div>
         </div>
       </div>
+      ${aguaCardsHtml}
     </div>`
 
   document.getElementById('bot-nav').classList.remove('hidden')
@@ -960,6 +990,35 @@ function addRefresco() {
         btn.disabled = true; btn.style.opacity = '.5'; btn.style.cursor = 'not-allowed'
       }
     }, 1200)
+  }
+}
+
+const _aguaQtys = {}
+function adjAguaQty(id, delta) {
+  _aguaQtys[id] = Math.max(1, (_aguaQtys[id] || 1) + delta)
+  const el = document.getElementById('agua-qty-' + id)
+  if (el) el.textContent = _aguaQtys[id]
+}
+
+function addAgua(id, nombre, precio) {
+  const qty = _aguaQtys[id] || 1
+  carrito.push({
+    id_receta:   id,
+    nombre:      nombre,
+    precio_base: precio,
+    cantidad:    qty,
+    mods:        { ingredientes:[], extras:[], salsas:[], nota:'' },
+    importe:     precio * qty,
+  })
+  _aguaQtys[id] = 1
+  updateCartBar()
+  const card = document.getElementById('agua-card-' + id)
+  if (card) {
+    const btn = card.querySelector('.btn-pri')
+    if (btn) {
+      btn.textContent = '✓ Agregado'; btn.style.background = '#22c55e'
+      setTimeout(() => { if (btn) { btn.textContent = 'Agregar →'; btn.style.background = '' } }, 1200)
+    }
   }
 }
 
