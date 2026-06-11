@@ -643,6 +643,7 @@ let currentPg   = 'res'
 let bebidasCombo = []  // bebidas disponibles para combo
 let bebidaSeleccionada = { id: null, nombre: null }
 let refrescoQty = 1
+let metodoPago = 'efectivo'
 
 // Orden activa (folio + pin generados al confirmar)
 let ordenActual = null
@@ -844,7 +845,7 @@ function getPgItems(pgId) {
     case 'res':       items = menuItems.filter(it => it.categoria === 'Hamburguesas'); break
     case 'pollo':     items = menuItems.filter(it => it.categoria === 'Pollo'); break
     case 'papas':     items = menuItems.filter(it => it.categoria === 'Acompañamientos'); break
-    case 'refrescos': items = menuItems.filter(it => it.categoria === 'Bebidas' && it.nombre !== 'Limonada'); break
+    case 'refrescos': items = menuItems.filter(it => it.categoria === 'Bebidas' && it.nombre !== 'Limonada' && !it.nombre.toLowerCase().includes('agua')); break
     default: items = []
   }
   return items.sort((a, b) => a.precio - b.precio)  // AJUSTE 5: precio ascendente
@@ -858,7 +859,6 @@ function renderRefrescosPage(cont, pg, others) {
   bebidaSeleccionada = { id: null, nombre: null }
   refrescoQty = 1
 
-  const aguaItems = getPgItems('refrescos').filter(it => /agua/i.test(it.nombre))
   const sabores   = bebidasCombo.filter(b => !EXCLUIR_SABORES.includes(b.id_producto))
 
   const chipsHtml = sabores.length
@@ -875,30 +875,6 @@ function renderRefrescosPage(cont, pg, others) {
   const inCartRef = carrito.filter(e => e.id_receta === 'RBE-004').reduce((s,e) => s + e.cantidad, 0)
   const badgeRef  = inCartRef > 0 ? `<span class="item-badge">${inCartRef}</span>` : ''
 
-  const aguaCardsHtml = aguaItems.map(it => {
-    drinkQty[it.id_receta] = drinkQty[it.id_receta] || 1
-    const inCart = carrito.filter(e => e.id_receta === it.id_receta).reduce((s,e) => s + e.cantidad, 0)
-    const badge  = inCart > 0 ? `<span class="item-badge">${inCart}</span>` : ''
-    return `<div class="item-card">
-      ${badge}
-      <div class="item-thumb">${pg.emoji}</div>
-      <div class="item-body">
-        <div class="item-name">${it.nombre}</div>
-        ${it.descripcion ? `<div class="item-desc" style="font-style:italic;">${it.descripcion}</div>` : ''}
-        <div class="item-price">$${it.precio}</div>
-      </div>
-      <div class="item-foot">
-        <div class="drink-row">
-          <div class="stepper">
-            <button class="stbtn" onclick="adjDrink('${it.id_receta}',-1)">−</button>
-            <span class="stval" id="dq-${it.id_receta}">${drinkQty[it.id_receta]}</span>
-            <button class="stbtn plus" onclick="adjDrink('${it.id_receta}',1)">+</button>
-          </div>
-          <button class="btn-pri sm" data-dadd="${it.id_receta}" onclick="addDrink('${it.id_receta}')">Agregar →</button>
-        </div>
-      </div>
-    </div>`
-  }).join('')
 
   cont.innerHTML = `
     <h1 class="page-title">${pg.title}</h1>
@@ -926,7 +902,6 @@ function renderRefrescosPage(cont, pg, others) {
           </div>
         </div>
       </div>
-      ${aguaCardsHtml}
     </div>`
 
   document.getElementById('bot-nav').classList.remove('hidden')
@@ -1588,6 +1563,23 @@ function mostrarResumen() {
         <span style="font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:2.2rem;
                      color:var(--primary);">$${total}</span>
       </div>
+      <div style="margin-bottom:16px;">
+        <div class="sh-sec-ttl" style="margin-bottom:8px;">Método de pago</div>
+        <div style="display:flex;gap:10px;">
+          <button id="pago-efectivo"
+            onclick="elegirMetodoPago('efectivo')"
+            style="flex:1;padding:13px;border-radius:12px;font-size:14px;font-weight:600;cursor:pointer;
+              border:1.5px solid var(--primary);background:var(--primary);color:var(--on-pri);">
+            💵 Efectivo
+          </button>
+          <button id="pago-tarjeta"
+            onclick="elegirMetodoPago('tarjeta')"
+            style="flex:1;padding:13px;border-radius:12px;font-size:14px;font-weight:600;cursor:pointer;
+              border:1.5px solid var(--border);background:var(--bg);color:var(--text);">
+            💳 Tarjeta
+          </button>
+        </div>
+      </div>
       <div style="display:flex;gap:12px;flex-wrap:wrap;">
         <button class="btn-out" style="flex:1;padding:14px;font-size:15px;"
           onclick="volverAlCarrito()">← Volver a la orden</button>
@@ -1595,6 +1587,18 @@ function mostrarResumen() {
           onclick="confirmarOrden()">Confirmar orden ✓</button>
       </div>
     </div>`
+}
+
+function elegirMetodoPago(metodo) {
+  metodoPago = metodo
+  const btns = { efectivo: document.getElementById('pago-efectivo'), tarjeta: document.getElementById('pago-tarjeta') }
+  Object.entries(btns).forEach(([key, btn]) => {
+    if (!btn) return
+    const sel = key === metodo
+    btn.style.background  = sel ? 'var(--primary)' : 'var(--bg)'
+    btn.style.borderColor = sel ? 'var(--primary)' : 'var(--border)'
+    btn.style.color       = sel ? 'var(--on-pri)'  : 'var(--text)'
+  })
 }
 
 function volverAlCarrito() {
@@ -1619,7 +1623,7 @@ async function confirmarOrden() {
         tenant_id:         POS.TENANT_ID,
         folio,
         canal:             'mostrador',
-        metodo_pago:       'efectivo',
+        metodo_pago:       metodoPago,
         subtotal,
         total:             subtotal,
         estado:            'cerrada',
@@ -1711,6 +1715,7 @@ function cerrarOrdenExitosa(folio) {
       <div style="font-size:13px;color:var(--muted);">Regresando al menú...</div>
     </div>`
   carrito = []
+  metodoPago = 'efectivo'
   updateCartBar()
   setTimeout(() => goPage('res'), 2000)
 }
