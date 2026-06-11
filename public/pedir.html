@@ -746,12 +746,13 @@ async function cargarMenu() {
       .select('id_producto, nombre_corto')
       .eq('tenant_id', POS.TENANT_ID)
       .eq('activo', true)
-      .gte('id_producto', 'BEB-027')
-      .lte('id_producto', 'BEB-036')
+      .in('id_producto', [
+        'BEB-027','BEB-028','BEB-029','BEB-030','BEB-031',
+        'BEB-032','BEB-033','BEB-034','BEB-035','BEB-036'
+      ])
       .order('id_producto')
     if (eBeb) console.error('Error bebidas combo:', eBeb)
     bebidasCombo = bebidas || []
-    console.log('bebidasCombo cargadas:', bebidasCombo.length)
   } catch(e) {
     document.getElementById('main-content').innerHTML = `<div class="err-box">Error al cargar el menú: ${e.message}</div>`
     // No re-throw: promise resolves even on error
