@@ -1253,14 +1253,15 @@ function buildCzBody(type, scroll) {
           <div class="sh-sec-ttl" style="margin-bottom:8px;">Elige tu bebida</div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
             ${bebidasCombo.map(b => {
+              const nombre = b.nombre_corto || b.id_producto
               const sel = cz.combo.bebida_id === b.id_producto
-              return `<div onclick="seleccionarBebidaCombo('${b.id_producto}','${b.nombre_corto.replace(/'/g, "\\'")}')"
+              return `<div onclick="seleccionarBebidaCombo('${b.id_producto}','${nombre.replace(/'/g, "\\'")}')"
                 style="padding:10px 8px;border-radius:12px;text-align:center;cursor:pointer;font-size:13px;font-weight:600;
                   border:1.5px solid ${sel ? 'var(--primary)' : 'var(--border)'};
                   background:${sel ? 'var(--primary)' : 'var(--bg)'};
                   color:${sel ? 'var(--on-pri)' : 'var(--text)'}"
                 id="beb-chip-${b.id_producto}">
-                ${b.nombre_corto}
+                ${nombre}
               </div>`
             }).join('')}
           </div>
