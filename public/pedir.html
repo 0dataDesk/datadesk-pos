@@ -763,7 +763,7 @@ async function cargarMenu() {
 }
 
 // ── Navegación ────────────────────────────────────────────────────────────────
-function goPage(pgId) {
+async function goPage(pgId) {
   currentPg = pgId
   const pg     = PAGES.find(p => p.id === pgId)
   const others = PAGES.filter(p => p.id !== pgId)
@@ -773,6 +773,17 @@ function goPage(pgId) {
   const cont = document.getElementById('main-content')
 
   if (pgId === 'refrescos') {
+    if (bebidasCombo.length === 0) {
+      const { data: beb } = await window._db
+        .from('productos')
+        .select('id_producto, nombre_corto')
+        .eq('tenant_id', POS.TENANT_ID)
+        .eq('activo', true)
+        .in('id_producto', ['BEB-026','BEB-027','BEB-028','BEB-029',
+          'BEB-030','BEB-031','BEB-032','BEB-033','BEB-034','BEB-035','BEB-036'])
+        .order('id_producto')
+      bebidasCombo = beb || []
+    }
     renderRefrescosPage(cont, pg, others)
     return
   }
