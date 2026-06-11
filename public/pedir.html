@@ -639,13 +639,14 @@ let modSalsas  = []    // ítems de categoría Salsas
 let ingCache   = {}    // id_receta → [{producto, nombre_corto}]
 let carrito    = []    // líneas del carrito
 let drinkQty   = {}    // id_receta → qty inline para bebidas
-let currentPg  = 'res'
+let currentPg   = 'res'
+let bebidasCombo = []  // bebidas disponibles para combo
 
 // Orden activa (folio + pin generados al confirmar)
 let ordenActual = null
 
 // Estado de la hoja de personalización
-let cz = { item:null, cartIdx:null, cantidad:1, ingredientes:[], extras:[], salsas:[], nota:'' }
+let cz = { item:null, cartIdx:null, cantidad:1, ingredientes:[], extras:[], salsas:[], nota:'', combo:{ activo:false, bebida_id:null, bebida_nombre:null } }
 
 // ── Estado de identificación + entrega ────────────────────────────────────────
 let cfg = {}         // filas de config_pos
@@ -739,6 +740,18 @@ async function cargarMenu() {
     modSalsas = all.filter(r => r.categoria === 'Salsas')
     menuItems = all.filter(r => MENU_CATS.includes(r.categoria))
     menuDataReady = true
+
+    const { data: bebidas } = await window._db
+      .from('productos')
+      .select('id_producto, nombre_corto')
+      .eq('tenant_id', POS.TENANT_ID)
+      .in('id_producto', [
+        'BEB-027','BEB-028','BEB-029','BEB-030','BEB-031',
+        'BEB-032','BEB-033','BEB-034','BEB-035','BEB-036'
+      ])
+      .eq('activo', true)
+      .order('id_producto')
+    bebidasCombo = bebidas || []
   } catch(e) {
     document.getElementById('main-content').innerHTML = `<div class="err-box">Error al cargar el menú: ${e.message}</div>`
     // No re-throw: promise resolves even on error
@@ -879,7 +892,8 @@ async function abrirCz(idReceta, cartIdx = null) {
     item, cartIdx,
     cantidad: (cartIdx !== null && carrito[cartIdx]) ? carrito[cartIdx].cantidad : 1,
     ingredientes: [], extras: [], salsas: [],
-    nota: savedMods?.nota || ''
+    nota: savedMods?.nota || '',
+    combo: savedMods?.combo || { activo: false, bebida_id: null, bebida_nombre: null }
   }
 
   document.getElementById('cz-name').textContent = item.nombre
@@ -984,7 +998,7 @@ function buildCzBody(type, scroll) {
   }
 
   // 3 — Salsas (burgers y sides) — tarjetas de sabor diferenciadas
-  if (modSalsas.length) {
+  if (type !== 'drink' && modSalsas.length) {
     const cards = modSalsas.map(sa => {
       const label    = sa.nombre.replace(/^Salsa\s+/i, '')
       const entry    = cz.salsas.find(s => s.id === sa.id_receta)
@@ -1014,6 +1028,36 @@ function buildCzBody(type, scroll) {
       `<div class="sh-sec" style="border-top:1px solid var(--border);padding-top:20px;margin-top:4px;">
         <div class="sh-sec-ttl">Salsas — $15 c/u</div>
         <div class="salsa-grid">${cards}</div>
+      </div>`)
+  }
+
+  // 4 — Combo Papas + Bebida (solo burgers)
+  if (type === 'burger') {
+    const comboOn = cz.combo.activo
+    const bebidasHtml = bebidasCombo.map(b => {
+      const sel = cz.combo.bebida_id === b.id_producto
+      const safeName = b.nombre_corto.replace(/'/g, "\\'")
+      return `<div class="chip-mod ${sel ? 'on' : ''}"
+        style="${sel ? 'background:var(--primary);border-color:var(--primary);color:var(--on-pri);' : ''}"
+        onclick="seleccionarBebidaCombo('${b.id_producto}','${safeName}')">
+        ${b.nombre_corto}
+      </div>`
+    }).join('')
+    scroll.insertAdjacentHTML('beforeend', `
+      <div class="sh-sec" style="border-top:1px solid var(--border);padding-top:20px;margin-top:4px;">
+        <div class="sh-sec-ttl">Agregar Combo — +$60</div>
+        <div class="cz-row ${comboOn ? 'on' : 'off'}" id="combo-toggle-row"
+          style="background:${comboOn ? 'var(--primary)' : 'var(--bg)'};"
+          onclick="toggleCombo()">
+          <div class="cz-row-body">
+            <span class="cz-row-name" style="color:${comboOn ? 'var(--on-pri)' : ''};">Combo Papas + Bebida</span>
+            <span class="cz-row-price" style="color:${comboOn ? 'var(--on-pri)' : ''};opacity:${comboOn ? '.7' : '1'};">+$60</span>
+          </div>
+        </div>
+        <div id="combo-bebida-sel" style="display:${comboOn ? 'block' : 'none'};margin-top:12px;">
+          <div class="sh-sec-ttl">Elige tu bebida</div>
+          <div class="chip-grid-2">${bebidasHtml}</div>
+        </div>
       </div>`)
   }
 }
@@ -1133,6 +1177,40 @@ function adjSalsaQty(id, nombre, precio, delta) {
   actualizarCzBtn()
 }
 
+// Combo handlers
+function toggleCombo() {
+  cz.combo.activo = !cz.combo.activo
+  if (!cz.combo.activo) cz.combo = { activo: false, bebida_id: null, bebida_nombre: null }
+  const row = document.getElementById('combo-toggle-row')
+  const sel = document.getElementById('combo-bebida-sel')
+  if (row) {
+    row.className = 'cz-row ' + (cz.combo.activo ? 'on' : 'off')
+    row.style.background = cz.combo.activo ? 'var(--primary)' : 'var(--bg)'
+    const name  = row.querySelector('.cz-row-name')
+    const price = row.querySelector('.cz-row-price')
+    if (name)  name.style.color   = cz.combo.activo ? 'var(--on-pri)' : ''
+    if (price) { price.style.color = cz.combo.activo ? 'var(--on-pri)' : ''; price.style.opacity = cz.combo.activo ? '.7' : '1' }
+  }
+  if (sel) sel.style.display = cz.combo.activo ? 'block' : 'none'
+  actualizarCzBtn()
+}
+
+function seleccionarBebidaCombo(id, nombre) {
+  cz.combo.bebida_id     = id
+  cz.combo.bebida_nombre = nombre
+  const sel = document.getElementById('combo-bebida-sel')
+  if (sel) {
+    sel.querySelectorAll('.chip-mod').forEach(chip => {
+      const isThis = chip.getAttribute('onclick').includes("'" + id + "'")
+      chip.className           = 'chip-mod' + (isThis ? ' on' : '')
+      chip.style.background    = isThis ? 'var(--primary)' : ''
+      chip.style.borderColor   = isThis ? 'var(--primary)' : ''
+      chip.style.color         = isThis ? 'var(--on-pri)' : ''
+    })
+  }
+  actualizarCzBtn()
+}
+
 function czCant(delta) {
   cz.cantidad = Math.max(1, cz.cantidad + delta)
   document.getElementById('cz-cant').textContent = cz.cantidad
@@ -1142,9 +1220,17 @@ function czCant(delta) {
 function actualizarCzBtn() {
   const extrasSum = cz.extras.filter(e => e.qty > 0).reduce((s, e) => s + e.precio * e.qty, 0)
   const salsasSum = cz.salsas.reduce((s, sa) => s + (sa.cantidad || 1) * (sa.precio || 15), 0)
-  const total     = ((cz.item?.precio || 0) + extrasSum + salsasSum) * cz.cantidad
+  const comboSum  = cz.combo.activo ? 60 : 0
+  const total     = ((cz.item?.precio || 0) + extrasSum + salsasSum + comboSum) * cz.cantidad
   const btn       = document.getElementById('cz-add-btn')
-  if (btn) btn.textContent = (cz.cartIdx !== null ? 'Actualizar — ' : 'Agregar al pedido — ') + '$' + total
+  if (!btn) return
+  if (cz.combo.activo && !cz.combo.bebida_id) {
+    btn.textContent = 'Selecciona una bebida para el combo'
+    btn.disabled    = true
+  } else {
+    btn.disabled    = false
+    btn.textContent = (cz.cartIdx !== null ? 'Actualizar — ' : 'Agregar al pedido — ') + '$' + total
+  }
 }
 
 function guardarCz() {
@@ -1152,7 +1238,8 @@ function guardarCz() {
   if (notaEl) cz.nota = notaEl.value.trim()
   const extrasSum = cz.extras.filter(e => e.qty > 0).reduce((s, e) => s + e.precio * e.qty, 0)
   const salsasSum = cz.salsas.reduce((s, sa) => s + (sa.cantidad || 1) * (sa.precio || 15), 0)
-  const importe   = ((cz.item?.precio || 0) + extrasSum + salsasSum) * cz.cantidad
+  const comboSum  = cz.combo.activo ? 60 : 0
+  const importe   = ((cz.item?.precio || 0) + extrasSum + salsasSum + comboSum) * cz.cantidad
   const entry = {
     id_receta:   cz.item.id_receta,
     nombre:      cz.item.nombre,
@@ -1163,6 +1250,7 @@ function guardarCz() {
       extras:       cz.extras.filter(e => e.qty > 0).map(e => ({ id:e.id, nombre:e.nombre, precio:e.precio, qty:e.qty })),
       salsas:       cz.salsas.map(s => ({ id:s.id, nombre:s.nombre, precio:s.precio, cantidad:s.cantidad||1 })),
       nota:         cz.nota,
+      combo:        cz.combo,
     },
     importe,
   }
@@ -1176,7 +1264,7 @@ function guardarCz() {
 
 function cerrarCz() {
   document.getElementById('sheet-cz').classList.add('hidden')
-  cz = { item:null, cartIdx:null, cantidad:1, ingredientes:[], extras:[], salsas:[], nota:'' }
+  cz = { item:null, cartIdx:null, cantidad:1, ingredientes:[], extras:[], salsas:[], nota:'', combo:{ activo:false, bebida_id:null, bebida_nombre:null } }
 }
 
 // ── Carrito ───────────────────────────────────────────────────────────────────
@@ -1230,6 +1318,7 @@ function renderCart() {
     if (exA.length) parts.push(exA.map(e => (e.qty > 1 ? e.qty + '× ' : '') + e.nombre).join(', '))
     // Salsas
     if ((m.salsas||[]).length) parts.push(m.salsas.map(s => s.nombre).join(', '))
+    if (m.combo?.activo && m.combo.bebida_nombre) parts.push('🍟 Combo: Papas Clásicas + ' + m.combo.bebida_nombre)
     if (m.nota) parts.push('📝 ' + m.nota)
 
     const esBebida = menuItems.some(m => m.id_receta === item.id_receta && m.categoria === 'Bebidas')
@@ -1258,7 +1347,8 @@ function cartCant(idx, delta) {
   const m = carrito[idx].mods
   const extrasSum = (m.extras||[]).filter(e => (e.qty||0) > 0).reduce((s,e) => s + e.precio * e.qty, 0)
   const salsasSum = (m.salsas||[]).reduce((s, sa) => s + (sa.cantidad||1) * (sa.precio||15), 0)
-  carrito[idx].importe  = (carrito[idx].precio_base + extrasSum + salsasSum) * carrito[idx].cantidad
+  const comboSum  = m.combo?.activo ? 60 : 0
+  carrito[idx].importe  = (carrito[idx].precio_base + extrasSum + salsasSum + comboSum) * carrito[idx].cantidad
   renderCart(); updateCartBar()
 }
 
@@ -1389,9 +1479,9 @@ async function confirmarOrden() {
       .single()
     if (e1) throw e1
 
-    const { error: e2 } = await window._db
-      .from('venta_items')
-      .insert(carrito.map(it => ({
+    const items = []
+    carrito.forEach(it => {
+      items.push({
         tenant_id:       POS.TENANT_ID,
         id_venta:        venta.id,
         id_item:         it.id_receta,
@@ -1402,7 +1492,24 @@ async function confirmarOrden() {
         importe:         it.importe,
         modificadores:   it.mods,
         notas:           it.mods.nota || null
-      })))
+      })
+      if (it.mods.combo?.activo) {
+        items.push({
+          tenant_id:       POS.TENANT_ID,
+          id_venta:        venta.id,
+          id_item:         'REX-COM-001',
+          tipo_item:       'receta',
+          nombre:          'Combo: Papas Clásicas + ' + it.mods.combo.bebida_nombre,
+          cantidad:        it.cantidad,
+          precio_unitario: 60,
+          importe:         60 * it.cantidad,
+          modificadores:   { bebida_id: it.mods.combo.bebida_id, bebida_nombre: it.mods.combo.bebida_nombre },
+          notas:           it.mods.combo.bebida_nombre
+        })
+      }
+    })
+
+    const { error: e2 } = await window._db.from('venta_items').insert(items)
     if (e2) throw e2
 
     const { error: e3 } = await window._db
@@ -1450,6 +1557,7 @@ function cerrarOrdenExitosa(folio) {
   updateCartBar()
   setTimeout(() => goPage('res'), 2000)
 }
+
 
 // ── Reset de sesión ───────────────────────────────────────────────────────────
 function resetSesion() {
