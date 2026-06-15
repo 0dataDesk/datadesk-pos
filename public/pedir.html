@@ -629,13 +629,13 @@ const PAGES = [
   { id:'papas',     cat:'Acompañamientos', label:'Papas',     emoji:'🍟', title:'Papas'                 },
   { id:'refrescos', cat:'Bebidas',         label:'Bebidas',   emoji:'🥤', title:'Bebidas'               },
 ]
-const MOD_CATS  = ['Extras','Salsas']
+const MOD_CATS  = ['Extras','Aderezos']
 const MENU_CATS = ['Hamburguesas','Pollo','Acompañamientos','Bebidas']
 
 // ── Estado global ─────────────────────────────────────────────────────────────
 let menuItems  = []    // ítems del menú (sin Extras/Salsas)
 let modExtras  = []    // ítems de categoría Extras
-let modSalsas  = []    // ítems de categoría Salsas
+let modSalsas  = []    // ítems de categoría Aderezos
 let ingCache   = {}    // id_receta → [{producto, nombre_corto}]
 let carrito    = []    // líneas del carrito
 let drinkQty   = {}    // id_receta → qty inline para bebidas
@@ -741,7 +741,7 @@ async function cargarMenu() {
 
     const all = recetas.map(r => ({ id_receta:r.id_receta, nombre:r.nombre_platillo, categoria:r.categoria, descripcion:r.descripcion||'', tagline:r.tagline||'', precio:pm[r.id_receta]||0 }))
     modExtras = all.filter(r => r.categoria === 'Extras')
-    modSalsas = all.filter(r => r.categoria === 'Salsas')
+    modSalsas = all.filter(r => r.categoria === 'Aderezos')
     menuItems = all.filter(r => MENU_CATS.includes(r.categoria))
     menuDataReady = true
 
@@ -1232,7 +1232,7 @@ function buildCzBody(type, scroll) {
     }).join('')
     scroll.insertAdjacentHTML('beforeend',
       `<div class="sh-sec" style="border-top:1px solid var(--border);padding-top:20px;margin-top:4px;">
-        <div class="sh-sec-ttl">Salsas — $15 c/u</div>
+        <div class="sh-sec-ttl">Aderezos — $15 c/u</div>
         <div class="salsa-grid">${cards}</div>
       </div>`)
   }
