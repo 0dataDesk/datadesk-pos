@@ -644,6 +644,7 @@ let bebidasCombo = []  // bebidas disponibles para combo
 let bebidaSeleccionada = { id: null, nombre: null }
 let refrescoQty = 1
 let metodoPago = 'efectivo'
+let subtipoTarjeta = 'debito'
 let montoEfectivoMixto = 0
 let propina = 0
 
@@ -1674,6 +1675,20 @@ function mostrarResumen() {
             🔀 Mixto
           </button>
         </div>
+        <div id="tarjeta-detalle" style="display:none;margin-top:10px;">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+            <button id="subtipo-debito" onclick="elegirSubtipoTarjeta('debito')"
+              style="padding:10px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;
+                border:1.5px solid var(--primary);background:var(--primary);color:var(--on-pri);">
+              🏦 Débito
+            </button>
+            <button id="subtipo-credito" onclick="elegirSubtipoTarjeta('credito')"
+              style="padding:10px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;
+                border:1.5px solid var(--border);background:var(--bg);color:var(--text);">
+              💳 Crédito
+            </button>
+          </div>
+        </div>
         <div id="mixto-detalle" style="display:none;margin-top:12px;">
           <label style="font-size:0.85rem;color:var(--muted);">Monto en efectivo</label>
           <input type="number" id="input-efectivo-mixto" inputmode="decimal"
@@ -1742,27 +1757,47 @@ function elegirMetodoPago(metodo) {
     btn.style.borderColor = sel ? 'var(--primary)' : 'var(--border)'
     btn.style.color       = sel ? 'var(--on-pri)'  : 'var(--text)'
   })
+  const tarjetaDetalle = document.getElementById('tarjeta-detalle')
+  if (tarjetaDetalle) tarjetaDetalle.style.display = metodo === 'tarjeta' ? '' : 'none'
   const detalle = document.getElementById('mixto-detalle')
   if (detalle) {
     detalle.style.display = metodo === 'mixto' ? '' : 'none'
     if (metodo === 'mixto') {
       const inp = document.getElementById('input-efectivo-mixto')
       if (inp) inp.value = ''
-      const total = carrito.reduce((s, i) => s + i.importe, 0)
+      const totalConPropina = carrito.reduce((s, i) => s + i.importe, 0) + propina
       const tm = document.getElementById('mixto-tarjeta-monto')
-      if (tm) tm.textContent = '$' + total
+      if (tm) tm.textContent = '$' + totalConPropina
     }
   }
 }
 
+function elegirSubtipoTarjeta(subtipo) {
+  subtipoTarjeta = subtipo
+  const btnDeb = document.getElementById('subtipo-debito')
+  const btnCre = document.getElementById('subtipo-credito')
+  if (btnDeb) {
+    const sel = subtipo === 'debito'
+    btnDeb.style.background  = sel ? 'var(--primary)' : 'var(--bg)'
+    btnDeb.style.borderColor = sel ? 'var(--primary)' : 'var(--border)'
+    btnDeb.style.color       = sel ? 'var(--on-pri)'  : 'var(--text)'
+  }
+  if (btnCre) {
+    const sel = subtipo === 'credito'
+    btnCre.style.background  = sel ? 'var(--primary)' : 'var(--bg)'
+    btnCre.style.borderColor = sel ? 'var(--primary)' : 'var(--border)'
+    btnCre.style.color       = sel ? 'var(--on-pri)'  : 'var(--text)'
+  }
+}
+
 function actualizarMixto(val) {
+  const totalConPropina = carrito.reduce((s, i) => s + i.importe, 0) + propina
   let efectivo = parseFloat(val) || 0
-  const total = carrito.reduce((s, i) => s + i.importe, 0)
-  if (efectivo > total) efectivo = total
+  if (efectivo > totalConPropina) efectivo = totalConPropina
   if (efectivo < 0) efectivo = 0
   montoEfectivoMixto = efectivo
   const tm = document.getElementById('mixto-tarjeta-monto')
-  if (tm) tm.textContent = '$' + (total - efectivo)
+  if (tm) tm.textContent = '$' + (totalConPropina - efectivo)
 }
 
 function volverAlCarrito() {
@@ -1793,9 +1828,9 @@ async function confirmarOrden() {
         tenant_id:         POS.TENANT_ID,
         folio,
         canal:             'mostrador',
-        metodo_pago:       metodoPago,
+        metodo_pago:       metodoPago === 'tarjeta' ? subtipoTarjeta : metodoPago,
         monto_efectivo:    metodoPago === 'mixto' ? montoEfectivoMixto : (metodoPago === 'efectivo' ? total : 0),
-        monto_tarjeta:     metodoPago === 'mixto' ? (subtotal - montoEfectivoMixto) : (metodoPago === 'tarjeta' ? total : 0),
+        monto_tarjeta:     metodoPago === 'mixto' ? (total - montoEfectivoMixto) : (metodoPago === 'tarjeta' ? total : 0),
         subtotal,
         propina,
         total,
@@ -1889,6 +1924,7 @@ function cerrarOrdenExitosa(folio) {
     </div>`
   carrito = []
   metodoPago = 'efectivo'
+  subtipoTarjeta = 'debito'
   montoEfectivoMixto = 0
   propina = 0
   updateCartBar()
