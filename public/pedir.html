@@ -1765,7 +1765,7 @@ function elegirMetodoPago(metodo) {
   if (detalle) {
     detalle.style.display = metodo === 'mixto' ? '' : 'none'
     if (metodo === 'mixto') {
-      pagosMixtos = [{ tipo: 'debito', monto: 0 }, { tipo: 'efectivo', monto: 0 }]
+      pagosMixtos = [{ tipo: 'efectivo', monto: 0 }, { tipo: 'debito', monto: 0 }]
       renderPagosMixtos()
     }
   }
