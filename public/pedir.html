@@ -1110,7 +1110,7 @@ async function abrirCz(idReceta, cartIdx = null) {
     if (!ingCache[idReceta]) {
       const { data } = await window._db
         .from('receta_ingredientes')
-        .select('producto, id_producto, productos(nombre_corto)')
+        .select('producto, id_producto, productos(nombre_corto, precio_extra)')
         .eq('tenant_id', POS.TENANT_ID)
         .eq('id_receta', idReceta)
         .eq('activo', true)
@@ -1125,7 +1125,7 @@ async function abrirCz(idReceta, cartIdx = null) {
       const id     = ing.id_producto || ing.producto
       const nombre = ing.productos?.nombre_corto || ing.producto
       const saved  = savedMods?.ingredientes?.find(s => s.id === id)
-      return { id, nombre, qty: saved?.qty ?? 1, on: saved?.on ?? true }
+      return { id, nombre, qty: saved?.qty ?? 1, on: saved?.on ?? true, precio_extra: parseFloat(ing.productos?.precio_extra) || 0 }
     })
 
     // Inicializar extras (solo burgers, filtrar duplicados de ingredientes)
@@ -1433,10 +1433,11 @@ function czCant(delta) {
 }
 
 function actualizarCzBtn() {
+  const ingExtrasSum = cz.ingredientes.filter(i => i.on && i.qty > 1).reduce((s, i) => s + i.precio_extra * (i.qty - 1), 0)
   const extrasSum = cz.extras.filter(e => e.qty > 0).reduce((s, e) => s + e.precio * e.qty, 0)
   const salsasSum = cz.salsas.reduce((s, sa) => s + (sa.cantidad || 1) * (sa.precio || 15), 0)
   const comboSum  = cz.combo.activo ? 60 : 0
-  const total     = ((cz.item?.precio || 0) + extrasSum + salsasSum + comboSum) * cz.cantidad
+  const total     = ((cz.item?.precio || 0) + ingExtrasSum + extrasSum + salsasSum + comboSum) * cz.cantidad
   const btn       = document.getElementById('cz-add-btn')
   if (!btn) return
   if (cz.combo.activo && !cz.combo.bebida_id) {
@@ -1451,10 +1452,11 @@ function actualizarCzBtn() {
 function guardarCz() {
   const notaEl = document.getElementById('cz-nota')
   if (notaEl) cz.nota = notaEl.value.trim()
+  const ingExtrasSum = cz.ingredientes.filter(i => i.on && i.qty > 1).reduce((s, i) => s + i.precio_extra * (i.qty - 1), 0)
   const extrasSum = cz.extras.filter(e => e.qty > 0).reduce((s, e) => s + e.precio * e.qty, 0)
   const salsasSum = cz.salsas.reduce((s, sa) => s + (sa.cantidad || 1) * (sa.precio || 15), 0)
   const comboSum  = cz.combo.activo ? 60 : 0
-  const importe   = ((cz.item?.precio || 0) + extrasSum + salsasSum + comboSum) * cz.cantidad
+  const importe   = ((cz.item?.precio || 0) + ingExtrasSum + extrasSum + salsasSum + comboSum) * cz.cantidad
   const entry = {
     id_receta:   cz.item.id_receta,
     nombre:      cz.item.nombre,
