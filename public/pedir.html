@@ -1182,7 +1182,7 @@ function buildCzBody(type, scroll) {
   if (cz.ingredientes.length) {
     const rows = cz.ingredientes.map((ing, i) => `
       <div class="cz-row ${ing.on?'on':'off'}" id="ing-row-${i}" onclick="toggleIngRow(${i})">
-        <div class="cz-row-body"><span class="cz-row-name">${ing.nombre}</span></div>
+        <div class="cz-row-body"><span class="cz-row-name">${ing.nombre}</span>${ing.precio_extra > 0 ? `<span class="cz-row-price">+$${ing.precio_extra} c/u extra</span>` : ''}</div>
         <div class="cz-row-qty" onclick="event.stopPropagation()">
           <button class="qty-circ" onclick="adjIngQty(${i},-1)">−</button>
           <span class="qty-n" id="ing-qty-${i}">${ing.qty}</span>
