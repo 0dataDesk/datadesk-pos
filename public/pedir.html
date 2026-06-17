@@ -1070,10 +1070,18 @@ function getItemType(it) {
   return 'burger'
 }
 
-// ¿El nombre de un extra se superpone con algún ingrediente? (tolerancia substring)
-function extraOverlapsIng(extraNombre, ingNombres) {
-  const ex = extraNombre.toLowerCase().trim()
-  return ingNombres.some(ing => { const i = ing.toLowerCase().trim(); return i.includes(ex) || ex.includes(i) })
+// ¿El nombre de un extra se corresponde semánticamente con algún ingrediente?
+function extraEsIngrediente(extraNombre, ingNombres) {
+  const limpio = extraNombre.toLowerCase().replace(/^extra\s+/i, '').trim()
+  return ingNombres.some(ing =>
+    ing.includes(limpio) || limpio.includes(ing) ||
+    (limpio.includes('queso') && ing.includes('cheddar')) ||
+    (limpio.includes('carne') && ing.includes('smash')) ||
+    (limpio.includes('tocino') && ing.includes('bacon')) ||
+    (limpio.includes('jalap') && ing.includes('jalap')) ||
+    (limpio.includes('cebolla caramelizada') && ing.includes('caramelizada')) ||
+    (limpio.includes('cebolla crispy') && ing.includes('crispy'))
+  )
 }
 
 async function abrirCz(idReceta, cartIdx = null) {
@@ -1124,7 +1132,7 @@ async function abrirCz(idReceta, cartIdx = null) {
     if (type === 'burger') {
       const ingNames = cz.ingredientes.map(i => i.nombre.toLowerCase())
       cz.extras = modExtras
-        .filter(ex => !extraOverlapsIng(ex.nombre, ingNames))
+        .filter(ex => !extraEsIngrediente(ex.nombre, ingNames))
         .map(ex => {
           const saved = savedMods?.extras?.find(s => s.id === ex.id_receta)
           return { id: ex.id_receta, nombre: ex.nombre, precio: ex.precio, qty: saved?.qty ?? 0 }
@@ -1205,7 +1213,12 @@ function buildCzBody(type, scroll) {
 
   // 3 — Salsas (burgers y sides) — tarjetas de sabor diferenciadas
   if (type !== 'drink' && modSalsas.length) {
-    const cards = modSalsas.map(sa => {
+    const ingNombres = cz.ingredientes.map(i => i.nombre.toLowerCase())
+    const salsasVisibles = modSalsas.filter(sa => {
+      const salsaLimpia = sa.nombre.toLowerCase().replace(/^salsa\s+/i, '').trim()
+      return !ingNombres.some(ing => ing.includes(salsaLimpia) || salsaLimpia.includes(ing))
+    })
+    const cards = salsasVisibles.map(sa => {
       const label    = sa.nombre.replace(/^Salsa\s+/i, '')
       const entry    = cz.salsas.find(s => s.id === sa.id_receta)
       const isOn     = !!entry
