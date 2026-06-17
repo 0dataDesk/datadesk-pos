@@ -645,7 +645,7 @@ let bebidaSeleccionada = { id: null, nombre: null }
 let refrescoQty = 1
 let metodoPago = 'efectivo'
 let subtipoTarjeta = 'debito'
-let montoEfectivoMixto = 0
+let pagosMixtos = []   // [{tipo:'efectivo'|'debito'|'credito', monto:0}]
 let propina = 0
 
 // Orden activa (folio + pin generados al confirmar)
@@ -1690,16 +1690,18 @@ function mostrarResumen() {
           </div>
         </div>
         <div id="mixto-detalle" style="display:none;margin-top:12px;">
-          <label style="font-size:0.85rem;color:var(--muted);">Monto en efectivo</label>
-          <input type="number" id="input-efectivo-mixto" inputmode="decimal"
-            placeholder="0" min="0"
-            style="width:100%;padding:10px 12px;border:1.5px solid var(--border);
-              border-radius:10px;font-size:1rem;margin-top:4px;"
-            oninput="actualizarMixto(this.value)">
-          <div style="display:flex;justify-content:space-between;margin-top:8px;
-            font-size:0.9rem;color:var(--muted);">
-            <span>Tarjeta:</span>
-            <span id="mixto-tarjeta-monto">$0</span>
+          <div id="mixto-splits"></div>
+          <button onclick="agregarPagoMixto()"
+            style="width:100%;margin-top:8px;padding:10px;border-radius:10px;font-size:13px;
+              font-weight:600;cursor:pointer;border:1.5px dashed var(--border);
+              background:transparent;color:var(--muted);">
+            + Agregar otro pago
+          </button>
+          <div style="display:flex;justify-content:space-between;align-items:center;
+            margin-top:12px;padding:10px 12px;border-radius:10px;background:var(--surface);
+            border:1.5px solid var(--border);">
+            <span style="font-size:0.9rem;color:var(--muted);">Pendiente</span>
+            <span id="mixto-pendiente" style="font-weight:700;font-size:1.1rem;color:var(--primary);">$0</span>
           </div>
         </div>
       </div>
@@ -1763,11 +1765,8 @@ function elegirMetodoPago(metodo) {
   if (detalle) {
     detalle.style.display = metodo === 'mixto' ? '' : 'none'
     if (metodo === 'mixto') {
-      const inp = document.getElementById('input-efectivo-mixto')
-      if (inp) inp.value = ''
-      const totalConPropina = carrito.reduce((s, i) => s + i.importe, 0) + propina
-      const tm = document.getElementById('mixto-tarjeta-monto')
-      if (tm) tm.textContent = '$' + totalConPropina
+      pagosMixtos = [{ tipo: 'debito', monto: 0 }, { tipo: 'efectivo', monto: 0 }]
+      renderPagosMixtos()
     }
   }
 }
@@ -1790,14 +1789,78 @@ function elegirSubtipoTarjeta(subtipo) {
   }
 }
 
-function actualizarMixto(val) {
+function renderPagosMixtos() {
   const totalConPropina = carrito.reduce((s, i) => s + i.importe, 0) + propina
-  let efectivo = parseFloat(val) || 0
-  if (efectivo > totalConPropina) efectivo = totalConPropina
-  if (efectivo < 0) efectivo = 0
-  montoEfectivoMixto = efectivo
-  const tm = document.getElementById('mixto-tarjeta-monto')
-  if (tm) tm.textContent = '$' + (totalConPropina - efectivo)
+  const cubierto = pagosMixtos.reduce((s, p) => s + (parseFloat(p.monto) || 0), 0)
+  const pendiente = Math.max(0, totalConPropina - cubierto)
+
+  const tipoLabel = { efectivo: '💵 Efectivo', debito: '🏦 Débito', credito: '💳 Crédito' }
+  const tipos = ['efectivo', 'debito', 'credito']
+
+  const splitsEl = document.getElementById('mixto-splits')
+  if (!splitsEl) return
+  splitsEl.innerHTML = pagosMixtos.map((p, i) => `
+    <div style="background:var(--surface);border:1.5px solid var(--border);border-radius:12px;
+      padding:12px;margin-bottom:8px;">
+      <div style="display:flex;gap:6px;margin-bottom:8px;">
+        ${tipos.map(t => `
+          <button onclick="elegirTipoPagoMixto(${i},'${t}')"
+            style="flex:1;padding:7px 4px;border-radius:8px;font-size:12px;font-weight:600;
+              cursor:pointer;border:1.5px solid ${p.tipo===t?'var(--primary)':'var(--border)'};
+              background:${p.tipo===t?'var(--primary)':'var(--bg)'};
+              color:${p.tipo===t?'var(--on-pri)':'var(--text)'};">
+            ${tipoLabel[t]}
+          </button>`).join('')}
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <input type="number" inputmode="decimal" placeholder="$0" min="0"
+          value="${p.monto || ''}"
+          style="flex:1;padding:9px 12px;border:1.5px solid var(--border);border-radius:9px;font-size:1rem;"
+          oninput="actualizarMontoPagoMixto(${i}, this.value)">
+        ${pagosMixtos.length > 1 ? `
+          <button onclick="eliminarPagoMixto(${i})"
+            style="padding:9px 12px;border-radius:9px;font-size:13px;font-weight:700;
+              cursor:pointer;border:1.5px solid var(--border);background:var(--bg);color:var(--muted);">
+            ✕
+          </button>` : ''}
+      </div>
+    </div>`).join('')
+
+  const pendienteEl = document.getElementById('mixto-pendiente')
+  if (pendienteEl) {
+    pendienteEl.textContent = pendiente === 0 ? '✓ Cubierto' : '$' + pendiente
+    pendienteEl.style.color = pendiente === 0 ? 'green' : 'var(--primary)'
+  }
+  // Habilitar/deshabilitar botón confirmar
+  const btnConf = document.getElementById('btn-confirmar')
+  if (btnConf) btnConf.disabled = pendiente !== 0
+}
+
+function agregarPagoMixto() {
+  pagosMixtos.push({ tipo: 'efectivo', monto: 0 })
+  renderPagosMixtos()
+}
+function eliminarPagoMixto(i) {
+  pagosMixtos.splice(i, 1)
+  renderPagosMixtos()
+}
+function elegirTipoPagoMixto(i, tipo) {
+  pagosMixtos[i].tipo = tipo
+  renderPagosMixtos()
+}
+function actualizarMontoPagoMixto(i, val) {
+  pagosMixtos[i].monto = parseFloat(val) || 0
+  // Solo actualizar pendiente sin re-renderizar (evita perder el foco)
+  const totalConPropina = carrito.reduce((s, i) => s + i.importe, 0) + propina
+  const cubierto  = pagosMixtos.reduce((s, p) => s + (parseFloat(p.monto) || 0), 0)
+  const pendiente = Math.max(0, totalConPropina - cubierto)
+  const pendienteEl = document.getElementById('mixto-pendiente')
+  if (pendienteEl) {
+    pendienteEl.textContent = pendiente === 0 ? '✓ Cubierto' : '$' + pendiente
+    pendienteEl.style.color = pendiente === 0 ? 'green' : 'var(--primary)'
+  }
+  const btnConf = document.getElementById('btn-confirmar')
+  if (btnConf) btnConf.disabled = pendiente !== 0
 }
 
 function volverAlCarrito() {
@@ -1808,9 +1871,13 @@ function volverAlCarrito() {
 }
 
 async function confirmarOrden() {
-  if (metodoPago === 'mixto' && montoEfectivoMixto === 0) {
-    alert('Ingresa el monto en efectivo')
-    return
+  if (metodoPago === 'mixto') {
+    const totalConPropina = carrito.reduce((s, i) => s + i.importe, 0) + propina
+    const cubierto = pagosMixtos.reduce((s, p) => s + (parseFloat(p.monto) || 0), 0)
+    if (Math.abs(cubierto - totalConPropina) > 0.01) {
+      alert('El total de pagos no cubre la cuenta')
+      return
+    }
   }
 
   const btn = document.getElementById('btn-confirmar')
@@ -1829,8 +1896,8 @@ async function confirmarOrden() {
         folio,
         canal:             'mostrador',
         metodo_pago:       metodoPago === 'tarjeta' ? subtipoTarjeta : metodoPago,
-        monto_efectivo:    metodoPago === 'mixto' ? montoEfectivoMixto : (metodoPago === 'efectivo' ? total : 0),
-        monto_tarjeta:     metodoPago === 'mixto' ? (total - montoEfectivoMixto) : (metodoPago === 'tarjeta' ? total : 0),
+        monto_efectivo:    metodoPago === 'mixto' ? pagosMixtos.filter(p => p.tipo === 'efectivo').reduce((s,p) => s + p.monto, 0) : (metodoPago === 'efectivo' ? total : 0),
+        monto_tarjeta:     metodoPago === 'mixto' ? pagosMixtos.filter(p => p.tipo !== 'efectivo').reduce((s,p) => s + p.monto, 0) : (metodoPago === 'tarjeta' ? total : 0),
         subtotal,
         propina,
         total,
@@ -1925,7 +1992,7 @@ function cerrarOrdenExitosa(folio) {
   carrito = []
   metodoPago = 'efectivo'
   subtipoTarjeta = 'debito'
-  montoEfectivoMixto = 0
+  pagosMixtos = []
   propina = 0
   updateCartBar()
   setTimeout(() => goPage('res'), 2000)
