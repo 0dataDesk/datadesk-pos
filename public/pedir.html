@@ -1901,6 +1901,7 @@ async function confirmarOrden() {
         subtotal,
         propina,
         total,
+        pagos_detalle:     metodoPago === 'mixto' ? pagosMixtos : (metodoPago === 'tarjeta' ? [{ tipo: subtipoTarjeta, monto: total }] : [{ tipo: metodoPago, monto: total }]),
         estado:            'cerrada',
         creado_por:        'operador',
         cliente_nombre:    'Cliente',
