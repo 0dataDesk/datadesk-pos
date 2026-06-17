@@ -645,6 +645,7 @@ let bebidaSeleccionada = { id: null, nombre: null }
 let refrescoQty = 1
 let metodoPago = 'efectivo'
 let montoEfectivoMixto = 0
+let propina = 0
 
 // Orden activa (folio + pin generados al confirmar)
 let ordenActual = null
@@ -1687,6 +1688,21 @@ function mostrarResumen() {
           </div>
         </div>
       </div>
+      <div style="margin-bottom:16px;">
+        <div class="sh-sec-ttl" style="margin-bottom:8px;">Propina (opcional)</div>
+        <div style="display:flex;gap:8px;margin-bottom:8px;">
+          <button onclick="aplicarPropinaPct(5)"  style="flex:1;padding:10px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;border:1.5px solid var(--border);background:var(--bg);color:var(--text);">5%</button>
+          <button onclick="aplicarPropinaPct(10)" style="flex:1;padding:10px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;border:1.5px solid var(--border);background:var(--bg);color:var(--text);">10%</button>
+          <button onclick="aplicarPropinaPct(15)" style="flex:1;padding:10px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;border:1.5px solid var(--border);background:var(--bg);color:var(--text);">15%</button>
+        </div>
+        <input type="number" id="input-propina" inputmode="decimal" placeholder="$0" min="0"
+          style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:10px;font-size:1rem;"
+          oninput="actualizarPropina(this.value)">
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:baseline;padding:0 4px 16px;">
+        <span style="font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:1.1rem;letter-spacing:1px;color:var(--text);">Total con propina</span>
+        <span style="font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:2rem;color:var(--primary);" id="total-con-propina">$${total}</span>
+      </div>
       <div style="display:flex;gap:12px;flex-wrap:wrap;">
         <button class="btn-out" style="flex:1;padding:14px;font-size:15px;"
           onclick="volverAlCarrito()">← Volver a la orden</button>
@@ -1694,6 +1710,21 @@ function mostrarResumen() {
           onclick="confirmarOrden()">Confirmar orden ✓</button>
       </div>
     </div>`
+}
+
+function actualizarPropina(val) {
+  propina = Math.max(0, parseFloat(val) || 0)
+  const subtotal = carrito.reduce((s, i) => s + i.importe, 0)
+  const el = document.getElementById('total-con-propina')
+  if (el) el.textContent = '$' + (subtotal + propina)
+}
+function aplicarPropinaPct(pct) {
+  const subtotal = carrito.reduce((s, i) => s + i.importe, 0)
+  propina = Math.round(subtotal * pct / 100)
+  const inp = document.getElementById('input-propina')
+  if (inp) inp.value = propina
+  const el = document.getElementById('total-con-propina')
+  if (el) el.textContent = '$' + (subtotal + propina)
 }
 
 function elegirMetodoPago(metodo) {
@@ -1753,6 +1784,7 @@ async function confirmarOrden() {
   const folio    = 'FUR-' + String(Date.now() % 100000).padStart(5, '0')
   const pin      = String(Math.floor(1000 + Math.random() * 9000))
   const subtotal = carrito.reduce((s, i) => s + i.importe, 0)
+  const total    = subtotal + propina
 
   try {
     const { data: venta, error: e1 } = await window._db
@@ -1762,10 +1794,11 @@ async function confirmarOrden() {
         folio,
         canal:             'mostrador',
         metodo_pago:       metodoPago,
-        monto_efectivo:    metodoPago === 'mixto' ? montoEfectivoMixto : (metodoPago === 'efectivo' ? subtotal : 0),
-        monto_tarjeta:     metodoPago === 'mixto' ? (subtotal - montoEfectivoMixto) : (metodoPago === 'tarjeta' ? subtotal : 0),
+        monto_efectivo:    metodoPago === 'mixto' ? montoEfectivoMixto : (metodoPago === 'efectivo' ? total : 0),
+        monto_tarjeta:     metodoPago === 'mixto' ? (subtotal - montoEfectivoMixto) : (metodoPago === 'tarjeta' ? total : 0),
         subtotal,
-        total:             subtotal,
+        propina,
+        total,
         estado:            'cerrada',
         creado_por:        'operador',
         cliente_nombre:    'Cliente',
@@ -1857,6 +1890,7 @@ function cerrarOrdenExitosa(folio) {
   carrito = []
   metodoPago = 'efectivo'
   montoEfectivoMixto = 0
+  propina = 0
   updateCartBar()
   setTimeout(() => goPage('res'), 2000)
 }
