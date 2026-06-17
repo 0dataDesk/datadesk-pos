@@ -1297,6 +1297,7 @@ function adjIngQty(i, delta) {
   cz.ingredientes[i].qty = Math.max(1, (cz.ingredientes[i].qty || 1) + delta)
   const el = document.getElementById('ing-qty-' + i)
   if (el) el.textContent = cz.ingredientes[i].qty
+  actualizarCzBtn()
 }
 
 // Extra row handlers
