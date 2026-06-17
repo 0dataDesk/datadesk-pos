@@ -645,8 +645,11 @@ let bebidaSeleccionada = { id: null, nombre: null }
 let refrescoQty = 1
 let metodoPago = 'efectivo'
 let subtipoTarjeta = 'debito'
-let pagosMixtos = []   // [{tipo:'efectivo'|'debito'|'credito', monto:0}]
+let pagosMixtos = []      // [{tipo:'efectivo'|'debito'|'credito', monto:0}]
 let propina = 0
+let propinaTipo = null    // null|'efectivo'|'tarjeta'|'mixto'
+let propinaSubtipo = 'debito'
+let propinasMixtas = []   // [{tipo:'efectivo'|'debito'|'credito', monto:0}]
 
 // Orden activa (folio + pin generados al confirmar)
 let ordenActual = null
@@ -1706,17 +1709,27 @@ function mostrarResumen() {
         </div>
       </div>
       <div style="margin-bottom:16px;">
-        <div class="sh-sec-ttl" style="margin-bottom:8px;">Propina (opcional)</div>
-        <div style="display:flex;gap:8px;margin-bottom:8px;">
-          <button onclick="aplicarPropinaPct(5)"  style="flex:1;padding:10px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;border:1.5px solid var(--border);background:var(--bg);color:var(--text);">5%</button>
-          <button onclick="aplicarPropinaPct(10)" style="flex:1;padding:10px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;border:1.5px solid var(--border);background:var(--bg);color:var(--text);">10%</button>
-          <button onclick="aplicarPropinaPct(15)" style="flex:1;padding:10px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;border:1.5px solid var(--border);background:var(--bg);color:var(--text);">15%</button>
+        <button id="btn-propina-toggle" onclick="togglePropinaPanel()"
+          style="width:100%;padding:12px;border-radius:12px;font-size:14px;font-weight:600;
+            cursor:pointer;border:1.5px dashed var(--border);background:transparent;color:var(--muted);">
+          🤝 Agregar propina
+        </button>
+        <div id="propina-panel" style="display:none;margin-top:12px;">
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px;">
+            <button id="ptipo-efectivo" onclick="elegirTipoPropina('efectivo')"
+              style="padding:10px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;
+                border:1.5px solid var(--border);background:var(--bg);color:var(--text);">💵 Efectivo</button>
+            <button id="ptipo-tarjeta" onclick="elegirTipoPropina('tarjeta')"
+              style="padding:10px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;
+                border:1.5px solid var(--border);background:var(--bg);color:var(--text);">💳 Tarjeta</button>
+            <button id="ptipo-mixto" onclick="elegirTipoPropina('mixto')"
+              style="padding:10px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;
+                border:1.5px solid var(--border);background:var(--bg);color:var(--text);">🔀 Mixto</button>
+          </div>
+          <div id="propina-contenido"></div>
         </div>
-        <input type="number" id="input-propina" inputmode="decimal" placeholder="$0" min="0"
-          style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:10px;font-size:1rem;"
-          oninput="actualizarPropina(this.value)">
       </div>
-      <div style="display:flex;justify-content:space-between;align-items:baseline;padding:0 4px 16px;">
+      <div id="total-con-propina-wrap" style="display:flex;justify-content:space-between;align-items:baseline;padding:0 4px 16px;">
         <span style="font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:1.1rem;letter-spacing:1px;color:var(--text);">Total con propina</span>
         <span style="font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:2rem;color:var(--primary);" id="total-con-propina">$${total}</span>
       </div>
@@ -1729,19 +1742,152 @@ function mostrarResumen() {
     </div>`
 }
 
+function togglePropinaPanel() {
+  const panel = document.getElementById('propina-panel')
+  const btn   = document.getElementById('btn-propina-toggle')
+  if (!panel) return
+  const abierto = panel.style.display !== 'none'
+  if (abierto) {
+    panel.style.display = 'none'
+    btn.textContent = '🤝 Agregar propina'
+    propina = 0; propinaTipo = null; propinasMixtas = []
+    _actualizarTotalConPropina()
+  } else {
+    panel.style.display = ''
+    btn.textContent = '✕ Quitar propina'
+  }
+}
+
+function elegirTipoPropina(tipo) {
+  propinaTipo = tipo
+  propinasMixtas = []
+  propina = 0
+  const tipos = ['efectivo','tarjeta','mixto']
+  tipos.forEach(t => {
+    const b = document.getElementById('ptipo-' + t)
+    if (!b) return
+    const sel = t === tipo
+    b.style.background  = sel ? 'var(--primary)' : 'var(--bg)'
+    b.style.borderColor = sel ? 'var(--primary)' : 'var(--border)'
+    b.style.color       = sel ? 'var(--on-pri)'  : 'var(--text)'
+  })
+  _renderContenidoPropina()
+}
+
+function _renderContenidoPropina() {
+  const cont = document.getElementById('propina-contenido')
+  if (!cont) return
+  const subtotal = carrito.reduce((s, i) => s + i.importe, 0)
+
+  if (propinaTipo === 'efectivo') {
+    cont.innerHTML = _htmlPropinaPctInput()
+  } else if (propinaTipo === 'tarjeta') {
+    cont.innerHTML = `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
+        <button id="psubtipo-debito" onclick="elegirSubtipoPropina('debito')"
+          style="padding:9px;border-radius:9px;font-size:13px;font-weight:600;cursor:pointer;
+            border:1.5px solid var(--primary);background:var(--primary);color:var(--on-pri);">🏦 Débito</button>
+        <button id="psubtipo-credito" onclick="elegirSubtipoPropina('credito')"
+          style="padding:9px;border-radius:9px;font-size:13px;font-weight:600;cursor:pointer;
+            border:1.5px solid var(--border);background:var(--bg);color:var(--text);">💳 Crédito</button>
+      </div>` + _htmlPropinaPctInput()
+  } else if (propinaTipo === 'mixto') {
+    propinasMixtas = [{ tipo: 'efectivo', monto: 0 }, { tipo: 'debito', monto: 0 }]
+    cont.innerHTML = '<div id="propina-splits"></div>' +
+      `<button onclick="agregarPropinaMixta()"
+        style="width:100%;margin-top:8px;padding:10px;border-radius:10px;font-size:13px;
+          font-weight:600;cursor:pointer;border:1.5px dashed var(--border);
+          background:transparent;color:var(--muted);">+ Agregar otro pago de propina</button>
+       <div style="display:flex;justify-content:space-between;align-items:center;
+          margin-top:12px;padding:10px 12px;border-radius:10px;background:var(--surface);
+          border:1.5px solid var(--border);">
+         <span style="font-size:0.9rem;color:var(--muted);">Propina total</span>
+         <span id="propina-mixta-total" style="font-weight:700;font-size:1.1rem;color:var(--primary);">$0</span>
+       </div>`
+    _renderPropinaSplits()
+  }
+}
+
+function _htmlPropinaPctInput() {
+  return `
+    <div style="display:flex;gap:8px;margin-bottom:8px;">
+      <button onclick="aplicarPropinaPct(5)"  style="flex:1;padding:10px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;border:1.5px solid var(--border);background:var(--bg);color:var(--text);">5%</button>
+      <button onclick="aplicarPropinaPct(10)" style="flex:1;padding:10px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;border:1.5px solid var(--border);background:var(--bg);color:var(--text);">10%</button>
+      <button onclick="aplicarPropinaPct(15)" style="flex:1;padding:10px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;border:1.5px solid var(--border);background:var(--bg);color:var(--text);">15%</button>
+    </div>
+    <input type="number" id="input-propina" inputmode="decimal" placeholder="$0" min="0"
+      style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:10px;font-size:1rem;"
+      oninput="actualizarPropina(this.value)">`
+}
+
+function elegirSubtipoPropina(subtipo) {
+  propinaSubtipo = subtipo
+  const bd = document.getElementById('psubtipo-debito')
+  const bc = document.getElementById('psubtipo-credito')
+  if (bd) { const s = subtipo==='debito'; bd.style.background=s?'var(--primary)':'var(--bg)'; bd.style.borderColor=s?'var(--primary)':'var(--border)'; bd.style.color=s?'var(--on-pri)':'var(--text)' }
+  if (bc) { const s = subtipo==='credito'; bc.style.background=s?'var(--primary)':'var(--bg)'; bc.style.borderColor=s?'var(--primary)':'var(--border)'; bc.style.color=s?'var(--on-pri)':'var(--text)' }
+}
+
 function actualizarPropina(val) {
   propina = Math.max(0, parseFloat(val) || 0)
-  const subtotal = carrito.reduce((s, i) => s + i.importe, 0)
-  const el = document.getElementById('total-con-propina')
-  if (el) el.textContent = '$' + (subtotal + propina)
+  _actualizarTotalConPropina()
 }
 function aplicarPropinaPct(pct) {
   const subtotal = carrito.reduce((s, i) => s + i.importe, 0)
   propina = Math.round(subtotal * pct / 100)
   const inp = document.getElementById('input-propina')
   if (inp) inp.value = propina
+  _actualizarTotalConPropina()
+}
+function _actualizarTotalConPropina() {
+  const subtotal = carrito.reduce((s, i) => s + i.importe, 0)
   const el = document.getElementById('total-con-propina')
   if (el) el.textContent = '$' + (subtotal + propina)
+}
+
+function _renderPropinaSplits() {
+  const tipoLabel = { efectivo:'💵 Efectivo', debito:'🏦 Débito', credito:'💳 Crédito' }
+  const tipos = ['efectivo','debito','credito']
+  const el = document.getElementById('propina-splits')
+  if (!el) return
+  el.innerHTML = propinasMixtas.map((p, i) => `
+    <div style="background:var(--surface);border:1.5px solid var(--border);border-radius:12px;
+      padding:12px;margin-bottom:8px;">
+      <div style="display:flex;gap:6px;margin-bottom:8px;">
+        ${tipos.map(t => `
+          <button onclick="elegirTipoPropinaMixta(${i},'${t}')"
+            style="flex:1;padding:7px 4px;border-radius:8px;font-size:12px;font-weight:600;
+              cursor:pointer;border:1.5px solid ${p.tipo===t?'var(--primary)':'var(--border)'};
+              background:${p.tipo===t?'var(--primary)':'var(--bg)'};
+              color:${p.tipo===t?'var(--on-pri)':'var(--text)'};">
+            ${tipoLabel[t]}
+          </button>`).join('')}
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <input type="number" inputmode="decimal" placeholder="$0" min="0"
+          value="${p.monto||''}"
+          style="flex:1;padding:9px 12px;border:1.5px solid var(--border);border-radius:9px;font-size:1rem;"
+          oninput="actualizarMontoPropinaMixta(${i}, this.value)">
+        ${propinasMixtas.length > 1 ? `
+          <button onclick="eliminarPropinaMixta(${i})"
+            style="padding:9px 12px;border-radius:9px;font-size:13px;font-weight:700;
+              cursor:pointer;border:1.5px solid var(--border);background:var(--bg);color:var(--muted);">✕</button>` : ''}
+      </div>
+    </div>`).join('')
+  _actualizarTotalPropinaMixta()
+}
+function agregarPropinaMixta() { propinasMixtas.push({tipo:'efectivo',monto:0}); _renderPropinaSplits() }
+function eliminarPropinaMixta(i) { propinasMixtas.splice(i,1); _renderPropinaSplits() }
+function elegirTipoPropinaMixta(i,tipo) { propinasMixtas[i].tipo=tipo; _renderPropinaSplits() }
+function actualizarMontoPropinaMixta(i,val) {
+  propinasMixtas[i].monto = parseFloat(val)||0
+  _actualizarTotalPropinaMixta()
+}
+function _actualizarTotalPropinaMixta() {
+  propina = propinasMixtas.reduce((s,p) => s+(parseFloat(p.monto)||0), 0)
+  const el = document.getElementById('propina-mixta-total')
+  if (el) el.textContent = '$' + propina
+  _actualizarTotalConPropina()
 }
 
 function elegirMetodoPago(metodo) {
@@ -1902,6 +2048,7 @@ async function confirmarOrden() {
         propina,
         total,
         pagos_detalle:     metodoPago === 'mixto' ? pagosMixtos : (metodoPago === 'tarjeta' ? [{ tipo: subtipoTarjeta, monto: total }] : [{ tipo: metodoPago, monto: total }]),
+        propina_detalle:   propinaTipo === 'mixto' ? propinasMixtas : (propinaTipo === 'tarjeta' ? [{ tipo: propinaSubtipo, monto: propina }] : propinaTipo === 'efectivo' ? [{ tipo: 'efectivo', monto: propina }] : []),
         estado:            'cerrada',
         creado_por:        'operador',
         cliente_nombre:    'Cliente',
@@ -1995,6 +2142,9 @@ function cerrarOrdenExitosa(folio) {
   subtipoTarjeta = 'debito'
   pagosMixtos = []
   propina = 0
+  propinaTipo = null
+  propinaSubtipo = 'debito'
+  propinasMixtas = []
   updateCartBar()
   setTimeout(() => goPage('res'), 2000)
 }
