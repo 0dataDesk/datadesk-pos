@@ -190,6 +190,10 @@
       <div class="mod-section-title">Extras</div>
       <div id="b-mod-extras-list"></div>
     </div>
+    <div class="mod-section" id="b-mod-salsa-furia-section" style="border:2px solid #792c24;border-radius:12px;padding:12px;background:#fff8ef;">
+      <div class="mod-section-title" style="font-family:'Barlow Condensed',sans-serif;font-weight:900;color:#792c24;letter-spacing:2px;">🔥 SALSA FURIA</div>
+      <div id="b-mod-salsa-furia-list"></div>
+    </div>
     <div class="mod-section">
       <div class="mod-section-title">Salsas</div>
       <div id="b-mod-salsas-list"></div>
@@ -283,6 +287,7 @@ let b_metodoPago = null
 let b_catalogo = []
 let b_extras = []
 let b_salsas = []
+let b_salsaFuria = []
 let b_ingCache = {}
 let b_carrito = []
 let b_modIdx = null
@@ -345,11 +350,12 @@ async function b_cargarCatalogo() {
       .in('id_item', ids)
 
     const pm = {}; precios.forEach(p => { pm[p.id_item] = p.precio })
-    const CATS_MOD = ['Extras', 'Salsas']
+    const CATS_MOD = ['Extras', 'Salsas', 'Subrecetas']
     const menu = recetas.filter(r => !CATS_MOD.includes(r.categoria))
     b_catalogo = menu.map(r => ({ id_receta: r.id_receta, nombre_platillo: r.nombre_platillo, categoria: r.categoria, precio: pm[r.id_receta] || 0 }))
-    b_extras = recetas.filter(r => r.categoria === 'Extras').map(r => ({ ...r, precio: pm[r.id_receta] || 0 }))
+    b_extras = recetas.filter(r => r.categoria === 'Extras' && r.id_receta !== 'RSA-004').map(r => ({ ...r, precio: pm[r.id_receta] || 0 }))
     b_salsas = recetas.filter(r => r.categoria === 'Salsas').map(r => ({ ...r, precio: pm[r.id_receta] || 0 }))
+    b_salsaFuria = recetas.filter(r => r.id_receta === 'RSA-004').map(r => ({ ...r, precio: pm[r.id_receta] || 0 }))
     b_renderMenu()
   } catch(e) {
     document.getElementById('b-menu-loading').innerHTML = '<div class="alert alert-error">Error: ' + e.message + '</div>'
@@ -465,6 +471,15 @@ async function b_abrirModal(idx) {
 
   const extCont = document.getElementById('b-mod-extras-list')
   extCont.innerHTML = b_extras.map(ex => `<div class="mod-item"><label><input type="checkbox" data-extra-id="${ex.id_receta}" data-extra-nom="${ex.nombre_platillo}" data-extra-precio="${ex.precio}" ${item.modificadores.extras.some(e => e.id === ex.id_receta) ? 'checked' : ''}>${ex.nombre_platillo}</label>${ex.precio > 0 ? '<span class="mod-price">+$' + ex.precio + '</span>' : ''}</div>`).join('') || '<div style="color:var(--c-text-muted);font-size:0.8rem;">Sin extras.</div>'
+
+  const sfSec = document.getElementById('b-mod-salsa-furia-section')
+  const sfCont = document.getElementById('b-mod-salsa-furia-list')
+  if (b_salsaFuria.length) {
+    sfSec.style.display = ''
+    sfCont.innerHTML = b_salsaFuria.map(sf => `<div class="mod-item"><label><input type="checkbox" data-extra-id="${sf.id_receta}" data-extra-nom="${sf.nombre_platillo}" data-extra-precio="${sf.precio}" ${item.modificadores.extras.some(e => e.id === sf.id_receta) ? 'checked' : ''}>${sf.nombre_platillo}</label>${sf.precio > 0 ? '<span class="mod-price">+$' + sf.precio + '</span>' : ''}</div>`).join('')
+  } else {
+    sfSec.style.display = 'none'
+  }
 
   const salCont = document.getElementById('b-mod-salsas-list')
   salCont.innerHTML = b_salsas.map(sa => `<div class="mod-item"><label><input type="checkbox" data-extra-id="${sa.id_receta}" data-extra-nom="${sa.nombre_platillo}" data-extra-precio="${sa.precio}" ${item.modificadores.extras.some(e => e.id === sa.id_receta) ? 'checked' : ''}>${sa.nombre_platillo}</label>${sa.precio > 0 ? '<span class="mod-price">+$' + sa.precio + '</span>' : ''}</div>`).join('') || '<div style="color:var(--c-text-muted);font-size:0.8rem;">Sin salsas.</div>'

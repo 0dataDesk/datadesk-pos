@@ -670,9 +670,10 @@ const MOD_CATS  = ['Extras','Aderezos']
 const MENU_CATS = ['Hamburguesas','Pollo','Acompañamientos','Bebidas']
 
 // ── Estado global ─────────────────────────────────────────────────────────────
-let menuItems  = []    // ítems del menú (sin Extras/Salsas)
-let modExtras  = []    // ítems de categoría Extras
-let modSalsas  = []    // ítems de categoría Aderezos
+let menuItems    = []  // ítems del menú (sin Extras/Salsas)
+let modExtras    = []  // ítems de categoría Extras
+let modSalsas    = []  // ítems de categoría Aderezos
+let modSalsaFuria = [] // RSA-004 — sección propia
 let ingCache   = {}    // id_receta → [{producto, nombre_corto}]
 let carrito    = []    // líneas del carrito
 let drinkQty   = {}    // id_receta → qty inline para bebidas
@@ -782,7 +783,8 @@ async function cargarMenu() {
     const pm = {}; if (precios) precios.forEach(p => { pm[p.id_item] = p.precio })
 
     const all = recetas.map(r => ({ id_receta:r.id_receta, nombre:r.nombre_platillo, categoria:r.categoria, descripcion:r.descripcion||'', tagline:r.tagline||'', precio:pm[r.id_receta]||0 }))
-    modExtras = all.filter(r => r.categoria === 'Extras')
+    modSalsaFuria = all.filter(r => r.id_receta === 'RSA-004')
+    modExtras = all.filter(r => r.categoria === 'Extras' && r.id_receta !== 'RSA-004')
     modSalsas = all.filter(r => r.categoria === 'Aderezos')
     menuItems = all.filter(r => MENU_CATS.includes(r.categoria))
     menuDataReady = true
@@ -1173,12 +1175,18 @@ async function abrirCz(idReceta, cartIdx = null) {
     // Inicializar extras (solo burgers, filtrar duplicados de ingredientes)
     if (type === 'burger') {
       const ingNames = cz.ingredientes.map(i => i.nombre.toLowerCase())
-      cz.extras = modExtras
-        .filter(ex => !extraEsIngrediente(ex.nombre, ingNames))
-        .map(ex => {
+      cz.extras = [
+        ...modExtras
+          .filter(ex => !extraEsIngrediente(ex.nombre, ingNames))
+          .map(ex => {
+            const saved = savedMods?.extras?.find(s => s.id === ex.id_receta)
+            return { id: ex.id_receta, nombre: ex.nombre, precio: ex.precio, qty: saved?.qty ?? 0 }
+          }),
+        ...modSalsaFuria.map(ex => {
           const saved = savedMods?.extras?.find(s => s.id === ex.id_receta)
           return { id: ex.id_receta, nombre: ex.nombre, precio: ex.precio, qty: saved?.qty ?? 0 }
         })
+      ]
     }
 
     // Inicializar salsas
@@ -1316,11 +1324,32 @@ function buildCzBody(type, scroll) {
       </div>`)
   }
 
-  // 3 — Extras como cards (solo burgers)
+  // 3 — Extras como cards (solo burgers, excluye RSA-004)
   if (type === 'burger' && cz.extras.length) {
-    const cards = cz.extras.map((_, i) => renderExtraCard(i)).join('')
-    scroll.insertAdjacentHTML('beforeend',
-      `<div class="sh-sec"><div class="sh-sec-ttl">Extras</div><div class="mod-grid">${cards}</div></div>`)
+    const cards = cz.extras.map((ex, i) => ex.id !== 'RSA-004' ? renderExtraCard(i) : '').join('')
+    if (cards.trim()) {
+      scroll.insertAdjacentHTML('beforeend',
+        `<div class="sh-sec"><div class="sh-sec-ttl">Extras</div><div class="mod-grid">${cards}</div></div>`)
+    }
+  }
+
+  // 3b — Salsa Furia Original (sección propia)
+  if (type === 'burger') {
+    const sfCards = cz.extras.map((ex, i) => ex.id === 'RSA-004' ? renderExtraCard(i) : '').join('')
+    if (sfCards.trim()) {
+      scroll.insertAdjacentHTML('beforeend', `
+        <div class="sh-sec" style="
+          border:2px solid #792c24;border-radius:16px;padding:16px;
+          background:#fff8ef;margin-top:4px;">
+          <div style="
+            font-family:'Barlow Condensed',sans-serif;font-weight:900;
+            font-size:1rem;color:#792c24;letter-spacing:3px;
+            text-transform:uppercase;margin-bottom:12px;">
+            🔥 Salsa Furia
+          </div>
+          <div class="mod-grid">${sfCards}</div>
+        </div>`)
+    }
   }
 
   // 4 — Salsas (burgers y sides) — tarjetas de sabor diferenciadas
