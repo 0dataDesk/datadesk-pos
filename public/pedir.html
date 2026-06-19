@@ -297,7 +297,7 @@ html,body{
 .mod-card.on {background:#F2E0C8;border-color:rgba(61,0,20,.28);}
 .mod-card.off{background:#D6CCC9;opacity:.65;}
 .mc-name{font-size:11px;font-weight:600;color:#3D0014;line-height:1.2;}
-.mod-card.off .mc-name{text-decoration:line-through;color:#8A7A78;}
+.mod-card.off .mc-name{color:#8A7A78;}
 .mc-price{font-size:10px;color:#8A7A78;}
 .mc-controls{display:flex;align-items:center;gap:4px;margin-bottom:2px;}
 .mc-adj{
@@ -1219,6 +1219,26 @@ async function abrirCz(idReceta, cartIdx = null) {
   actualizarCzBtn()
 }
 
+function renderIngCard(i) {
+  const ing = cz.ingredientes[i]
+  if (!ing.on) {
+    return `<div class="mod-card off" id="ing-card-${i}" onclick="toggleIngRow(${i})">
+      <span class="mc-name">${ing.nombre}</span>
+    </div>`
+  }
+  const extra = ing.precio_extra > 0 && ing.qty > 1
+    ? `<span class="mc-price">+$${ing.precio_extra * (ing.qty - 1)}</span>` : ''
+  return `<div class="mod-card on" id="ing-card-${i}" onclick="toggleIngRow(${i})">
+    <div class="mc-controls" onclick="event.stopPropagation()">
+      <button class="mc-adj" onclick="adjIngQty(${i},-1)">−</button>
+      <span class="mc-qty">${ing.qty}</span>
+      <button class="mc-adj" onclick="adjIngQty(${i},1)">+</button>
+    </div>
+    <span class="mc-name">${ing.nombre}</span>
+    ${extra}
+  </div>`
+}
+
 function renderExtraCard(i) {
   const ex = cz.extras[i]
   const isOn = ex.qty > 0
@@ -1282,20 +1302,9 @@ function buildCzBody(type, scroll) {
       </div>`)
   }
 
-  // 2 — Extras como cards (solo burgers)
-  if (type === 'burger' && cz.extras.length) {
-    const cards = cz.extras.map((_, i) => renderExtraCard(i)).join('')
-    scroll.insertAdjacentHTML('beforeend',
-      `<div class="sh-sec"><div class="sh-sec-ttl">Extras</div><div class="mod-grid">${cards}</div></div>`)
-  }
-
-  // 3 — Ingredientes detrás de botón Personalizar
+  // 2 — Personalizar ingredientes (colapsable)
   if (cz.ingredientes.length) {
-    const cards = cz.ingredientes.map((ing, i) => `
-      <div class="mod-card ${ing.on?'on':'off'}" id="ing-card-${i}" onclick="toggleIngRow(${i})">
-        <span class="mc-name">${ing.nombre}</span>
-        ${ing.precio_extra > 0 ? `<span class="mc-price">+$${ing.precio_extra}</span>` : ''}
-      </div>`).join('')
+    const cards = cz.ingredientes.map((_, i) => renderIngCard(i)).join('')
     scroll.insertAdjacentHTML('beforeend', `
       <div class="sh-sec">
         <button class="btn-personalizar" id="btn-personalizar" onclick="togglePersonalizar()">
@@ -1305,6 +1314,13 @@ function buildCzBody(type, scroll) {
           <div class="mod-grid">${cards}</div>
         </div>
       </div>`)
+  }
+
+  // 3 — Extras como cards (solo burgers)
+  if (type === 'burger' && cz.extras.length) {
+    const cards = cz.extras.map((_, i) => renderExtraCard(i)).join('')
+    scroll.insertAdjacentHTML('beforeend',
+      `<div class="sh-sec"><div class="sh-sec-ttl">Extras</div><div class="mod-grid">${cards}</div></div>`)
   }
 
   // 4 — Salsas (burgers y sides) — tarjetas de sabor diferenciadas
@@ -1351,8 +1367,17 @@ function buildCzBody(type, scroll) {
 // Ingredient card handlers
 function toggleIngRow(i) {
   cz.ingredientes[i].on = !cz.ingredientes[i].on
+  if (!cz.ingredientes[i].on) cz.ingredientes[i].qty = 1
   const card = document.getElementById('ing-card-' + i)
-  if (card) card.className = 'mod-card ' + (cz.ingredientes[i].on ? 'on' : 'off')
+  if (card) card.outerHTML = renderIngCard(i)
+  actualizarCzBtn()
+}
+function adjIngQty(i, delta) {
+  const newQty = Math.max(0, (cz.ingredientes[i].qty || 1) + delta)
+  cz.ingredientes[i].on  = newQty > 0
+  cz.ingredientes[i].qty = Math.max(1, newQty)
+  const card = document.getElementById('ing-card-' + i)
+  if (card) card.outerHTML = renderIngCard(i)
   actualizarCzBtn()
 }
 
