@@ -1330,31 +1330,34 @@ function buildCzBody(type, scroll) {
       </div>`)
   }
 
-  // 3 — Extras como cards (solo burgers, excluye RSA-004)
+  // 3 — Salsa Furia Original (estrella, va primero)
+  if (type === 'burger') {
+    const sfCards = cz.extras.map((ex, i) => ex.id === 'RSA-004' ? renderExtraCard(i) : '').join('')
+    if (sfCards.trim()) {
+      scroll.insertAdjacentHTML('beforeend', `
+        <div class="sh-sec">
+          <div style="
+            display:flex;align-items:center;gap:14px;
+            border:2px solid #792c24;border-radius:12px;padding:10px 14px;
+            background:#fff8ef;">
+            <span style="
+              font-family:'Barlow Condensed',sans-serif;font-weight:900;
+              font-size:0.95rem;color:#792c24;letter-spacing:3px;
+              text-transform:uppercase;white-space:nowrap;flex-shrink:0;">
+              🔥 Salsa Furia
+            </span>
+            <div style="flex:1;display:flex;justify-content:flex-end;">${sfCards}</div>
+          </div>
+        </div>`)
+    }
+  }
+
+  // 3b — Extras como cards (solo burgers, excluye RSA-004)
   if (type === 'burger' && cz.extras.length) {
     const cards = cz.extras.map((ex, i) => ex.id !== 'RSA-004' ? renderExtraCard(i) : '').join('')
     if (cards.trim()) {
       scroll.insertAdjacentHTML('beforeend',
         `<div class="sh-sec"><div class="sh-sec-ttl">Extras</div><div class="mod-grid">${cards}</div></div>`)
-    }
-  }
-
-  // 3b — Salsa Furia Original (sección propia)
-  if (type === 'burger') {
-    const sfCards = cz.extras.map((ex, i) => ex.id === 'RSA-004' ? renderExtraCard(i) : '').join('')
-    if (sfCards.trim()) {
-      scroll.insertAdjacentHTML('beforeend', `
-        <div class="sh-sec" style="
-          border:2px solid #792c24;border-radius:16px;padding:16px;
-          background:#fff8ef;margin-top:4px;">
-          <div style="
-            font-family:'Barlow Condensed',sans-serif;font-weight:900;
-            font-size:1rem;color:#792c24;letter-spacing:3px;
-            text-transform:uppercase;margin-bottom:12px;">
-            🔥 Salsa Furia
-          </div>
-          <div class="mod-grid">${sfCards}</div>
-        </div>`)
     }
   }
 
