@@ -283,6 +283,39 @@ html,body{
 .sc-adj:active{animation:bump .12s ease;}
 .sc-qty{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:1.5rem;color:#fff;min-width:20px;text-align:center;line-height:1;}
 
+/* ── Mod grid: ingredientes + extras (4 por fila) ────────────────────────── */
+.mod-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;}
+@media(min-width:360px){.mod-grid{grid-template-columns:repeat(4,1fr);}}
+.mod-card{
+  border-radius:14px;padding:10px 6px 8px;cursor:pointer;
+  text-align:center;border:1.5px solid transparent;
+  transition:all .18s;user-select:none;
+  display:flex;flex-direction:column;align-items:center;gap:3px;
+  min-height:62px;justify-content:center;
+}
+.mod-card:active{transform:scale(.96);}
+.mod-card.on {background:#F2E0C8;border-color:rgba(61,0,20,.28);}
+.mod-card.off{background:#D6CCC9;opacity:.65;}
+.mc-name{font-size:11px;font-weight:600;color:#3D0014;line-height:1.2;}
+.mod-card.off .mc-name{text-decoration:line-through;color:#8A7A78;}
+.mc-price{font-size:10px;color:#8A7A78;}
+.mc-controls{display:flex;align-items:center;gap:4px;margin-bottom:2px;}
+.mc-adj{
+  width:24px;height:24px;border-radius:50%;border:1.5px solid rgba(61,0,20,.22);
+  background:rgba(61,0,20,.1);color:#3D0014;cursor:pointer;font-size:13px;font-weight:700;
+  line-height:1;display:flex;align-items:center;justify-content:center;
+}
+.mc-adj:active{animation:bump .12s ease;}
+.mc-qty{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:1rem;color:#3D0014;min-width:14px;text-align:center;}
+/* Botón colapsable Personalizar */
+.btn-personalizar{
+  width:100%;padding:11px 16px;
+  background:var(--pdim);border:1.5px solid rgba(61,0,20,.18);border-radius:12px;
+  cursor:pointer;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:600;color:var(--primary);
+  display:flex;align-items:center;justify-content:space-between;transition:background .15s;
+}
+.btn-personalizar:hover{background:var(--pdim2);}
+
 /* ── Cart sheet ───────────────────────────────────────────────────────────── */
 .cart-line{
   display:flex;align-items:flex-start;gap:12px;
@@ -1186,41 +1219,95 @@ async function abrirCz(idReceta, cartIdx = null) {
   actualizarCzBtn()
 }
 
+function renderExtraCard(i) {
+  const ex = cz.extras[i]
+  const isOn = ex.qty > 0
+  if (isOn) {
+    return `<div class="mod-card on" id="ext-card-${i}" onclick="toggleExtraRow(${i})">
+      <div class="mc-controls" onclick="event.stopPropagation()">
+        <button class="mc-adj" onclick="adjExtraQty(${i},-1)">−</button>
+        <span class="mc-qty" id="ext-qty-${i}">${ex.qty}</span>
+        <button class="mc-adj" onclick="adjExtraQty(${i},1)">+</button>
+      </div>
+      <span class="mc-name">${ex.nombre}</span>
+      <span class="mc-price">+$${ex.precio * ex.qty}</span>
+    </div>`
+  }
+  return `<div class="mod-card off" id="ext-card-${i}" onclick="toggleExtraRow(${i})">
+    <span class="mc-name">${ex.nombre}</span>
+    <span class="mc-price">+$${ex.precio}</span>
+  </div>`
+}
+
+function togglePersonalizar() {
+  const sec  = document.getElementById('ing-section')
+  const chev = document.getElementById('btn-pers-chev')
+  if (!sec) return
+  const open = sec.style.display !== 'none'
+  sec.style.display = open ? 'none' : 'block'
+  if (chev) chev.textContent = open ? '▸' : '▾'
+}
+
 function buildCzBody(type, scroll) {
-  // 1 — Ingredientes (si los hay)
-  if (cz.ingredientes.length) {
-    const rows = cz.ingredientes.map((ing, i) => `
-      <div class="cz-row ${ing.on?'on':'off'}" id="ing-row-${i}" onclick="toggleIngRow(${i})">
-        <div class="cz-row-body"><span class="cz-row-name">${ing.nombre}</span>${ing.precio_extra > 0 ? `<span class="cz-row-price">+$${ing.precio_extra} c/u extra</span>` : ''}</div>
-        <div class="cz-row-qty" onclick="event.stopPropagation()">
-          <button class="qty-circ" onclick="adjIngQty(${i},-1)">−</button>
-          <span class="qty-n" id="ing-qty-${i}">${ing.qty}</span>
-          <button class="qty-circ" onclick="adjIngQty(${i},1)">+</button>
+  // 1 — Combo PRIMERO (solo burgers)
+  if (type === 'burger') {
+    const comboOn = cz.combo.activo
+    scroll.insertAdjacentHTML('beforeend', `
+      <div class="sh-sec">
+        <div class="sh-sec-ttl">Agregar Combo — +$60</div>
+        <div class="cz-row ${comboOn ? 'on' : 'off'}" id="combo-row"
+             style="cursor:pointer;" onclick="toggleCombo()">
+          <div class="cz-row-body">
+            <span class="cz-row-name">Combo Papas + Bebida</span>
+            <span class="cz-row-price">+$60</span>
+          </div>
         </div>
-      </div>`).join('')
-    scroll.insertAdjacentHTML('beforeend',
-      `<div class="sh-sec"><div class="sh-sec-ttl">Ingredientes</div>${rows}</div>`)
+        <div id="combo-bebidas-wrap" style="margin-top:10px;${comboOn ? '' : 'display:none;'}">
+          <div class="sh-sec-ttl" style="margin-bottom:8px;">Elige tu bebida</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+            ${bebidasCombo.map(b => {
+              const nombre = b.nombre_corto || b.id_producto
+              const sel = cz.combo.bebida_id === b.id_producto
+              return `<div onclick="seleccionarBebidaCombo('${b.id_producto}','${nombre.replace(/'/g, "\\'")}')"
+                style="padding:10px 8px;border-radius:12px;text-align:center;cursor:pointer;font-size:13px;font-weight:600;
+                  border:1.5px solid ${sel ? 'var(--primary)' : 'var(--border)'};
+                  background:${sel ? 'var(--primary)' : 'var(--bg)'};
+                  color:${sel ? 'var(--on-pri)' : 'var(--text)'}"
+                id="beb-chip-${b.id_producto}">
+                ${nombre}
+              </div>`
+            }).join('')}
+          </div>
+        </div>
+      </div>`)
   }
 
-  // 2 — Extras (solo burgers)
+  // 2 — Extras como cards (solo burgers)
   if (type === 'burger' && cz.extras.length) {
-    const rows = cz.extras.map((ex, i) => `
-      <div class="cz-row ${ex.qty>0?'on':'off'}" id="ext-row-${i}" onclick="toggleExtraRow(${i})">
-        <div class="cz-row-body">
-          <span class="cz-row-name">${ex.nombre}</span>
-          <span class="cz-row-price">+$${ex.precio}</span>
-        </div>
-        <div class="cz-row-qty" onclick="event.stopPropagation()">
-          <button class="qty-circ" onclick="adjExtraQty(${i},-1)">−</button>
-          <span class="qty-n" id="ext-qty-${i}">${ex.qty}</span>
-          <button class="qty-circ" onclick="adjExtraQty(${i},1)">+</button>
-        </div>
-      </div>`).join('')
+    const cards = cz.extras.map((_, i) => renderExtraCard(i)).join('')
     scroll.insertAdjacentHTML('beforeend',
-      `<div class="sh-sec"><div class="sh-sec-ttl">Extras</div>${rows}</div>`)
+      `<div class="sh-sec"><div class="sh-sec-ttl">Extras</div><div class="mod-grid">${cards}</div></div>`)
   }
 
-  // 3 — Salsas (burgers y sides) — tarjetas de sabor diferenciadas
+  // 3 — Ingredientes detrás de botón Personalizar
+  if (cz.ingredientes.length) {
+    const cards = cz.ingredientes.map((ing, i) => `
+      <div class="mod-card ${ing.on?'on':'off'}" id="ing-card-${i}" onclick="toggleIngRow(${i})">
+        <span class="mc-name">${ing.nombre}</span>
+        ${ing.precio_extra > 0 ? `<span class="mc-price">+$${ing.precio_extra}</span>` : ''}
+      </div>`).join('')
+    scroll.insertAdjacentHTML('beforeend', `
+      <div class="sh-sec">
+        <button class="btn-personalizar" id="btn-personalizar" onclick="togglePersonalizar()">
+          <span>🛠 Personalizar ingredientes</span><span id="btn-pers-chev">▸</span>
+        </button>
+        <div id="ing-section" style="display:none;margin-top:12px;">
+          <div class="mod-grid">${cards}</div>
+        </div>
+      </div>`)
+  }
+
+  // 4 — Salsas (burgers y sides) — tarjetas de sabor diferenciadas
   if (type !== 'drink' && modSalsas.length) {
     const ingNombres = cz.ingredientes.map(i => i.nombre.toLowerCase())
     const salsasVisibles = modSalsas.filter(sa => {
@@ -1259,73 +1346,27 @@ function buildCzBody(type, scroll) {
       </div>`)
   }
 
-  // 4 — Combo Papas + Bebida (solo burgers)
-  if (type === 'burger') {
-    const comboOn = cz.combo.activo
-    const comboRow = `
-      <div class="sh-sec">
-        <div class="sh-sec-ttl">Agregar Combo — +$60</div>
-        <div class="cz-row ${comboOn ? 'on' : 'off'}" id="combo-row"
-             style="cursor:pointer;" onclick="toggleCombo()">
-          <div class="cz-row-body">
-            <span class="cz-row-name">Combo Papas + Bebida</span>
-            <span class="cz-row-price">+$60</span>
-          </div>
-        </div>
-        <div id="combo-bebidas-wrap" style="margin-top:10px;${comboOn ? '' : 'display:none;'}">
-          <div class="sh-sec-ttl" style="margin-bottom:8px;">Elige tu bebida</div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-            ${bebidasCombo.map(b => {
-              const nombre = b.nombre_corto || b.id_producto
-              const sel = cz.combo.bebida_id === b.id_producto
-              return `<div onclick="seleccionarBebidaCombo('${b.id_producto}','${nombre.replace(/'/g, "\\'")}')"
-                style="padding:10px 8px;border-radius:12px;text-align:center;cursor:pointer;font-size:13px;font-weight:600;
-                  border:1.5px solid ${sel ? 'var(--primary)' : 'var(--border)'};
-                  background:${sel ? 'var(--primary)' : 'var(--bg)'};
-                  color:${sel ? 'var(--on-pri)' : 'var(--text)'}"
-                id="beb-chip-${b.id_producto}">
-                ${nombre}
-              </div>`
-            }).join('')}
-          </div>
-        </div>
-      </div>`
-    scroll.insertAdjacentHTML('beforeend', comboRow)
-  }
 }
 
-// Ingredient row handlers
+// Ingredient card handlers
 function toggleIngRow(i) {
   cz.ingredientes[i].on = !cz.ingredientes[i].on
-  const row = document.getElementById('ing-row-' + i)
-  if (row) row.className = 'cz-row ' + (cz.ingredientes[i].on ? 'on' : 'off')
-  actualizarCzBtn()
-}
-function adjIngQty(i, delta) {
-  if (!cz.ingredientes[i].on) return
-  cz.ingredientes[i].qty = Math.max(1, (cz.ingredientes[i].qty || 1) + delta)
-  const el = document.getElementById('ing-qty-' + i)
-  if (el) el.textContent = cz.ingredientes[i].qty
+  const card = document.getElementById('ing-card-' + i)
+  if (card) card.className = 'mod-card ' + (cz.ingredientes[i].on ? 'on' : 'off')
   actualizarCzBtn()
 }
 
-// Extra row handlers
+// Extra card handlers
 function toggleExtraRow(i) {
   cz.extras[i].qty = cz.extras[i].qty > 0 ? 0 : 1
-  const on  = cz.extras[i].qty > 0
-  const row = document.getElementById('ext-row-' + i)
-  if (row) row.className = 'cz-row ' + (on ? 'on' : 'off')
-  const el = document.getElementById('ext-qty-' + i)
-  if (el) el.textContent = cz.extras[i].qty
+  const card = document.getElementById('ext-card-' + i)
+  if (card) card.outerHTML = renderExtraCard(i)
   actualizarCzBtn()
 }
 function adjExtraQty(i, delta) {
   cz.extras[i].qty = Math.max(0, (cz.extras[i].qty || 0) + delta)
-  const on  = cz.extras[i].qty > 0
-  const row = document.getElementById('ext-row-' + i)
-  if (row) row.className = 'cz-row ' + (on ? 'on' : 'off')
-  const el = document.getElementById('ext-qty-' + i)
-  if (el) el.textContent = cz.extras[i].qty
+  const card = document.getElementById('ext-card-' + i)
+  if (card) card.outerHTML = renderExtraCard(i)
   actualizarCzBtn()
 }
 
