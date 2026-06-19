@@ -57,23 +57,11 @@ html,body{
   color:var(--primary);flex-shrink:0;
 }
 .logo-name{font-family:'Barlow Condensed',sans-serif;font-weight:900;letter-spacing:4px;color:var(--primary);line-height:1;}
-/* Cart button */
-.cart-btn{
-  display:flex;align-items:center;gap:8px;
-  background:var(--pdim);border:1.5px solid var(--border);border-radius:99px;
-  padding:8px 16px;cursor:pointer;transition:all .15s;font-family:'DM Sans',sans-serif;
-}
-.cart-btn:hover{background:var(--pdim2);}
-.cart-btn.on{background:var(--primary);border-color:var(--primary);}
-.cart-btn.on .cb-count,.cart-btn.on .cb-total{color:var(--on-pri);}
-.cb-icon {font-size:18px;line-height:1;}
-.cb-count{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:20px;color:var(--primary);}
-.cb-total{font-size:14px;font-weight:600;color:var(--muted);}
 
 /* ── Page content ─────────────────────────────────────────────────────────── */
 #main-content{
   flex:1;max-width:960px;width:100%;margin:0 auto;
-  padding:0 20px 110px;/* bottom clearance for fixed nav */
+  padding:0 20px 80px;/* bottom clearance for cart bar */
 }
 .page-title{
   font-family:'Barlow Condensed',sans-serif;font-weight:900;
@@ -166,11 +154,11 @@ html,body{
 .btn-out:hover{background:var(--pdim);}
 .btn-ghost{background:none;border:none;cursor:pointer;color:var(--muted);font-family:'DM Sans',sans-serif;font-size:14px;padding:4px;}
 
-/* ── Bottom nav ───────────────────────────────────────────────────────────── */
+/* ── Bottom nav (now top sticky) ──────────────────────────────────────────── */
 .bot-nav{
-  position:fixed;bottom:0;left:0;right:0;
-  background:var(--surface);border-top:1px solid var(--border);
-  box-shadow:0 -2px 12px rgba(61,0,20,.06);z-index:20;
+  position:sticky;top:72px;left:0;right:0;
+  background:var(--surface);border-bottom:1px solid var(--border);border-top:none;
+  box-shadow:0 2px 8px rgba(61,0,20,.08);z-index:19;
 }
 .bot-nav-inner{
   max-width:960px;margin:0 auto;
@@ -538,23 +526,37 @@ textarea.intake-input{resize:none;line-height:1.5;}
   <header class="site-hdr">
     <div class="site-hdr-inner">
       <div class="logo" id="hdr-logo"></div>
-      <button class="cart-btn" id="cart-btn" onclick="abrirCart()">
-        <span class="cb-icon">🛒</span>
-        <span class="cb-count" id="cb-count">0</span>
-        <span class="cb-total" id="cb-total"></span>
-      </button>
     </div>
   </header>
+
+  <!-- ── NAV CATEGORÍAS (sticky, debajo del header) ────────────────────── -->
+  <nav class="bot-nav" id="bot-nav">
+    <div class="bot-nav-inner" id="nav-btns"></div>
+  </nav>
 
   <!-- ── CONTENIDO PRINCIPAL ────────────────────────────────────────────── -->
   <div id="main-content">
     <div class="load-c"><div class="spinner"></div></div>
   </div>
 
-  <!-- ── BOTTOM NAV ─────────────────────────────────────────────────────── -->
-  <nav class="bot-nav" id="bot-nav">
-    <div class="bot-nav-inner" id="nav-btns"></div>
-  </nav>
+  <!-- ── BARRA CARRITO FIJA INFERIOR ──────────────────────────────────── -->
+  <div id="cart-bar" class="hidden" style="
+    position:fixed;bottom:0;left:0;right:0;z-index:30;
+    background:var(--primary);border-top:2px solid var(--on-pri);
+    padding:14px 20px;display:flex;align-items:center;justify-content:space-between;
+    max-width:100%;box-shadow:0 -4px 16px rgba(61,0,20,.25);
+  ">
+    <div style="display:flex;align-items:baseline;gap:10px;">
+      <span style="font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:1.5rem;color:var(--on-pri);" id="cbar-count">0</span>
+      <span style="font-size:13px;color:rgba(255,239,197,.7);">productos</span>
+    </div>
+    <span style="font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:1.8rem;color:var(--on-pri);" id="cbar-total">$0</span>
+    <button onclick="abrirCart()" style="
+      background:var(--on-pri);color:var(--primary);border:none;border-radius:10px;
+      padding:10px 22px;font-family:'Barlow Condensed',sans-serif;font-weight:900;
+      font-size:1.1rem;letter-spacing:1px;cursor:pointer;
+    ">Ver pedido →</button>
+  </div>
 
   <!-- ── PANEL ÓRDENES ACTIVAS ──────────────────────────────────────────── -->
   <div id="ordenes-panel" class="hidden">
@@ -1494,10 +1496,12 @@ function cerrarCz() {
 function updateCartBar() {
   const count = carrito.reduce((s, i) => s + i.cantidad, 0)
   const total = carrito.reduce((s, i) => s + i.importe, 0)
-  const btn   = document.getElementById('cart-btn')
-  document.getElementById('cb-count').textContent = count > 0 ? count : '0'
-  document.getElementById('cb-total').textContent = count > 0 ? '$' + total : ''
-  btn.classList.toggle('on', count > 0)
+  const bar = document.getElementById('cart-bar')
+  if (bar) {
+    document.getElementById('cbar-count').textContent = count
+    document.getElementById('cbar-total').textContent = '$' + total
+    bar.classList.toggle('hidden', count === 0)
+  }
   // Refrescar badges de carta y nav solo cuando el menú está activo
   if (menuDataReady && !document.getElementById('app').classList.contains('hidden')) {
     goPage(currentPg)
@@ -2453,12 +2457,10 @@ function actualizarPanelOrdenes() {
   const n = entries.length
   if (countEl) countEl.textContent = n
 
-  const appEl     = document.getElementById('app')
-  const botNav    = document.getElementById('bot-nav')
+  const appEl      = document.getElementById('app')
   const appVisible = appEl && !appEl.classList.contains('hidden')
-  const navVisible = botNav && !botNav.classList.contains('hidden')
 
-  if (n === 0 || !appVisible || !navVisible) {
+  if (n === 0 || !appVisible) {
     panel.classList.add('hidden')
     if (mc) mc.style.paddingRight = ''
     return
