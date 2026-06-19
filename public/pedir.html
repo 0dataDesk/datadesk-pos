@@ -1332,23 +1332,9 @@ function buildCzBody(type, scroll) {
 
   // 3 — Salsa Furia Original (estrella, va primero)
   if (type === 'burger') {
-    const sfCards = cz.extras.map((ex, i) => ex.id === 'RSA-004' ? renderExtraCard(i) : '').join('')
-    if (sfCards.trim()) {
-      scroll.insertAdjacentHTML('beforeend', `
-        <div class="sh-sec">
-          <div style="
-            display:flex;align-items:center;gap:14px;
-            border:2px solid #792c24;border-radius:12px;padding:10px 14px;
-            background:#fff8ef;">
-            <span style="
-              font-family:'Barlow Condensed',sans-serif;font-weight:900;
-              font-size:0.95rem;color:#792c24;letter-spacing:3px;
-              text-transform:uppercase;white-space:nowrap;flex-shrink:0;">
-              🔥 Salsa Furia
-            </span>
-            <div style="flex:1;display:flex;justify-content:flex-end;">${sfCards}</div>
-          </div>
-        </div>`)
+    const sfRow = cz.extras.map((ex, i) => ex.id === 'RSA-004' ? renderSalsaFuriaRow(i) : '').join('')
+    if (sfRow.trim()) {
+      scroll.insertAdjacentHTML('beforeend', `<div class="sh-sec">${sfRow}</div>`)
     }
   }
 
@@ -1433,17 +1419,38 @@ function adjIngQty(i, delta) {
   actualizarCzBtn()
 }
 
+function renderSalsaFuriaRow(i) {
+  const ex = cz.extras[i]
+  const isOn = ex.qty > 0
+  const controls = isOn
+    ? `<div style="display:flex;align-items:center;gap:8px;" onclick="event.stopPropagation()">
+         <button class="mc-adj" style="border-color:rgba(121,44,36,.35);background:rgba(121,44,36,.15);color:#792c24;" onclick="adjExtraQty(${i},-1)">−</button>
+         <span class="mc-qty" style="color:#792c24;">${ex.qty}</span>
+         <button class="mc-adj" style="border-color:rgba(121,44,36,.35);background:rgba(121,44,36,.15);color:#792c24;" onclick="adjExtraQty(${i},1)">+</button>
+       </div>`
+    : `<span class="mc-adj" style="border-color:rgba(121,44,36,.25);background:transparent;color:rgba(121,44,36,.45);font-size:16px;">+</span>`
+  return `<div id="ext-card-${i}" onclick="toggleExtraRow(${i})" style="
+    display:flex;align-items:center;justify-content:space-between;gap:12px;
+    border:2px solid ${isOn ? '#792c24' : 'rgba(121,44,36,.35)'};border-radius:12px;
+    padding:8px 14px;background:#fff8ef;cursor:pointer;transition:all .15s;">
+    <span style="font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:0.9rem;
+      letter-spacing:2px;text-transform:uppercase;
+      color:${isOn ? '#792c24' : 'rgba(121,44,36,.5)'};">🔥 Salsa Furia</span>
+    ${controls}
+  </div>`
+}
+
 // Extra card handlers
 function toggleExtraRow(i) {
   cz.extras[i].qty = cz.extras[i].qty > 0 ? 0 : 1
   const card = document.getElementById('ext-card-' + i)
-  if (card) card.outerHTML = renderExtraCard(i)
+  if (card) card.outerHTML = cz.extras[i].id === 'RSA-004' ? renderSalsaFuriaRow(i) : renderExtraCard(i)
   actualizarCzBtn()
 }
 function adjExtraQty(i, delta) {
   cz.extras[i].qty = Math.max(0, (cz.extras[i].qty || 0) + delta)
   const card = document.getElementById('ext-card-' + i)
-  if (card) card.outerHTML = renderExtraCard(i)
+  if (card) card.outerHTML = cz.extras[i].id === 'RSA-004' ? renderSalsaFuriaRow(i) : renderExtraCard(i)
   actualizarCzBtn()
 }
 
