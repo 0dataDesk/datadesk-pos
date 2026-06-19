@@ -315,6 +315,11 @@ html,body{
   display:flex;align-items:center;justify-content:space-between;transition:background .15s;
 }
 .btn-personalizar:hover{background:var(--pdim2);}
+.btn-pers-badge{
+  background:var(--primary);color:var(--on-pri);
+  border-radius:20px;padding:2px 9px;font-size:12px;font-weight:700;
+  font-family:'Barlow Condensed',sans-serif;letter-spacing:.5px;margin-left:8px;
+}
 
 /* ── Cart sheet ───────────────────────────────────────────────────────────── */
 .cart-line{
@@ -1316,7 +1321,8 @@ function buildCzBody(type, scroll) {
     scroll.insertAdjacentHTML('beforeend', `
       <div class="sh-sec">
         <button class="btn-personalizar" id="btn-personalizar" onclick="togglePersonalizar()">
-          <span>🛠 Personalizar ingredientes</span><span id="btn-pers-chev">▸</span>
+          <span>🛠 Personalizar ingredientes<span id="btn-pers-badge" class="btn-pers-badge" style="display:none"></span></span>
+          <span id="btn-pers-chev">▸</span>
         </button>
         <div id="ing-section" style="display:none;margin-top:12px;">
           <div class="mod-grid">${cards}</div>
@@ -1394,11 +1400,24 @@ function buildCzBody(type, scroll) {
 }
 
 // Ingredient card handlers
+function actualizarBadgePersonalizar() {
+  const badge = document.getElementById('btn-pers-badge')
+  if (!badge) return
+  const n = cz.ingredientes.filter(ing => !ing.on || ing.qty > 1).length
+  if (n > 0) {
+    badge.textContent = n
+    badge.style.display = 'inline'
+  } else {
+    badge.style.display = 'none'
+  }
+}
+
 function toggleIngRow(i) {
   cz.ingredientes[i].on = !cz.ingredientes[i].on
   if (!cz.ingredientes[i].on) cz.ingredientes[i].qty = 1
   const card = document.getElementById('ing-card-' + i)
   if (card) card.outerHTML = renderIngCard(i)
+  actualizarBadgePersonalizar()
   actualizarCzBtn()
 }
 function adjIngQty(i, delta) {
@@ -1407,6 +1426,7 @@ function adjIngQty(i, delta) {
   cz.ingredientes[i].qty = Math.max(1, newQty)
   const card = document.getElementById('ing-card-' + i)
   if (card) card.outerHTML = renderIngCard(i)
+  actualizarBadgePersonalizar()
   actualizarCzBtn()
 }
 
