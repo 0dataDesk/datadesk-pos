@@ -1975,7 +1975,7 @@ function actualizarPropina(val) {
 }
 function aplicarPropinaPct(pct) {
   const subtotal = carrito.reduce((s, i) => s + i.importe, 0)
-  propina = Math.round(subtotal * pct / 100)
+  propina = Math.round(subtotal * pct) / 100
   const inp = document.getElementById('input-propina')
   if (inp) inp.value = propina
   _actualizarTotalConPropina()
