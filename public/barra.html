@@ -149,6 +149,12 @@
           <button class="btn btn-ghost" onclick="b_goStep('b-step-carrito')">← Atrás</button>
           <button class="btn btn-primary" id="b-btn-confirmar" onclick="b_confirmarOrden()">Confirmar pedido</button>
         </div>
+        <div id="b-cortesia-wrap" style="display:none;margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.15)">
+          <button class="btn btn-ghost" id="b-btn-cortesia" onclick="b_abrirCortesia()"
+            style="width:100%;border:1px dashed rgba(255,255,255,0.4);color:rgba(255,255,255,0.7);font-size:13px">
+            🎁 Marcar como cortesía
+          </button>
+        </div>
       </section>
 
       <!-- STEP CONFIRM -->
@@ -203,6 +209,22 @@
       <textarea id="b-mod-nota" rows="2" placeholder="Instrucción especial..."></textarea>
     </div>
     <button class="btn btn-primary" style="margin-top:12px;" onclick="b_guardarMods()">Guardar</button>
+  </div>
+</div>
+
+<!-- Modal cortesía PIN -->
+<div class="modal-overlay hidden" id="cortesia-overlay">
+  <div class="modal-sheet" style="text-align:center">
+    <div class="modal-title" style="margin-bottom:8px">🎁 Cortesía</div>
+    <p style="color:var(--c-text-muted);font-size:0.85rem;margin-bottom:16px">Ingresa el PIN de autorización</p>
+    <input type="password" id="cortesia-pin-input" inputmode="numeric" maxlength="10"
+      placeholder="••••"
+      style="width:100%;padding:14px;text-align:center;font-size:24px;letter-spacing:8px;border:2px solid var(--c-border);border-radius:10px;background:var(--c-surface)">
+    <div id="cortesia-pin-err" class="alert alert-error hidden" style="margin-top:8px"></div>
+    <div class="btn-row" style="margin-top:14px">
+      <button class="btn btn-ghost" onclick="b_cerrarCortesia()">Cancelar</button>
+      <button class="btn btn-primary" onclick="b_confirmarCortesia()">Autorizar</button>
+    </div>
   </div>
 </div>
 
@@ -266,9 +288,52 @@ async function iniciarApp() {
     .eq('tenant_id', POS.TENANT_ID)
     .single()
   cfg = data || {}
+
+  // Mostrar botón cortesía solo si está configurado y el rol lo permite
+  const rolUser  = usuarioActual?.user_metadata?.rol || null
+  const rolesAuth = ['gerente', 'owner', 'superadmin', 'admin']
+  if (cfg.cortesia_pin && rolesAuth.includes(rolUser)) {
+    const wrap = document.getElementById('b-cortesia-wrap')
+    if (wrap) wrap.style.display = ''
+  }
+
   b_cargarCatalogo()
   cargarOrdenesActivas()
   suscribirOrdenes()
+}
+
+// ── Cortesía ──────────────────────────────────────────────────────────────────
+let b_esCortesia = false
+
+function b_abrirCortesia() {
+  document.getElementById('cortesia-pin-input').value = ''
+  document.getElementById('cortesia-pin-err').classList.add('hidden')
+  document.getElementById('cortesia-overlay').classList.remove('hidden')
+  setTimeout(() => document.getElementById('cortesia-pin-input').focus(), 100)
+}
+
+function b_cerrarCortesia() {
+  document.getElementById('cortesia-overlay').classList.add('hidden')
+}
+
+async function b_confirmarCortesia() {
+  const pin   = document.getElementById('cortesia-pin-input').value.trim()
+  const err   = document.getElementById('cortesia-pin-err')
+  if (!pin) { mostrarErr(err, 'Ingresa el PIN'); return }
+  if (pin !== String(cfg.cortesia_pin)) {
+    mostrarErr(err, 'PIN incorrecto')
+    document.getElementById('cortesia-pin-input').value = ''
+    return
+  }
+  b_esCortesia = true
+  b_cerrarCortesia()
+  const btnC = document.getElementById('b-btn-cortesia')
+  if (btnC) {
+    btnC.textContent = '✓ Marcado como cortesía'
+    btnC.style.color = '#4dc361'
+    btnC.style.borderColor = '#4dc361'
+    btnC.disabled = true
+  }
 }
 
 // ── Tab switcher ──────────────────────────────────────────────────────────────
@@ -527,8 +592,10 @@ async function b_confirmarOrden() {
     const { data: venta, error: e1 } = await window._db.from('ventas').insert({
       tenant_id: POS.TENANT_ID, folio, canal: 'mostrador', metodo_pago: b_metodoPago,
       subtotal, total: subtotal, estado: 'cerrada',
+      tipo: b_esCortesia ? 'cortesia' : null,
       creado_por: usuarioActual?.email || 'barra',
-      notas: null, cliente_nombre: nomCliente, cliente_celular: cel,
+      notas: b_esCortesia ? 'Cortesía autorizada por gerencia' : null,
+      cliente_nombre: nomCliente, cliente_celular: cel,
       tipo_entrega: b_tipoEntrega, direccion_entrega: dir, entrega_lat: null, entrega_lng: null
     }).select('id').single()
     if (e1) throw e1
@@ -552,6 +619,18 @@ async function b_confirmarOrden() {
       throw e3
     }
 
+    // Si es cortesía, registrar incidencia
+    if (b_esCortesia) {
+      await window._db.from('incidencias').insert({
+        tenant_id:   POS.TENANT_ID,
+        id_venta:    venta.id,
+        tipo:        'cortesia',
+        descripcion: 'Cortesía autorizada por gerencia',
+        fecha:       new Date().toISOString().split('T')[0],
+        creado_por:  usuarioActual?.email || 'barra'
+      })
+    }
+
     document.getElementById('b-confirm-folio').textContent = folio
     b_goStep('b-step-confirm')
   } catch(e) {
@@ -561,11 +640,16 @@ async function b_confirmarOrden() {
 }
 
 function b_resetPedido() {
-  b_carrito = []; b_tipoEntrega = null; b_metodoPago = null
+  b_carrito = []; b_tipoEntrega = null; b_metodoPago = null; b_esCortesia = false
   document.getElementById('b-cel').value = ''
   document.getElementById('b-nombre').value = ''
   document.getElementById('b-cart-count').textContent = '0'
   document.querySelectorAll('#tab-pedido .pago-opt').forEach(el => el.classList.remove('selected'))
+  const btnC = document.getElementById('b-btn-cortesia')
+  if (btnC) {
+    btnC.textContent = '🎁 Marcar como cortesía'
+    btnC.style.color = ''; btnC.style.borderColor = ''; btnC.disabled = false
+  }
   b_goStep('b-step-id')
 }
 
