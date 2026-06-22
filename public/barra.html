@@ -321,11 +321,9 @@ async function iniciarApp() {
     .single()
   cfg = data || {}
 
-  // Mostrar botón cortesía si está configurado (el PIN es la protección)
-  if (cfg.cortesia_pin) {
-    const wrap = document.getElementById('b-cortesia-wrap')
-    if (wrap) wrap.style.display = ''
-  }
+  // Botón cortesía siempre visible — el PIN es la protección
+  const wrapC = document.getElementById('b-cortesia-wrap')
+  if (wrapC) wrapC.style.display = ''
 
   b_cargarCatalogo()
   cargarOrdenesActivas()
