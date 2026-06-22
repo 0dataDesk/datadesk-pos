@@ -1875,6 +1875,25 @@ function mostrarResumen() {
         <span style="font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:1.1rem;letter-spacing:1px;color:var(--text);">Total con propina</span>
         <span style="font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:2rem;color:var(--primary);" id="total-con-propina">$${total}</span>
       </div>
+      <div id="cortesia-descuento-bar" style="display:none;margin-bottom:12px;padding:10px 14px;
+        background:rgba(76,153,80,0.1);border-radius:12px;border:1px solid rgba(76,153,80,0.3);">
+        <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--muted);">
+          <span>Subtotal original</span>
+          <span id="cort-subtotal-orig">$0</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:14px;font-weight:700;
+          color:#3A8C3E;margin-top:4px;">
+          <span id="cort-desc-label">Descuento cortesía</span>
+          <span id="cort-desc-monto">-$0</span>
+        </div>
+      </div>
+      <div style="margin-bottom:12px;">
+        <button id="btn-cortesia" onclick="abrirModalCortesia()"
+          style="width:100%;padding:12px;border-radius:12px;font-size:14px;font-weight:600;
+            cursor:pointer;border:1.5px dashed var(--border);background:transparent;color:var(--muted);">
+          🎁 Marcar como cortesía
+        </button>
+      </div>
       <div style="display:flex;gap:12px;flex-wrap:wrap;">
         <button class="btn-out" style="flex:1;padding:14px;font-size:15px;"
           onclick="volverAlCarrito()">← Volver a la orden</button>
@@ -2312,8 +2331,9 @@ async function confirmarOrden() {
 
   const folio    = 'FUR-' + String(Date.now() % 100000).padStart(5, '0')
   const pin      = String(Math.floor(1000 + Math.random() * 9000))
-  const subtotal = carrito.reduce((s, i) => s + i.importe, 0)
-  const total    = subtotal + propina
+  const subtotal   = carrito.reduce((s, i) => s + i.importe, 0)
+  const descMonto  = cortesiaDescPct > 0 ? subtotal * cortesiaDescPct / 100 : 0
+  const total      = subtotal - descMonto + propina
 
   try {
     const { data: venta, error: e1 } = await window._db
@@ -2328,6 +2348,7 @@ async function confirmarOrden() {
         subtotal,
         propina,
         total,
+        descuento_porcentaje: cortesiaDescPct > 0 ? cortesiaDescPct : null,
         pagos_detalle:     metodoPago === 'mixto' ? (() => {
             const tT = pagosMixtos.filter(p=>p.tipo!=='efectivo').reduce((s,p)=>s+(parseFloat(p.monto)||0),0)
             const efSpl = pagosMixtos.filter(p=>p.tipo==='efectivo')
@@ -2398,6 +2419,19 @@ async function confirmarOrden() {
         confirmada_en:       new Date().toISOString()
       })
     if (e3) throw e3
+
+    if (cortesiaDescPct > 0) {
+      await window._db.from('incidencias').insert({
+        tenant_id:   POS.TENANT_ID,
+        id_venta:    venta.id,
+        tipo:        'cortesia',
+        cantidad:    cortesiaDescPct,
+        descripcion: `Cortesía ${cortesiaDescPct}% autorizada por gerencia`,
+        fecha:       new Date().toISOString().split('T')[0],
+        creado_por:  'operador'
+      })
+      cortesiaDescPct = 0
+    }
 
     cerrarOrdenExitosa(folio)
   } catch(err) {
@@ -2871,7 +2905,106 @@ window.addEventListener('DOMContentLoaded', async () => {
   sesionCliente.tipo_entrega = 'barra'
   entrarAlMenu()
 })
+
+// ── Cortesía ─────────────────────────────────────────────────────────────────
+let cortesiaDescPct = 0
+
+function abrirModalCortesia() {
+  document.getElementById('cort-pin-input').value = ''
+  document.getElementById('cort-pin-err').textContent = ''
+  document.getElementById('cort-screen-pin').style.display = ''
+  document.getElementById('cort-screen-pct').style.display = 'none'
+  document.getElementById('modal-cortesia').style.display = 'flex'
+  setTimeout(() => document.getElementById('cort-pin-input').focus(), 100)
+}
+
+function cerrarModalCortesia() {
+  document.getElementById('modal-cortesia').style.display = 'none'
+}
+
+function validarPinCortesia() {
+  const pin = document.getElementById('cort-pin-input').value.trim()
+  const err = document.getElementById('cort-pin-err')
+  if (!pin) { err.textContent = 'Ingresa el PIN'; return }
+  if (pin !== String(cfg.cortesia_pin || '1234')) {
+    err.textContent = 'PIN incorrecto'
+    document.getElementById('cort-pin-input').value = ''
+    return
+  }
+  document.getElementById('cort-screen-pin').style.display = 'none'
+  document.getElementById('cort-screen-pct').style.display = ''
+}
+
+function aplicarDescuentoCortesia(pct) {
+  cortesiaDescPct = pct
+  cerrarModalCortesia()
+
+  const subtotal = carrito.reduce((s, i) => s + i.importe, 0)
+  const descMonto = subtotal * pct / 100
+  const nuevoTotal = subtotal - descMonto + propina
+
+  document.getElementById('cort-subtotal-orig').textContent = '$' + subtotal
+  document.getElementById('cort-desc-label').textContent = `Descuento cortesía ${pct}%`
+  document.getElementById('cort-desc-monto').textContent = '-$' + descMonto
+  document.getElementById('cortesia-descuento-bar').style.display = ''
+  document.getElementById('total-con-propina').textContent = '$' + nuevoTotal
+
+  const btnC = document.getElementById('btn-cortesia')
+  btnC.textContent = `Cortesía ${pct}% aplicada ✓`
+  btnC.style.color = '#3A8C3E'
+  btnC.style.borderColor = '#3A8C3E'
+  btnC.disabled = true
+}
 </script>
+
+<!-- Modal cortesía -->
+<div id="modal-cortesia" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);
+  z-index:9999;align-items:center;justify-content:center;padding:20px;">
+  <div style="background:var(--surface,#fff);border-radius:20px;padding:28px 24px;
+    width:100%;max-width:340px;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,0.2);">
+
+    <div id="cort-screen-pin">
+      <div style="font-size:1.3rem;font-weight:800;margin-bottom:6px;">🎁 Cortesía</div>
+      <p style="color:var(--muted,#888);font-size:14px;margin-bottom:16px;">Ingresa el PIN de autorización</p>
+      <input type="password" id="cort-pin-input" inputmode="numeric" maxlength="10"
+        placeholder="••••"
+        style="width:100%;padding:14px;text-align:center;font-size:26px;letter-spacing:10px;
+          border:2px solid var(--border,#ddd);border-radius:12px;background:var(--bg,#faf8f5);
+          font-family:inherit;margin-bottom:8px;">
+      <div id="cort-pin-err" style="color:#B85C2A;font-size:13px;min-height:18px;margin-bottom:12px;"></div>
+      <div style="display:flex;gap:10px;">
+        <button onclick="cerrarModalCortesia()"
+          style="flex:1;padding:13px;border-radius:12px;border:1.5px solid var(--border,#ddd);
+            background:transparent;font-size:14px;font-weight:600;cursor:pointer;">Cancelar</button>
+        <button onclick="validarPinCortesia()"
+          style="flex:2;padding:13px;border-radius:12px;border:none;
+            background:var(--primary,#792c24);color:#fff;font-size:14px;font-weight:700;cursor:pointer;">Autorizar</button>
+      </div>
+    </div>
+
+    <div id="cort-screen-pct" style="display:none;">
+      <div style="font-size:1.3rem;font-weight:800;margin-bottom:6px;">🎁 Selecciona descuento</div>
+      <p style="color:var(--muted,#888);font-size:13px;margin-bottom:20px;">Aplica sobre el subtotal de productos</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
+        <button onclick="aplicarDescuentoCortesia(25)"
+          style="padding:20px;font-size:24px;font-weight:800;border-radius:14px;cursor:pointer;
+            border:2px solid var(--border,#ddd);background:var(--bg,#faf8f5);">25%</button>
+        <button onclick="aplicarDescuentoCortesia(50)"
+          style="padding:20px;font-size:24px;font-weight:800;border-radius:14px;cursor:pointer;
+            border:2px solid var(--border,#ddd);background:var(--bg,#faf8f5);">50%</button>
+        <button onclick="aplicarDescuentoCortesia(75)"
+          style="padding:20px;font-size:24px;font-weight:800;border-radius:14px;cursor:pointer;
+            border:2px solid var(--border,#ddd);background:var(--bg,#faf8f5);">75%</button>
+        <button onclick="aplicarDescuentoCortesia(100)"
+          style="padding:20px;font-size:24px;font-weight:800;border-radius:14px;cursor:pointer;
+            border:2px solid var(--border,#ddd);background:var(--bg,#faf8f5);">100%</button>
+      </div>
+      <button onclick="cerrarModalCortesia()"
+        style="width:100%;padding:12px;border-radius:12px;border:1.5px solid var(--border,#ddd);
+          background:transparent;font-size:14px;font-weight:600;cursor:pointer;">Cancelar</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>
 
