@@ -321,10 +321,8 @@ async function iniciarApp() {
     .single()
   cfg = data || {}
 
-  // Mostrar botón cortesía solo si está configurado y el rol lo permite
-  const rolUser  = usuarioActual?.user_metadata?.rol || null
-  const rolesAuth = ['gerente', 'owner', 'superadmin', 'admin']
-  if (cfg.cortesia_pin && rolesAuth.includes(rolUser)) {
+  // Mostrar botón cortesía si está configurado (el PIN es la protección)
+  if (cfg.cortesia_pin) {
     const wrap = document.getElementById('b-cortesia-wrap')
     if (wrap) wrap.style.display = ''
   }
