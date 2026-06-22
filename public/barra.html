@@ -140,7 +140,17 @@
             <span class="icon">📲</span><span class="lbl">Transferencia</span>
           </div>
         </div>
-        <div class="subtotal-bar" style="margin-top:16px;">
+        <div id="b-descuento-bar" style="display:none;margin-top:16px;padding:10px 14px;background:rgba(76,153,80,0.12);border-radius:10px;border:1px solid rgba(76,153,80,0.3)">
+          <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--c-text-muted)">
+            <span>Subtotal original</span>
+            <span id="b-subtotal-original">$0</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:13px;color:#3A8C3E;font-weight:600;margin-top:4px">
+            <span id="b-descuento-label">Descuento cortesía</span>
+            <span id="b-descuento-monto">-$0</span>
+          </div>
+        </div>
+        <div class="subtotal-bar" style="margin-top:8px;">
           <span>Total</span>
           <span class="amount" id="b-total-pago">$0</span>
         </div>
@@ -212,19 +222,41 @@
   </div>
 </div>
 
-<!-- Modal cortesía PIN -->
+<!-- Modal cortesía: pantalla PIN + pantalla % -->
 <div class="modal-overlay hidden" id="cortesia-overlay">
   <div class="modal-sheet" style="text-align:center">
-    <div class="modal-title" style="margin-bottom:8px">🎁 Cortesía</div>
-    <p style="color:var(--c-text-muted);font-size:0.85rem;margin-bottom:16px">Ingresa el PIN de autorización</p>
-    <input type="password" id="cortesia-pin-input" inputmode="numeric" maxlength="10"
-      placeholder="••••"
-      style="width:100%;padding:14px;text-align:center;font-size:24px;letter-spacing:8px;border:2px solid var(--c-border);border-radius:10px;background:var(--c-surface)">
-    <div id="cortesia-pin-err" class="alert alert-error hidden" style="margin-top:8px"></div>
-    <div class="btn-row" style="margin-top:14px">
-      <button class="btn btn-ghost" onclick="b_cerrarCortesia()">Cancelar</button>
-      <button class="btn btn-primary" onclick="b_confirmarCortesia()">Autorizar</button>
+
+    <!-- Pantalla 1: PIN -->
+    <div id="cortesia-screen-pin">
+      <div class="modal-title" style="margin-bottom:8px">🎁 Cortesía</div>
+      <p style="color:var(--c-text-muted);font-size:0.85rem;margin-bottom:16px">Ingresa el PIN de autorización</p>
+      <input type="password" id="cortesia-pin-input" inputmode="numeric" maxlength="10"
+        placeholder="••••"
+        style="width:100%;padding:14px;text-align:center;font-size:24px;letter-spacing:8px;border:2px solid var(--c-border);border-radius:10px;background:var(--c-surface)">
+      <div id="cortesia-pin-err" class="alert alert-error hidden" style="margin-top:8px"></div>
+      <div class="btn-row" style="margin-top:14px">
+        <button class="btn btn-ghost" onclick="b_cerrarCortesia()">Cancelar</button>
+        <button class="btn btn-primary" onclick="b_validarPinCortesia()">Autorizar</button>
+      </div>
     </div>
+
+    <!-- Pantalla 2: % descuento -->
+    <div id="cortesia-screen-pct" style="display:none">
+      <div class="modal-title" style="margin-bottom:4px">🎁 Selecciona descuento</div>
+      <p style="color:var(--c-text-muted);font-size:0.85rem;margin-bottom:20px">El descuento aplica sobre el subtotal de productos</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+        <button class="btn btn-ghost cortesia-pct-btn" onclick="b_aplicarDescuento(25)"
+          style="font-size:22px;font-weight:700;padding:18px;border:2px solid var(--c-border);border-radius:12px">25%</button>
+        <button class="btn btn-ghost cortesia-pct-btn" onclick="b_aplicarDescuento(50)"
+          style="font-size:22px;font-weight:700;padding:18px;border:2px solid var(--c-border);border-radius:12px">50%</button>
+        <button class="btn btn-ghost cortesia-pct-btn" onclick="b_aplicarDescuento(75)"
+          style="font-size:22px;font-weight:700;padding:18px;border:2px solid var(--c-border);border-radius:12px">75%</button>
+        <button class="btn btn-ghost cortesia-pct-btn" onclick="b_aplicarDescuento(100)"
+          style="font-size:22px;font-weight:700;padding:18px;border:2px solid var(--c-border);border-radius:12px">100%</button>
+      </div>
+      <button class="btn btn-ghost" onclick="b_cerrarCortesia()">Cancelar</button>
+    </div>
+
   </div>
 </div>
 
@@ -303,11 +335,15 @@ async function iniciarApp() {
 }
 
 // ── Cortesía ──────────────────────────────────────────────────────────────────
-let b_esCortesia = false
+let b_esCortesia    = false
+let b_descuentoPct  = 0   // porcentaje seleccionado (0 = sin descuento)
 
 function b_abrirCortesia() {
+  // Resetear modal a pantalla PIN
   document.getElementById('cortesia-pin-input').value = ''
   document.getElementById('cortesia-pin-err').classList.add('hidden')
+  document.getElementById('cortesia-screen-pin').style.display = ''
+  document.getElementById('cortesia-screen-pct').style.display = 'none'
   document.getElementById('cortesia-overlay').classList.remove('hidden')
   setTimeout(() => document.getElementById('cortesia-pin-input').focus(), 100)
 }
@@ -316,23 +352,43 @@ function b_cerrarCortesia() {
   document.getElementById('cortesia-overlay').classList.add('hidden')
 }
 
-async function b_confirmarCortesia() {
-  const pin   = document.getElementById('cortesia-pin-input').value.trim()
-  const err   = document.getElementById('cortesia-pin-err')
+function b_validarPinCortesia() {
+  const pin = document.getElementById('cortesia-pin-input').value.trim()
+  const err = document.getElementById('cortesia-pin-err')
   if (!pin) { mostrarErr(err, 'Ingresa el PIN'); return }
   if (pin !== String(cfg.cortesia_pin)) {
     mostrarErr(err, 'PIN incorrecto')
     document.getElementById('cortesia-pin-input').value = ''
     return
   }
-  b_esCortesia = true
+  // PIN correcto → mostrar pantalla de %
+  document.getElementById('cortesia-screen-pin').style.display = 'none'
+  document.getElementById('cortesia-screen-pct').style.display = ''
+}
+
+function b_aplicarDescuento(pct) {
+  b_esCortesia   = true
+  b_descuentoPct = pct
   b_cerrarCortesia()
+
+  // Actualizar total en pantalla
+  const subtotalBruto = b_carrito.reduce((s, i) => s + i.importe, 0)
+  const descMonto     = subtotalBruto * pct / 100
+  const totalFinal    = subtotalBruto - descMonto
+
+  document.getElementById('b-subtotal-original').textContent = '$' + subtotalBruto.toFixed(2)
+  document.getElementById('b-descuento-label').textContent   = `Descuento cortesía ${pct}%`
+  document.getElementById('b-descuento-monto').textContent   = '-$' + descMonto.toFixed(2)
+  document.getElementById('b-total-pago').textContent        = '$' + totalFinal.toFixed(2)
+  document.getElementById('b-descuento-bar').style.display   = ''
+
+  // Botón → estado bloqueado
   const btnC = document.getElementById('b-btn-cortesia')
   if (btnC) {
-    btnC.textContent = '✓ Marcado como cortesía'
-    btnC.style.color = '#4dc361'
-    btnC.style.borderColor = '#4dc361'
-    btnC.disabled = true
+    btnC.textContent = `Cortesía ${pct}% aplicada ✓`
+    btnC.style.color        = '#4dc361'
+    btnC.style.borderColor  = '#4dc361'
+    btnC.disabled           = true
   }
 }
 
@@ -588,13 +644,16 @@ async function b_confirmarOrden() {
     const cel = document.getElementById('b-cel').value.trim()
     const nomCliente = document.getElementById('b-nombre').value.trim()
     const dir = b_tipoEntrega === 'domicilio' ? document.getElementById('b-dir').value.trim() : null
-    const subtotal = b_carrito.reduce((s, i) => s + i.importe, 0)
+    const subtotal   = b_carrito.reduce((s, i) => s + i.importe, 0)
+    const descMonto  = b_esCortesia ? subtotal * b_descuentoPct / 100 : 0
+    const totalFinal = subtotal - descMonto
     const { data: venta, error: e1 } = await window._db.from('ventas').insert({
       tenant_id: POS.TENANT_ID, folio, canal: 'mostrador', metodo_pago: b_metodoPago,
-      subtotal, total: subtotal, estado: 'cerrada',
+      subtotal, total: totalFinal, estado: 'cerrada',
       tipo: b_esCortesia ? 'cortesia' : null,
+      descuento_porcentaje: b_esCortesia ? b_descuentoPct : null,
       creado_por: usuarioActual?.email || 'barra',
-      notas: b_esCortesia ? 'Cortesía autorizada por gerencia' : null,
+      notas: b_esCortesia ? `Cortesía ${b_descuentoPct}% autorizada por gerencia` : null,
       cliente_nombre: nomCliente, cliente_celular: cel,
       tipo_entrega: b_tipoEntrega, direccion_entrega: dir, entrega_lat: null, entrega_lng: null
     }).select('id').single()
@@ -619,13 +678,14 @@ async function b_confirmarOrden() {
       throw e3
     }
 
-    // Si es cortesía, registrar incidencia
+    // Si es cortesía, registrar incidencia con % aplicado
     if (b_esCortesia) {
       await window._db.from('incidencias').insert({
         tenant_id:   POS.TENANT_ID,
         id_venta:    venta.id,
         tipo:        'cortesia',
-        descripcion: 'Cortesía autorizada por gerencia',
+        cantidad:    b_descuentoPct,
+        descripcion: `Cortesía ${b_descuentoPct}% autorizada por gerencia`,
         fecha:       new Date().toISOString().split('T')[0],
         creado_por:  usuarioActual?.email || 'barra'
       })
@@ -640,7 +700,7 @@ async function b_confirmarOrden() {
 }
 
 function b_resetPedido() {
-  b_carrito = []; b_tipoEntrega = null; b_metodoPago = null; b_esCortesia = false
+  b_carrito = []; b_tipoEntrega = null; b_metodoPago = null; b_esCortesia = false; b_descuentoPct = 0
   document.getElementById('b-cel').value = ''
   document.getElementById('b-nombre').value = ''
   document.getElementById('b-cart-count').textContent = '0'
@@ -650,6 +710,8 @@ function b_resetPedido() {
     btnC.textContent = '🎁 Marcar como cortesía'
     btnC.style.color = ''; btnC.style.borderColor = ''; btnC.disabled = false
   }
+  const dbar = document.getElementById('b-descuento-bar')
+  if (dbar) dbar.style.display = 'none'
   b_goStep('b-step-id')
 }
 
