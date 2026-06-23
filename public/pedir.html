@@ -2052,7 +2052,8 @@ function _actualizarTotalConPropina() {
 }
 
 function _refrescarCambioEfectivo() {
-  const totalConPropina = carrito.reduce((s, i) => s + i.importe, 0) + propina
+  const propinaEfectivo = propinaTipo === 'efectivo' ? propina : 0
+  const totalConPropina = carrito.reduce((s, i) => s + i.importe, 0) + propinaEfectivo
   const cambio = efectivoRecibido - totalConPropina
   const cambioEl = document.getElementById('efectivo-cambio')
   const btn = document.getElementById('btn-confirmar')
