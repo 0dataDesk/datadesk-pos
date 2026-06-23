@@ -1739,6 +1739,8 @@ function mostrarResumen() {
   document.getElementById('bot-nav').classList.add('hidden')
   document.getElementById('ordenes-panel').classList.add('hidden')
   document.getElementById('main-content').style.paddingRight = ''
+  const cartBarEl = document.getElementById('cart-bar')
+  if (cartBarEl) cartBarEl.classList.add('hidden')
 
   function modsDeItem(m) {
     const lines = []
@@ -1773,7 +1775,7 @@ function mostrarResumen() {
   }).join('')
 
   document.getElementById('main-content').innerHTML = `
-    <div style="max-width:480px;margin:28px auto 80px;padding:0 4px;">
+    <div style="max-width:480px;margin:28px auto 0;padding:0 4px 120px;">
       <h1 style="font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:2.4rem;
                  letter-spacing:2px;color:var(--primary);margin-bottom:20px;line-height:1;">
         Resumen del pedido
@@ -1900,12 +1902,14 @@ function mostrarResumen() {
           🎁 Marcar como cortesía
         </button>
       </div>
-      <div style="display:flex;gap:12px;flex-wrap:wrap;">
-        <button class="btn-out" style="flex:1;padding:14px;font-size:15px;"
-          onclick="volverAlCarrito()">← Volver a la orden</button>
-        <button class="btn-pri full" id="btn-confirmar" style="flex:2;"
-          onclick="confirmarOrden()" disabled>Confirmar orden ✓</button>
-      </div>
+    </div>
+    <div style="position:fixed;bottom:0;left:0;right:0;z-index:30;
+                background:var(--bg);border-top:1px solid var(--border);
+                padding:12px 20px 20px;display:flex;gap:12px;">
+      <button class="btn-out" style="flex:1;padding:14px;font-size:15px;"
+        onclick="volverAlCarrito()">← Volver</button>
+      <button class="btn-pri full" id="btn-confirmar" style="flex:2;"
+        onclick="confirmarOrden()" disabled>Confirmar orden ✓</button>
     </div>`
 }
 
@@ -2325,6 +2329,8 @@ function actualizarRecibidoMixto(i, val) {
 
 function volverAlCarrito() {
   document.getElementById('bot-nav').classList.remove('hidden')
+  const cartBarEl = document.getElementById('cart-bar')
+  if (cartBarEl) cartBarEl.classList.remove('hidden')
   actualizarPanelOrdenes()
   goPage(currentPg)
   setTimeout(abrirCart, 50)
