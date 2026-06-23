@@ -1752,6 +1752,7 @@ function mostrarResumen() {
     const exA = (m.extras||[]).filter(e => (e.qty||0) > 0)
     if (exA.length) lines.push(exA.map(e => e.nombre).join(', '))
     if ((m.salsas||[]).length) lines.push(m.salsas.map(s => s.nombre).join(', '))
+    if (m.combo?.activo) lines.push('🍟 Combo: Papas Clásicas + ' + (m.combo.bebida_nombre || 'bebida'))
     if (m.nota) lines.push('📝 ' + m.nota)
     return lines
   }
