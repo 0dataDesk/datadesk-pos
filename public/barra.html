@@ -664,9 +664,24 @@ async function b_confirmarOrden() {
     const { error: e2 } = await window._db.from('venta_items').insert(items)
     if (e2) { await window._db.from('ventas').delete().eq('id', venta.id).eq('tenant_id', POS.TENANT_ID); throw e2 }
 
+    const idsReceta = [...new Set(b_carrito.map(it => it.id_receta).filter(Boolean))]
+    let tiempoObj = 300, tiempoLim = 360
+    if (idsReceta.length) {
+      const { data: tiempos } = await window._db
+        .from('catalogo_recetas')
+        .select('kds_tiempo_amarillo_seg, kds_tiempo_rojo_seg')
+        .eq('tenant_id', POS.TENANT_ID)
+        .in('id_receta', idsReceta)
+        .not('kds_tiempo_amarillo_seg', 'is', null)
+      if (tiempos && tiempos.length) {
+        tiempoObj = Math.max(...tiempos.map(r => r.kds_tiempo_amarillo_seg))
+        tiempoLim = Math.max(...tiempos.map(r => r.kds_tiempo_rojo_seg))
+      }
+    }
+
     const { error: e3 } = await window._db.from('ordenes_cocina').insert({
       tenant_id: POS.TENANT_ID, id_venta: venta.id, estado: 'pendiente',
-      tiempo_objetivo_seg: 420, tiempo_limite_seg: 600, confirmada_en: new Date().toISOString()
+      tiempo_objetivo_seg: tiempoObj, tiempo_limite_seg: tiempoLim, confirmada_en: new Date().toISOString()
     })
     if (e3) {
       await window._db.from('venta_items').delete().eq('id_venta', venta.id).eq('tenant_id', POS.TENANT_ID)
