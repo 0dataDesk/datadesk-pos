@@ -1814,10 +1814,16 @@ function mostrarResumen() {
         <div id="efectivo-detalle" style="margin-top:10px;">
           <label style="display:block;font-size:11px;font-weight:700;letter-spacing:1.5px;
             text-transform:uppercase;color:var(--muted);margin-bottom:6px;">¿Con cuánto paga el cliente?</label>
-          <input type="number" id="efectivo-recibido" inputmode="decimal" placeholder="$0" min="0"
-            style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:10px;
-              font-size:1rem;font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);"
-            oninput="actualizarCambioEfectivo(this.value)">
+          <div style="display:flex;gap:8px;align-items:center;">
+            <input type="number" id="efectivo-recibido" inputmode="decimal" placeholder="$0" min="0"
+              style="flex:1;padding:10px 12px;border:1.5px solid var(--border);border-radius:10px;
+                font-size:1rem;font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);"
+              oninput="actualizarCambioEfectivo(this.value)">
+            <button onclick="pagarExacto()"
+              style="padding:10px 14px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;
+                border:1.5px solid var(--primary);background:var(--bg);color:var(--primary);white-space:nowrap;
+                font-family:'DM Sans',sans-serif;">Exacto</button>
+          </div>
           <div id="efectivo-cambio" style="margin-top:8px;font-size:15px;font-weight:600;min-height:22px;"></div>
         </div>
         <div id="tarjeta-detalle" style="display:none;margin-top:10px;">
@@ -2028,6 +2034,13 @@ function _refrescarCambioEfectivo() {
 function actualizarCambioEfectivo(val) {
   efectivoRecibido = parseFloat(val) || 0
   _refrescarCambioEfectivo()
+}
+
+function pagarExacto() {
+  const total = carrito.reduce((s, i) => s + i.importe, 0) + propina
+  const inp = document.getElementById('efectivo-recibido')
+  if (inp) inp.value = total
+  actualizarCambioEfectivo(total)
 }
 
 function _renderPropinaSplits() {
