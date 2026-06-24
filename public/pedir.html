@@ -1636,7 +1636,7 @@ function guardarCz() {
     precio_base: cz.item.precio,
     cantidad:    cz.cantidad,
     mods: {
-      ingredientes: cz.ingredientes.map(i => ({ id:i.id, nombre:i.nombre, qty:i.qty, on:i.on })),
+      ingredientes: cz.ingredientes.map(i => ({ id:i.id, nombre:i.nombre, qty:i.qty, on:i.on, precio_extra:i.precio_extra||0 })),
       extras:       cz.extras.filter(e => e.qty > 0).map(e => ({ id:e.id, nombre:e.nombre, precio:e.precio, qty:e.qty })),
       salsas:       cz.salsas.map(s => ({ id:s.id, nombre:s.nombre, precio:s.precio, cantidad:s.cantidad||1 })),
       nota:         cz.nota,
@@ -2522,6 +2522,23 @@ async function confirmarOrden() {
           importe:         (sa.precio || 0) * (sa.cantidad || 1) * it.cantidad,
           modificadores:   { es_salsa: true },
           notas:           'salsa',
+          creado_por:      'operador'
+        })
+      })
+
+      // Ingredientes con qty > 1 (la unidad base ya está en la receta)
+      ;(it.mods.ingredientes || []).filter(ing => ing.on && ing.qty > 1).forEach(ing => {
+        items.push({
+          tenant_id:       POS.TENANT_ID,
+          id_venta:        venta.id,
+          id_item:         ing.id,
+          tipo_item:       'producto',
+          nombre:          ing.nombre,
+          cantidad:        (ing.qty - 1) * it.cantidad,
+          precio_unitario: ing.precio_extra || 0,
+          importe:         (ing.precio_extra || 0) * (ing.qty - 1) * it.cantidad,
+          modificadores:   { es_ingrediente_extra: true },
+          notas:           'ingrediente extra',
           creado_por:      'operador'
         })
       })
