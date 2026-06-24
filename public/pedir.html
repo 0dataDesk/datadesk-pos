@@ -916,6 +916,7 @@ function getPgItems(pgId) {
 
 // ── Página de Bebidas con selector de sabor ───────────────────────────────────
 const EXCLUIR_SABORES = ['BEB-031','BEB-026','BEB-006']
+const INGREDIENTES_OCULTOS = ['PAN-001','LAC-003','CND-004','CND-005','RSR-004']
 const PRECIO_REFRESCO = 40
 
 function renderRefrescosPage(cont, pg, others) {
@@ -1172,12 +1173,14 @@ async function abrirCz(idReceta, cartIdx = null) {
     const ings = ingCache[idReceta]
 
     // Inicializar ingredientes
-    cz.ingredientes = ings.map(ing => {
-      const id     = ing.id_producto || ing.producto
-      const nombre = ing.productos?.nombre_corto || ing.producto
-      const saved  = savedMods?.ingredientes?.find(s => s.id === id)
-      return { id, nombre, qty: saved?.qty ?? 1, on: saved?.on ?? true, precio_extra: parseFloat(ing.productos?.precio_extra) || 0 }
-    })
+    cz.ingredientes = ings
+      .filter(ing => !INGREDIENTES_OCULTOS.includes(ing.id_producto || ing.producto))
+      .map(ing => {
+        const id     = ing.id_producto || ing.producto
+        const nombre = ing.productos?.nombre_corto || ing.producto
+        const saved  = savedMods?.ingredientes?.find(s => s.id === id)
+        return { id, nombre, qty: saved?.qty ?? 1, on: saved?.on ?? true, precio_extra: parseFloat(ing.productos?.precio_extra) || 0 }
+      })
 
     // Inicializar extras (solo burgers, filtrar duplicados de ingredientes)
     if (type === 'burger') {
@@ -2488,6 +2491,40 @@ async function confirmarOrden() {
           })
         }
       }
+
+      // Extras seleccionados
+      ;(it.mods.extras || []).filter(ex => ex.qty > 0).forEach(ex => {
+        items.push({
+          tenant_id:       POS.TENANT_ID,
+          id_venta:        venta.id,
+          id_item:         ex.id,
+          tipo_item:       'receta',
+          nombre:          ex.nombre,
+          cantidad:        ex.qty * it.cantidad,
+          precio_unitario: ex.precio || 0,
+          importe:         (ex.precio || 0) * ex.qty * it.cantidad,
+          modificadores:   { es_extra: true },
+          notas:           'extra',
+          creado_por:      'operador'
+        })
+      })
+
+      // Salsas seleccionadas
+      ;(it.mods.salsas || []).forEach(sa => {
+        items.push({
+          tenant_id:       POS.TENANT_ID,
+          id_venta:        venta.id,
+          id_item:         sa.id,
+          tipo_item:       'receta',
+          nombre:          sa.nombre,
+          cantidad:        (sa.cantidad || 1) * it.cantidad,
+          precio_unitario: sa.precio || 0,
+          importe:         (sa.precio || 0) * (sa.cantidad || 1) * it.cantidad,
+          modificadores:   { es_salsa: true },
+          notas:           'salsa',
+          creado_por:      'operador'
+        })
+      })
     })
 
     const { error: e2 } = await window._db.from('venta_items').insert(items)
