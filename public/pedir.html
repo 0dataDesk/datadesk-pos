@@ -2312,7 +2312,9 @@ function _actualizarEstadoMixto() {
 
   // Estado global: ¿todos los efectivos tienen recibido suficiente?
   const efValido = !tarjetaExcede
-    && efectivoSplits.every(p => efectivoShare <= 0.01 || (p.recibido || 0) >= efectivoShare - 0.01)
+    && (efectivoCount === 0
+        ? tarjetaTotal >= totalConPropina - 0.01
+        : efectivoSplits.every(p => efectivoShare <= 0.01 || (p.recibido || 0) >= efectivoShare - 0.01))
 
   // Colorear bloque de estado
   const wrap = document.getElementById('mixto-pendiente-wrap')
@@ -2375,6 +2377,10 @@ function volverAlCarrito() {
 }
 
 async function confirmarOrden() {
+  const subtotal   = carrito.reduce((s, i) => s + i.importe, 0)
+  const descMonto  = cortesiaDescPct > 0 ? subtotal * cortesiaDescPct / 100 : 0
+  const total      = subtotal - descMonto + propina
+
   if (metodoPago === 'mixto') {
     const tarjetaTotal = pagosMixtos.filter(p => p.tipo !== 'efectivo').reduce((s, p) => s + (parseFloat(p.monto) || 0), 0)
     if (tarjetaTotal > total + 0.01) { alert('Los pagos con tarjeta exceden el total'); return }
@@ -2388,9 +2394,6 @@ async function confirmarOrden() {
 
   const folio    = 'FUR-' + String(Date.now() % 100000).padStart(5, '0')
   const pin      = String(Math.floor(1000 + Math.random() * 9000))
-  const subtotal   = carrito.reduce((s, i) => s + i.importe, 0)
-  const descMonto  = cortesiaDescPct > 0 ? subtotal * cortesiaDescPct / 100 : 0
-  const total      = subtotal - descMonto + propina
 
   try {
     const { data: venta, error: e1 } = await window._db
