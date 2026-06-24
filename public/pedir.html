@@ -2451,8 +2451,8 @@ async function confirmarOrden() {
           tipo_item:       'receta',
           nombre:          'Combo',
           cantidad:        it.cantidad,
-          precio_unitario: 60,
-          importe:         60 * it.cantidad,
+          precio_unitario: 0,
+          importe:         0,
           modificadores:   { bebida_id: it.mods.combo.bebida_id, bebida_nombre: it.mods.combo.bebida_nombre, acompañamiento_id: it.mods.combo.acompañamiento_id, acompañamiento_nombre: it.mods.combo.acompañamiento_nombre },
           notas:           null,
           creado_por:      'operador'
