@@ -2449,13 +2449,44 @@ async function confirmarOrden() {
           id_venta:        venta.id,
           id_item:         'REX-COM-001',
           tipo_item:       'receta',
-          nombre:          'Combo: ' + (it.mods.combo.acompañamiento_nombre || 'Papas Clásicas') + ' + ' + it.mods.combo.bebida_nombre,
+          nombre:          'Combo',
           cantidad:        it.cantidad,
           precio_unitario: 60,
           importe:         60 * it.cantidad,
           modificadores:   { bebida_id: it.mods.combo.bebida_id, bebida_nombre: it.mods.combo.bebida_nombre, acompañamiento_id: it.mods.combo.acompañamiento_id, acompañamiento_nombre: it.mods.combo.acompañamiento_nombre },
-          notas:           (it.mods.combo.acompañamiento_nombre || 'Papas Clásicas') + ' + ' + it.mods.combo.bebida_nombre
+          notas:           (it.mods.combo.acompañamiento_nombre || 'Papas Clásicas') + ' + ' + it.mods.combo.bebida_nombre,
+          creado_por:      'operador'
         })
+        if (it.mods.combo.acompañamiento_id) {
+          items.push({
+            tenant_id:       POS.TENANT_ID,
+            id_venta:        venta.id,
+            id_item:         it.mods.combo.acompañamiento_id,
+            tipo_item:       'receta',
+            nombre:          it.mods.combo.acompañamiento_nombre || 'Acompañamiento',
+            cantidad:        1,
+            precio_unitario: 0,
+            importe:         0,
+            modificadores:   { es_componente_combo: true },
+            notas:           'componente combo',
+            creado_por:      'operador'
+          })
+        }
+        if (it.mods.combo.bebida_id) {
+          items.push({
+            tenant_id:       POS.TENANT_ID,
+            id_venta:        venta.id,
+            id_item:         it.mods.combo.bebida_id,
+            tipo_item:       'producto',
+            nombre:          it.mods.combo.bebida_nombre || 'Bebida',
+            cantidad:        1,
+            precio_unitario: 0,
+            importe:         0,
+            modificadores:   { es_componente_combo: true },
+            notas:           'componente combo',
+            creado_por:      'operador'
+          })
+        }
       }
     })
 
