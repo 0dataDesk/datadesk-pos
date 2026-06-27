@@ -1822,11 +1822,30 @@ function mostrarResumen() {
         ${lineas}
       </div>
       <div style="display:flex;justify-content:space-between;align-items:baseline;
-                  padding:16px 4px 20px;">
+                  padding:16px 4px 8px;">
         <span style="font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:1.3rem;
-                     letter-spacing:1px;color:var(--text);">Total</span>
-        <span style="font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:2.2rem;
+                     letter-spacing:1px;color:var(--text);">Subtotal</span>
+        <span id="resumen-subtotal" style="font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:2.2rem;
                      color:var(--primary);">$${total}</span>
+      </div>
+      <div style="margin-bottom:16px;">
+        <div id="cortesia-descuento-bar" style="display:none;margin-bottom:8px;padding:10px 14px;
+          background:rgba(76,153,80,0.1);border-radius:12px;border:1px solid rgba(76,153,80,0.3);">
+          <div style="display:flex;justify-content:space-between;font-size:14px;font-weight:700;color:#3A8C3E;margin-bottom:4px;">
+            <span id="cort-desc-label">Descuento (0%)</span>
+            <span id="cort-desc-monto">-$0</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:15px;font-weight:700;
+            color:var(--text);border-top:1px solid rgba(76,153,80,0.3);padding-top:6px;margin-top:2px;">
+            <span>Total con descuento</span>
+            <span id="cort-total-con-desc">$${total}</span>
+          </div>
+        </div>
+        <button id="btn-cortesia" onclick="abrirModalCortesia()"
+          style="width:100%;padding:12px;border-radius:12px;font-size:14px;font-weight:600;
+            cursor:pointer;border:1.5px dashed var(--border);background:transparent;color:var(--muted);">
+          % Aplicar descuento
+        </button>
       </div>
       <div style="margin-bottom:16px;">
         <div class="sh-sec-ttl" style="margin-bottom:8px;">Método de pago</div>
@@ -1893,6 +1912,11 @@ function mostrarResumen() {
             <span id="mixto-pendiente-label" style="font-size:0.9rem;color:var(--muted);">A cobrar en efectivo</span>
             <span id="mixto-pendiente" style="font-weight:700;font-size:1.1rem;color:var(--primary);">—</span>
           </div>
+          <div id="mixto-reset-msg" style="display:none;margin-top:8px;padding:10px 12px;border-radius:10px;
+            background:rgba(200,137,42,.1);border:1px solid rgba(200,137,42,.3);
+            font-size:13px;color:#B85C0A;text-align:center;">
+            El descuento cambió. Reconfigura el pago mixto.
+          </div>
         </div>
       </div>
       <div style="margin-bottom:16px;">
@@ -1919,25 +1943,6 @@ function mostrarResumen() {
       <div id="total-con-propina-wrap" style="display:flex;justify-content:space-between;align-items:baseline;padding:0 4px 16px;">
         <span style="font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:1.1rem;letter-spacing:1px;color:var(--text);">Total con propina</span>
         <span style="font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:2rem;color:var(--primary);" id="total-con-propina">$${total}</span>
-      </div>
-      <div id="cortesia-descuento-bar" style="display:none;margin-bottom:12px;padding:10px 14px;
-        background:rgba(76,153,80,0.1);border-radius:12px;border:1px solid rgba(76,153,80,0.3);">
-        <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--muted);">
-          <span>Subtotal original</span>
-          <span id="cort-subtotal-orig">$0</span>
-        </div>
-        <div style="display:flex;justify-content:space-between;font-size:14px;font-weight:700;
-          color:#3A8C3E;margin-top:4px;">
-          <span id="cort-desc-label">Descuento cortesía</span>
-          <span id="cort-desc-monto">-$0</span>
-        </div>
-      </div>
-      <div style="margin-bottom:12px;">
-        <button id="btn-cortesia" onclick="abrirModalCortesia()"
-          style="width:100%;padding:12px;border-radius:12px;font-size:14px;font-weight:600;
-            cursor:pointer;border:1.5px dashed var(--border);background:transparent;color:var(--muted);">
-          🎁 Marcar como cortesía
-        </button>
       </div>
     </div>
     <div style="position:fixed;bottom:0;left:0;right:0;z-index:30;
@@ -2049,14 +2054,17 @@ function aplicarPropinaPct(pct) {
 }
 function _actualizarTotalConPropina() {
   const subtotal = carrito.reduce((s, i) => s + i.importe, 0)
+  const descMonto = cortesiaDescPct > 0 ? Math.round(subtotal * cortesiaDescPct) / 100 : 0
   const el = document.getElementById('total-con-propina')
-  if (el) el.textContent = '$' + (subtotal + propina)
+  if (el) el.textContent = '$' + (subtotal - descMonto + propina)
   if (metodoPago === 'efectivo') _refrescarCambioEfectivo()
 }
 
 function _refrescarCambioEfectivo() {
   const propinaEfectivo = propinaTipo === 'efectivo' ? propina : 0
-  const totalConPropina = carrito.reduce((s, i) => s + i.importe, 0) + propinaEfectivo
+  const _sub = carrito.reduce((s, i) => s + i.importe, 0)
+  const _desc = cortesiaDescPct > 0 ? Math.round(_sub * cortesiaDescPct) / 100 : 0
+  const totalConPropina = _sub - _desc + propinaEfectivo
   const cambio = efectivoRecibido - totalConPropina
   const cambioEl = document.getElementById('efectivo-cambio')
   const btn = document.getElementById('btn-confirmar')
@@ -2079,7 +2087,9 @@ function actualizarCambioEfectivo(val) {
 }
 
 function pagarExacto() {
-  const total = carrito.reduce((s, i) => s + i.importe, 0) + propina
+  const _sub = carrito.reduce((s, i) => s + i.importe, 0)
+  const _desc = cortesiaDescPct > 0 ? Math.round(_sub * cortesiaDescPct) / 100 : 0
+  const total = _sub - _desc + propina
   const inp = document.getElementById('efectivo-recibido')
   if (inp) inp.value = total
   actualizarCambioEfectivo(total)
@@ -2199,7 +2209,9 @@ function renderPagosMixtos() {
   if (!splitsEl) return
 
   // Pre-calculate efectivo share for display
-  const totalConPropina = carrito.reduce((s, i) => s + i.importe, 0) + propina
+  const _subM = carrito.reduce((s, i) => s + i.importe, 0)
+  const _descM = cortesiaDescPct > 0 ? Math.round(_subM * cortesiaDescPct) / 100 : 0
+  const totalConPropina = _subM - _descM + propina
   const tarjetaTotal = pagosMixtos.filter(p => p.tipo !== 'efectivo').reduce((s, p) => s + (parseFloat(p.monto) || 0), 0)
   const efectivoCount = pagosMixtos.filter(p => p.tipo === 'efectivo').length
   const efectivoTotal = totalConPropina - tarjetaTotal
@@ -2283,7 +2295,9 @@ function renderPagosMixtos() {
 }
 
 function _actualizarEstadoMixto() {
-  const totalConPropina = carrito.reduce((s, i) => s + i.importe, 0) + propina
+  const _subE = carrito.reduce((s, i) => s + i.importe, 0)
+  const _descE = cortesiaDescPct > 0 ? Math.round(_subE * cortesiaDescPct) / 100 : 0
+  const totalConPropina = _subE - _descE + propina
   const tarjetaTotal = pagosMixtos.filter(p => p.tipo !== 'efectivo').reduce((s, p) => s + (parseFloat(p.monto) || 0), 0)
   const efectivoSplits = pagosMixtos.filter(p => p.tipo === 'efectivo')
   const efectivoCount = efectivoSplits.length
@@ -3088,29 +3102,86 @@ function validarPinCortesia() {
     document.getElementById('cort-pin-input').value = ''
     return
   }
+  const pctInput = document.getElementById('cort-pct-input')
+  if (pctInput) {
+    pctInput.value = cortesiaDescPct > 0 ? cortesiaDescPct : ''
+    previsualizarDescuento(pctInput.value)
+  }
   document.getElementById('cort-screen-pin').style.display = 'none'
   document.getElementById('cort-screen-pct').style.display = ''
+  setTimeout(() => { const el = document.getElementById('cort-pct-input'); if (el) el.focus() }, 100)
+}
+
+function previsualizarDescuento(val) {
+  const pct = Math.min(100, Math.max(0, parseInt(val) || 0))
+  const subtotal = carrito.reduce((s, i) => s + i.importe, 0)
+  const descMonto = Math.round(subtotal * pct) / 100
+  const nuevoTotal = subtotal - descMonto
+  const prev = document.getElementById('cort-preview')
+  if (prev) prev.innerHTML = pct > 0
+    ? `<span style="color:var(--muted);">$${subtotal}</span> <span style="color:#3A8C3E;font-weight:700;"> − $${descMonto}</span> = <strong style="color:var(--text);">$${nuevoTotal}</strong>`
+    : ''
+  const btn = document.getElementById('btn-aplicar-desc')
+  if (btn) { btn.disabled = pct < 1 || pct > 100; btn.style.opacity = (pct >= 1 && pct <= 100) ? '1' : '0.5' }
+}
+
+function confirmarDescuento() {
+  const val = document.getElementById('cort-pct-input').value
+  const pct = Math.min(100, Math.max(1, parseInt(val) || 0))
+  if (pct < 1 || pct > 100) return
+  aplicarDescuentoCortesia(pct)
 }
 
 function aplicarDescuentoCortesia(pct) {
+  const prevPct = cortesiaDescPct
   cortesiaDescPct = pct
   cerrarModalCortesia()
 
   const subtotal = carrito.reduce((s, i) => s + i.importe, 0)
-  const descMonto = subtotal * pct / 100
-  const nuevoTotal = subtotal - descMonto + propina
+  const descMonto = Math.round(subtotal * pct) / 100
+  const totalConDesc = subtotal - descMonto
 
-  document.getElementById('cort-subtotal-orig').textContent = '$' + subtotal
-  document.getElementById('cort-desc-label').textContent = `Descuento cortesía ${pct}%`
+  document.getElementById('cort-desc-label').textContent = `Descuento (${pct}%)`
   document.getElementById('cort-desc-monto').textContent = '-$' + descMonto
+  const totDescEl = document.getElementById('cort-total-con-desc')
+  if (totDescEl) totDescEl.textContent = '$' + totalConDesc
   document.getElementById('cortesia-descuento-bar').style.display = ''
-  document.getElementById('total-con-propina').textContent = '$' + nuevoTotal
 
   const btnC = document.getElementById('btn-cortesia')
-  btnC.textContent = `Cortesía ${pct}% aplicada ✓`
-  btnC.style.color = '#3A8C3E'
-  btnC.style.borderColor = '#3A8C3E'
-  btnC.disabled = true
+  if (btnC) {
+    btnC.textContent = `✕ Quitar descuento (${pct}%)`
+    btnC.style.color = '#3A8C3E'
+    btnC.style.borderColor = '#3A8C3E'
+    btnC.onclick = quitarDescuento
+  }
+
+  _actualizarTotalConPropina()
+
+  if (metodoPago === 'mixto' && prevPct !== pct) {
+    pagosMixtos = [{ tipo: 'debito', monto: 0 }, { tipo: 'efectivo', recibido: 0 }]
+    renderPagosMixtos()
+    const msg = document.getElementById('mixto-reset-msg')
+    if (msg) { msg.style.display = ''; setTimeout(() => { if (msg) msg.style.display = 'none' }, 3500) }
+  }
+}
+
+function quitarDescuento() {
+  cortesiaDescPct = 0
+  document.getElementById('cortesia-descuento-bar').style.display = 'none'
+  const btnC = document.getElementById('btn-cortesia')
+  if (btnC) {
+    btnC.textContent = '% Aplicar descuento'
+    btnC.style.color = ''
+    btnC.style.borderColor = ''
+    btnC.onclick = abrirModalCortesia
+  }
+  _actualizarTotalConPropina()
+  if (metodoPago === 'mixto') {
+    pagosMixtos = [{ tipo: 'debito', monto: 0 }, { tipo: 'efectivo', recibido: 0 }]
+    renderPagosMixtos()
+    const msg = document.getElementById('mixto-reset-msg')
+    if (msg) { msg.style.display = ''; setTimeout(() => { if (msg) msg.style.display = 'none' }, 3500) }
+  }
 }
 </script>
 
@@ -3140,25 +3211,26 @@ function aplicarDescuentoCortesia(pct) {
     </div>
 
     <div id="cort-screen-pct" style="display:none;">
-      <div style="font-size:1.3rem;font-weight:800;margin-bottom:6px;">🎁 Selecciona descuento</div>
-      <p style="color:var(--muted,#888);font-size:13px;margin-bottom:20px;">Aplica sobre el subtotal de productos</p>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
-        <button onclick="aplicarDescuentoCortesia(25)"
-          style="padding:20px;font-size:24px;font-weight:800;border-radius:14px;cursor:pointer;
-            border:2px solid var(--border,#ddd);background:var(--bg,#faf8f5);">25%</button>
-        <button onclick="aplicarDescuentoCortesia(50)"
-          style="padding:20px;font-size:24px;font-weight:800;border-radius:14px;cursor:pointer;
-            border:2px solid var(--border,#ddd);background:var(--bg,#faf8f5);">50%</button>
-        <button onclick="aplicarDescuentoCortesia(75)"
-          style="padding:20px;font-size:24px;font-weight:800;border-radius:14px;cursor:pointer;
-            border:2px solid var(--border,#ddd);background:var(--bg,#faf8f5);">75%</button>
-        <button onclick="aplicarDescuentoCortesia(100)"
-          style="padding:20px;font-size:24px;font-weight:800;border-radius:14px;cursor:pointer;
-            border:2px solid var(--border,#ddd);background:var(--bg,#faf8f5);">100%</button>
+      <div style="font-size:1.3rem;font-weight:800;margin-bottom:6px;">% Aplicar descuento</div>
+      <p style="color:var(--muted,#888);font-size:13px;margin-bottom:12px;">Sobre el subtotal de productos</p>
+      <div id="cort-preview" style="min-height:22px;font-size:14px;margin-bottom:14px;text-align:center;"></div>
+      <div style="display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:20px;">
+        <input type="number" id="cort-pct-input" min="1" max="100" placeholder="0" inputmode="decimal"
+          oninput="previsualizarDescuento(this.value)"
+          style="width:110px;padding:14px;text-align:center;font-size:2rem;font-weight:800;
+            border:2px solid var(--border,#ddd);border-radius:12px;background:var(--bg,#faf8f5);
+            font-family:inherit;color:var(--text,#1A0008);">
+        <span style="font-size:2rem;font-weight:800;color:var(--primary,#3D0014);">%</span>
       </div>
-      <button onclick="cerrarModalCortesia()"
-        style="width:100%;padding:12px;border-radius:12px;border:1.5px solid var(--border,#ddd);
-          background:transparent;font-size:14px;font-weight:600;cursor:pointer;">Cancelar</button>
+      <div style="display:flex;gap:10px;">
+        <button onclick="cerrarModalCortesia()"
+          style="flex:1;padding:13px;border-radius:12px;border:1.5px solid var(--border,#ddd);
+            background:transparent;font-size:14px;font-weight:600;cursor:pointer;">Cancelar</button>
+        <button id="btn-aplicar-desc" onclick="confirmarDescuento()" disabled
+          style="flex:2;padding:13px;border-radius:12px;border:none;
+            background:var(--primary,#3D0014);color:#fff;font-size:14px;font-weight:700;
+            cursor:pointer;opacity:0.5;">Aplicar</button>
+      </div>
     </div>
   </div>
 </div>
