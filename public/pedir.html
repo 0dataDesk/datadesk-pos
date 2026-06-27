@@ -2070,6 +2070,11 @@ function _refrescarCambioEfectivo() {
   const cambioEl = document.getElementById('efectivo-cambio')
   const btn = document.getElementById('btn-confirmar')
   if (!cambioEl) return
+  if (totalConPropina <= 0) {
+    cambioEl.innerHTML = `<span style="color:#3A8C3E;">Cortesía 100% — sin cobro</span>`
+    if (btn) btn.disabled = false
+    return
+  }
   if (!efectivoRecibido) {
     cambioEl.textContent = ''
     if (btn) btn.disabled = true
@@ -2395,6 +2400,11 @@ async function confirmarOrden() {
   const subtotal   = carrito.reduce((s, i) => s + i.importe, 0)
   const descMonto  = cortesiaDescPct > 0 ? subtotal * cortesiaDescPct / 100 : 0
   const total      = subtotal - descMonto + propina
+
+  if (total <= 0) {
+    const ok = confirm(`¿Confirmar cortesía del ${cortesiaDescPct}%?\nSubtotal original: $${subtotal}\nTotal a cobrar: $0`)
+    if (!ok) return
+  }
 
   if (metodoPago === 'mixto') {
     const tarjetaTotal = pagosMixtos.filter(p => p.tipo !== 'efectivo').reduce((s, p) => s + (parseFloat(p.monto) || 0), 0)
