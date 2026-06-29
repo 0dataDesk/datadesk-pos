@@ -6,5 +6,3 @@ const POS = {
   FUENTE:    'menu_charly',
   LISTA_PRECIO: 'mostrador',
 }
-// TODO: eliminar cuando barra.html migre a POS.NOMBRE
-POS.BRANDING = { nombre: POS.NOMBRE }
