@@ -663,6 +663,7 @@ textarea.intake-input{resize:none;line-height:1.5;}
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="src/config.js"></script>
+<script src="src/tenant-theme.js"></script>
 <script src="src/supabase.js"></script>
 <script>
 // ── Constantes ────────────────────────────────────────────────────────────────
@@ -742,18 +743,7 @@ const FLAMA_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 130"
 
 // ── Branding ──────────────────────────────────────────────────────────────────
 function applyBranding() {
-  const p = POS.BRANDING.primaryColor  // ej. '#3D0014'
-  const d = POS.BRANDING.primaryDark   // ej. '#280009'
-  const o = POS.BRANDING.textOnPrimary // ej. '#F2E0C8'
-  const r = document.documentElement.style
-  r.setProperty('--primary', p)
-  r.setProperty('--pdk',     d)
-  r.setProperty('--on-pri',  o)
-  // Derivar pdim desde primaryColor
-  const h = p.replace('#','')
-  const R = parseInt(h.slice(0,2),16), G = parseInt(h.slice(2,4),16), B = parseInt(h.slice(4,6),16)
-  r.setProperty('--pdim',  `rgba(${R},${G},${B},.08)`)
-  r.setProperty('--pdim2', `rgba(${R},${G},${B},.15)`)
+  applyTenantTheme(POS.TENANT_ID)
 
   document.title = POS.BRANDING.nombre + ' | POS'
 

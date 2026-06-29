@@ -16,7 +16,7 @@
     <div style="display:flex;flex-direction:column;gap:14px;">
       <div class="field">
         <label for="login-email">Correo</label>
-        <input type="text" id="login-email" placeholder="usuario@furia.mx" autocomplete="username">
+        <input type="text" id="login-email" placeholder="correo@ejemplo.com" autocomplete="username">
       </div>
       <div class="field">
         <label for="login-pass">Contraseña</label>
@@ -206,8 +206,8 @@
       <div class="mod-section-title">Extras</div>
       <div id="b-mod-extras-list"></div>
     </div>
-    <div class="mod-section" id="b-mod-salsa-furia-section" style="border:2px solid #792c24;border-radius:12px;padding:12px;background:#fff8ef;">
-      <div class="mod-section-title" style="font-family:'Barlow Condensed',sans-serif;font-weight:900;color:#792c24;letter-spacing:2px;">🔥 SALSA FURIA</div>
+    <div class="mod-section" id="b-mod-salsa-furia-section" style="border:2px solid var(--c-primary);border-radius:12px;padding:12px;background:var(--c-accent);">
+      <div class="mod-section-title" style="font-family:'Barlow Condensed',sans-serif;font-weight:900;color:var(--c-primary);letter-spacing:2px;">🔥 SALSA FURIA</div>
       <div id="b-mod-salsa-furia-list"></div>
     </div>
     <div class="mod-section">
@@ -279,6 +279,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="src/config.js"></script>
+<script src="src/tenant-theme.js"></script>
 <script src="src/supabase.js"></script>
 <script>
 // ── Auth ──────────────────────────────────────────────────────────────────────
@@ -925,14 +926,7 @@ function suscribirOrdenes() {
 window.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('login-tenant-nombre').textContent = POS.BRANDING.nombre
   document.getElementById('app-tenant-nombre').textContent = POS.BRANDING.nombre
-  const r = document.documentElement.style
-  r.setProperty('--c-primary',      POS.BRANDING.primaryColor)
-  r.setProperty('--c-primary-dark', POS.BRANDING.primaryDark)
-  r.setProperty('--c-accent',       POS.BRANDING.accentColor)
-  r.setProperty('--c-accent-dark',  POS.BRANDING.accentDark)
-  r.setProperty('--c-on-primary',   POS.BRANDING.textOnPrimary)
-  r.setProperty('--c-on-accent',    POS.BRANDING.textOnAccent)
-  r.setProperty('--c-bg',           POS.BRANDING.bgColor)
+  applyTenantTheme(POS.TENANT_ID)
 
   // Intentar restaurar sesión
   const { data: { session } } = await window._db.auth.getSession()
