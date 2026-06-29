@@ -322,6 +322,9 @@ async function iniciarApp() {
     .single()
   cfg = data || {}
 
+  const labelSalsas = document.querySelector('#b-mod-salsa-furia-section .mod-section-title')
+  if (labelSalsas) labelSalsas.textContent = cfg.nombre_seccion_salsas || 'Salsas'
+
   // Botón cortesía siempre visible — el PIN es la protección
   const wrapC = document.getElementById('b-cortesia-wrap')
   if (wrapC) wrapC.style.display = ''
