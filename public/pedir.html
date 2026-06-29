@@ -745,9 +745,9 @@ const FLAMA_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 130"
 function applyBranding() {
   applyTenantTheme(POS.TENANT_ID)
 
-  document.title = POS.BRANDING.nombre + ' | POS'
+  document.title = POS.NOMBRE + ' | POS'
 
-  const N   = POS.BRANDING.nombre
+  const N   = POS.NOMBRE
   const mkLogo = sz => `
     <div class="logo-box" style="width:${sz*.72}px;height:${sz*.72}px;color:var(--primary);">${FLAMA_SVG}</div>
     <span class="logo-name" style="font-size:${sz}px;">${N.toUpperCase()}</span>`
@@ -1751,7 +1751,7 @@ function generarPin() {
 }
 function generarFolio() {
   const n = String(Date.now() % 100000).padStart(5, '0')
-  return (POS.BRANDING.nombre.slice(0,3).toUpperCase()) + '-' + n
+  return (POS.NOMBRE.slice(0,3).toUpperCase()) + '-' + n
 }
 
 // ── Resumen pre-confirmación ──────────────────────────────────────────────────
@@ -2804,7 +2804,7 @@ function initMap() {
   }).addTo(leafletMap)
 
   // Coverage zone circle
-  const color = POS.BRANDING.primaryColor || '#3D0014'
+  const color = getComputedStyle(document.documentElement).getPropertyValue('--primary').trim() || '#792c24'
   L.circle([lat0, lng0], {
     radius: radioM, color, weight: 2, opacity: 0.55,
     fillColor: color, fillOpacity: 0.13

@@ -283,7 +283,7 @@ function suscribirRealtime() {
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', async () => {
-  document.getElementById('kds-tenant-nombre').textContent = POS.BRANDING.nombre + ' — Cocina'
+  document.getElementById('kds-tenant-nombre').textContent = POS.NOMBRE + ' — Cocina'
   applyTenantTheme(POS.TENANT_ID)
   await cargarActivas()
   suscribirRealtime()
