@@ -3065,7 +3065,8 @@ function ajustarAlturaCards() {
   const columnas = window.innerWidth >= 900 ? 3 : 2
   const filas    = Math.max(1, Math.ceil(itemsVisibles / columnas))
   const gapTotal = (filas - 1) * 18
-  const thumbH   = Math.max(80, Math.floor((available - gapTotal) / filas) - 80)
+  let thumbH = Math.floor((available - gapTotal) / filas) - 80
+  thumbH = Math.min(Math.max(thumbH, 80), 180)
   document.documentElement.style.setProperty('--thumb-h', thumbH + 'px')
 }
 
