@@ -761,7 +761,7 @@ async function cargarMenu() {
   try {
     const { data: recetas, error: e1 } = await window._db
       .from('catalogo_recetas')
-      .select('id_receta, nombre_platillo, categoria, descripcion, tagline')
+      .select('id_receta, nombre_platillo, categoria, descripcion, tagline, orden')
       .eq('tenant_id', POS.TENANT_ID)
       .eq('fuente',    POS.FUENTE)
       .eq('activo',    true)
@@ -901,7 +901,7 @@ function getPgItems(pgId) {
     case 'refrescos': items = menuItems.filter(it => it.categoria === 'Bebidas' && !it.nombre.toLowerCase().startsWith('limonada')); break
     default: items = []
   }
-  return items.sort((a, b) => a.precio - b.precio)  // AJUSTE 5: precio ascendente
+  return items.sort((a, b) => (a.orden ?? 999) - (b.orden ?? 999))
 }
 
 // ── Página de Bebidas con selector de sabor ───────────────────────────────────
@@ -939,30 +939,30 @@ function renderRefrescosPage(cont, pg, others) {
     const inCart = carrito.filter(e => e.id_receta === a.id).reduce((s,e) => s + e.cantidad, 0)
     const badge  = inCart > 0 ? `<span class="item-badge">${inCart}</span>` : ''
     return `
-      <div class="item-card" id="agua-card-${a.id}">
+      <div class="item-card" id="agua-card-${a.id}" style="padding:12px 14px;">
         ${badge}
-        <div class="item-thumb">💧</div>
-        <div class="item-body">
-          <div class="item-name">${a.nombre}</div>
-          <div class="item-price">$${a.precio}</div>
-        </div>
-        <div class="item-foot">
-          <div class="drink-row">
-            <div class="stepper">
-              <button class="stbtn" onclick="adjAguaQty('${a.id}',-1)">−</button>
-              <span class="stval" id="agua-qty-${a.id}">1</span>
-              <button class="stbtn plus" onclick="adjAguaQty('${a.id}',1)">+</button>
-            </div>
-            <button class="btn-pri sm" onclick="addAgua('${a.id}','${a.nombre}',${a.precio})">Agregar →</button>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+          <span style="font-size:1.4rem;">💧</span>
+          <div>
+            <div class="item-name" style="font-size:0.95rem;">${a.nombre}</div>
+            <div class="item-price" style="font-size:0.9rem;margin-top:2px;">$${a.precio}</div>
           </div>
+        </div>
+        <div class="drink-row">
+          <div class="stepper">
+            <button class="stbtn" onclick="adjAguaQty('${a.id}',-1)">−</button>
+            <span class="stval" id="agua-qty-${a.id}">1</span>
+            <button class="stbtn plus" onclick="adjAguaQty('${a.id}',1)">+</button>
+          </div>
+          <button class="btn-pri sm" onclick="addAgua('${a.id}','${a.nombre}',${a.precio})">Agregar →</button>
         </div>
       </div>`
   }).join('')
 
   cont.innerHTML = `
     <h1 class="page-title">${pg.title}</h1>
-    <div class="item-grid" id="item-grid">
-      <div class="item-card" style="grid-column:1/-1;max-width:420px;">
+    <div id="item-grid" style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap;">
+      <div class="item-card" style="flex:2;min-width:280px;">
         ${badgeRef}
         <div class="item-thumb">${pg.emoji}</div>
         <div class="item-body">
@@ -985,7 +985,9 @@ function renderRefrescosPage(cont, pg, others) {
           </div>
         </div>
       </div>
-      ${aguaCardsHtml}
+      <div style="flex:1;min-width:160px;display:flex;flex-direction:column;gap:12px;">
+        ${aguaCardsHtml}
+      </div>
     </div>`
 
   document.getElementById('bot-nav').classList.remove('hidden')
