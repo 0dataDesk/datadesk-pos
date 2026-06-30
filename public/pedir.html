@@ -2569,11 +2569,11 @@ async function confirmarOrden() {
     if (e2) throw e2
 
     const idsReceta = [...new Set(carrito.map(it => it.id_receta).filter(Boolean))]
-    let tiempoObj = 300, tiempoLim = 360
+    let tiempoObj = 300, tiempoLim = 360, tiemposMap = {}
     if (idsReceta.length) {
       const { data: tiempos } = await window._db
         .from('catalogo_recetas')
-        .select('kds_tiempo_amarillo_seg, kds_tiempo_rojo_seg')
+        .select('id_receta, kds_tiempo_normal_seg, kds_tiempo_amarillo_seg, kds_tiempo_rojo_seg')
         .eq('tenant_id', POS.TENANT_ID)
         .in('id_receta', idsReceta)
         .not('kds_tiempo_amarillo_seg', 'is', null)
@@ -2581,9 +2581,11 @@ async function confirmarOrden() {
         tiempoObj = Math.max(...tiempos.map(r => r.kds_tiempo_amarillo_seg))
         tiempoLim = Math.max(...tiempos.map(r => r.kds_tiempo_rojo_seg))
       }
+      tiemposMap = {}
+      if (tiempos) tiempos.forEach(r => { tiemposMap[r.id_receta] = r })
     }
 
-    const { error: e3 } = await window._db
+    const { data: ordenCocina, error: e3 } = await window._db
       .from('ordenes_cocina')
       .insert({
         tenant_id:           POS.TENANT_ID,
@@ -2593,7 +2595,26 @@ async function confirmarOrden() {
         tiempo_limite_seg:   tiempoLim,
         confirmada_en:       new Date().toISOString()
       })
+      .select('id')
+      .single()
     if (e3) throw e3
+
+    const itemsEstado = items
+      .filter(vi => vi.tipo_item === 'receta')
+      .map(vi => ({
+        tenant_id:          POS.TENANT_ID,
+        id_orden_cocina:    ordenCocina.id,
+        id_venta_item:      null,
+        id_receta:          vi.id_item,
+        nombre_platillo:    vi.nombre,
+        tiempo_normal_seg:  tiemposMap[vi.id_item]?.kds_tiempo_normal_seg   ?? null,
+        tiempo_amarillo_seg: tiemposMap[vi.id_item]?.kds_tiempo_amarillo_seg ?? null,
+        tiempo_rojo_seg:    tiemposMap[vi.id_item]?.kds_tiempo_rojo_seg      ?? null
+      }))
+    if (itemsEstado.length) {
+      const { error: e4 } = await window._db.from('orden_items_estado').insert(itemsEstado)
+      if (e4) console.error('orden_items_estado insert:', e4)
+    }
 
     if (cortesiaDescPct > 0) {
       await window._db.from('incidencias').insert({
@@ -2920,16 +2941,22 @@ async function cargarOrdenesActivas() {
 
   if (!ocs || ocs.length === 0) { ordenesActivas = {}; actualizarPanelOrdenes(); return }
 
-  const ventaIds = ocs.map(o => o.id_venta)
-  const [{ data: ventas }, { data: items }] = await Promise.all([
+  const ventaIds  = ocs.map(o => o.id_venta)
+  const ordenIds  = ocs.map(o => o.id)
+  const [{ data: ventas }, { data: items }, { data: estados }] = await Promise.all([
     window._db.from('ventas').select('id, folio').in('id', ventaIds).eq('tenant_id', POS.TENANT_ID),
-    window._db.from('venta_items').select('id_venta, nombre, cantidad').in('id_venta', ventaIds).eq('tenant_id', POS.TENANT_ID)
+    window._db.from('venta_items').select('id_venta, nombre, cantidad').in('id_venta', ventaIds).eq('tenant_id', POS.TENANT_ID),
+    window._db.from('orden_items_estado').select('id, id_orden_cocina, nombre_platillo, estado, creada_en').in('id_orden_cocina', ordenIds).eq('tenant_id', POS.TENANT_ID)
   ])
 
-  const folioMap = {}; (ventas || []).forEach(v => { folioMap[v.id] = v.folio })
-  const itemsMap = {}; (items  || []).forEach(it => {
+  const folioMap  = {}; (ventas  || []).forEach(v  => { folioMap[v.id] = v.folio })
+  const itemsMap  = {}; (items   || []).forEach(it => {
     if (!itemsMap[it.id_venta]) itemsMap[it.id_venta] = []
     itemsMap[it.id_venta].push(it)
+  })
+  const estadoMap = {}; (estados || []).forEach(e => {
+    if (!estadoMap[e.id_orden_cocina]) estadoMap[e.id_orden_cocina] = []
+    estadoMap[e.id_orden_cocina].push(e)
   })
 
   ordenesActivas = {}
@@ -2937,7 +2964,8 @@ async function cargarOrdenesActivas() {
     ordenesActivas[oc.id_venta] = {
       id: oc.id, folio: folioMap[oc.id_venta] || oc.id_venta,
       estado: oc.estado, confirmada_en: oc.confirmada_en,
-      items: itemsMap[oc.id_venta] || []
+      items: itemsMap[oc.id_venta] || [],
+      itemsEstado: estadoMap[oc.id] || []
     }
   })
   actualizarPanelOrdenes()
@@ -2976,19 +3004,29 @@ function actualizarPanelOrdenes() {
     const elapsed = o.confirmada_en ? Math.floor((Date.now() - new Date(o.confirmada_en).getTime()) / 1000) : 0
     const mm = String(Math.floor(elapsed / 60)).padStart(2, '0')
     const ss = String(elapsed % 60).padStart(2, '0')
-    const itemsHtml = o.items.slice(0, 5).map(it => `<div style="font-size:12px;color:var(--text);">${it.nombre} ×${it.cantidad}</div>`).join('')
-    const pillStyle = o.estado === 'lista'
-      ? 'background:rgba(76,153,80,.15);color:#3A8C3E'
-      : 'background:rgba(200,137,42,.15);color:#c8892a'
+    const ie = o.itemsEstado || []
+    const todosListos = ie.length > 0 && ie.every(i => i.estado === 'listo')
+    const itemsHtml = ie.length > 0
+      ? ie.map(it => {
+          const listo = it.estado === 'listo'
+          const dot = listo
+            ? '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#3A8C3E;margin-right:5px;flex-shrink:0;"></span>'
+            : '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#c8892a;margin-right:5px;flex-shrink:0;"></span>'
+          return `<div style="display:flex;align-items:center;font-size:12px;color:var(--text);margin-bottom:2px;">${dot}${it.nombre_platillo}</div>`
+        }).join('')
+      : o.items.slice(0, 5).map(it => `<div style="font-size:12px;color:var(--text);margin-bottom:2px;">${it.nombre} ×${it.cantidad}</div>`).join('')
+    const btnStyle = todosListos || ie.length === 0
+      ? 'width:100%;margin-top:6px;'
+      : 'width:100%;margin-top:6px;opacity:.4;cursor:not-allowed;'
+    const btnDisabled = (todosListos || ie.length === 0) ? '' : 'disabled'
     return `
       <div class="op-card" id="op-card-${idVenta}">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
           <span class="op-card-folio">${o.folio}</span>
-          <span style="padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700;${pillStyle}">${o.estado}</span>
+          <span class="op-card-timer" id="op-timer-${idVenta}">${mm}:${ss}</span>
         </div>
-        <div class="op-card-timer" id="op-timer-${idVenta}">${mm}:${ss}</div>
-        <div style="margin:6px 0;">${itemsHtml}</div>
-        <button class="btn-pri sm" style="width:100%;margin-top:4px;"
+        <div style="margin:4px 0;">${itemsHtml}</div>
+        <button class="btn-pri sm" style="${btnStyle}" ${btnDisabled}
           onclick="entregarOrden('${idVenta}')">✓ Entregar</button>
       </div>`
   }).join('')
@@ -3034,6 +3072,28 @@ function suscribirOrdenes() {
       } else if (payload.eventType === 'DELETE') {
         delete ordenesActivas[row.id_venta]
         actualizarPanelOrdenes()
+      }
+    })
+    .subscribe()
+
+  window._db
+    .channel('items-estado-pos-' + POS.TENANT_ID)
+    .on('postgres_changes', {
+      event: 'UPDATE', schema: 'public', table: 'orden_items_estado',
+      filter: `tenant_id=eq.${POS.TENANT_ID}`
+    }, payload => {
+      const row = payload.new
+      if (!row) return
+      // Encontrar la orden activa que contiene este item
+      for (const [idVenta, o] of Object.entries(ordenesActivas)) {
+        if (o.id === row.id_orden_cocina) {
+          const idx = (o.itemsEstado || []).findIndex(i => i.id === row.id)
+          if (idx >= 0) o.itemsEstado[idx] = { ...o.itemsEstado[idx], ...row }
+          else if (!o.itemsEstado) o.itemsEstado = [row]
+          else o.itemsEstado.push(row)
+          actualizarPanelOrdenes()
+          break
+        }
       }
     })
     .subscribe()

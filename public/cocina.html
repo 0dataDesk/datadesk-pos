@@ -53,8 +53,9 @@
 <script src="src/supabase.js"></script>
 <script>
 // ── Estado ────────────────────────────────────────────────────────────────────
-const ordenes = {}   // id_venta → { orden, items, card }
-const cementerio = []  // últimas 10 entregadas/canceladas
+const ordenes        = {}  // id_venta → { orden, items, itemsEstado }
+const itemsEstadoIdx = {}  // id_item_estado → id_venta  (índice inverso para lookup rápido)
+const cementerio     = []
 
 // ── Reloj ─────────────────────────────────────────────────────────────────────
 function tickClock() {
@@ -68,11 +69,24 @@ setInterval(tickClock, 1000)
 tickClock()
 
 // ── Semáforo ─────────────────────────────────────────────────────────────────
-function semaforo(confirmada_en, objetivo, limite) {
-  const elapsed = (Date.now() - new Date(confirmada_en).getTime()) / 1000
-  if (elapsed < objetivo) return 'verde'
-  if (elapsed < limite)   return 'amarillo'
-  return 'rojo'
+function colorPlatillo(item) {
+  if (item.estado === 'listo') return 'listo'
+  const elapsed = (Date.now() - new Date(item.creada_en).getTime()) / 1000
+  if (item.tiempo_rojo_seg    && elapsed >= item.tiempo_rojo_seg)    return 'rojo'
+  if (item.tiempo_amarillo_seg && elapsed >= item.tiempo_amarillo_seg) return 'amarillo'
+  return 'normal'
+}
+
+const PRIORIDAD = { rojo: 3, amarillo: 2, normal: 1, listo: 0 }
+function colorOrden(itemsEstado) {
+  if (!itemsEstado || itemsEstado.length === 0) return 'verde'
+  const pendientes = itemsEstado.filter(i => i.estado !== 'listo')
+  if (pendientes.length === 0) return 'listo'
+  const peor = pendientes.reduce((max, i) => {
+    const c = colorPlatillo(i)
+    return PRIORIDAD[c] > PRIORIDAD[max] ? c : max
+  }, 'normal')
+  return peor === 'rojo' ? 'rojo' : peor === 'amarillo' ? 'amarillo' : 'verde'
 }
 
 function timerStr(confirmada_en) {
@@ -82,62 +96,109 @@ function timerStr(confirmada_en) {
 }
 
 // ── Render tarjeta ─────────────────────────────────────────────────────────────
-function crearCard(orden, items) {
+function crearCard(orden, items, itemsEstado) {
   const card = document.createElement('div')
   card.className = 'kds-card verde'
   card.id = 'kds-ord-' + orden.id_venta
-  card.innerHTML = buildCardHTML(orden, items)
+  card.innerHTML = buildCardHTML(orden, items, itemsEstado)
   return card
 }
 
-function buildCardHTML(orden, items) {
-  const sem = semaforo(orden.confirmada_en, orden.tiempo_objetivo_seg, orden.tiempo_limite_seg)
-  const estado = orden.estado === 'lista' ? '<span class="pill pill-lista">Lista</span>' : '<span class="pill pill-pendiente">Pendiente</span>'
+const COLOR_DOT = {
+  normal:   'background:#4CAF50',
+  amarillo: 'background:#F5A623',
+  rojo:     'background:#E53935',
+  listo:    'background:#9E9E9E'
+}
+
+function buildCardHTML(orden, items, itemsEstado) {
+  const col  = colorOrden(itemsEstado)
   const tipo = orden.tipo_entrega || ''
+  const todosListos = itemsEstado && itemsEstado.length > 0 && itemsEstado.every(i => i.estado === 'listo')
 
   let itsHTML = ''
-  items.forEach(it => {
-    const mods = it.modificadores || {}
-    let modHTML = ''
-    const partes = []
-    if (mods.quitados && mods.quitados.length) partes.push('❌ Sin: ' + mods.quitados.join(', '))
-    if (mods.extras && mods.extras.length) partes.push('➕ ' + mods.extras.map(e => e.nombre).join(', '))
-    if (mods.nota) partes.push('📝 ' + mods.nota)
-    if (partes.length) modHTML = '<div class="kds-mods">' + partes.map(p => '<span class="mod-tag">' + p + '</span>').join('') + '</div>'
-    itsHTML += `<div class="kds-item">
-      <div style="display:flex;align-items:center;gap:8px;">
-        <span class="kds-item-qty" style="font-size:1rem;font-weight:700;">×${it.cantidad}</span>
-        <span class="kds-item-name">${it.nombre}</span>
-      </div>
-      ${modHTML}
-    </div>`
-  })
+  if (itemsEstado && itemsEstado.length > 0) {
+    itemsEstado.forEach(ie => {
+      const c    = colorPlatillo(ie)
+      const dot  = `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;flex-shrink:0;${COLOR_DOT[c]}"></span>`
+      const listo = ie.estado === 'listo'
+      const btnCheck = listo
+        ? `<span style="font-size:13px;color:#9E9E9E;">✓</span>`
+        : `<button onclick="marcarItemListo('${ie.id}','${orden.id_venta}')" style="
+            border:none;background:var(--c-accent,#8B1A2E);color:#fff;border-radius:6px;
+            padding:2px 8px;font-size:12px;cursor:pointer;line-height:1.6;">✓</button>`
+      itsHTML += `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+        ${dot}
+        <span style="flex:1;font-size:13px;${listo ? 'text-decoration:line-through;opacity:.5;' : ''}">${ie.nombre_platillo}</span>
+        ${btnCheck}
+      </div>`
+    })
+  } else {
+    // Fallback: items de venta_items sin estado individual
+    items.forEach(it => {
+      const mods = it.modificadores || {}
+      const partes = []
+      if (mods.quitados && mods.quitados.length) partes.push('❌ Sin: ' + mods.quitados.join(', '))
+      if (mods.extras   && mods.extras.length)   partes.push('➕ ' + mods.extras.map(e => e.nombre).join(', '))
+      if (mods.nota) partes.push('📝 ' + mods.nota)
+      const modHTML = partes.length
+        ? '<div class="kds-mods">' + partes.map(p => '<span class="mod-tag">' + p + '</span>').join('') + '</div>'
+        : ''
+      itsHTML += `<div class="kds-item">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span class="kds-item-qty">×${it.cantidad}</span>
+          <span class="kds-item-name">${it.nombre}</span>
+        </div>${modHTML}
+      </div>`
+    })
+  }
+
+  const btnEntregar = todosListos || !itemsEstado || itemsEstado.length === 0
+    ? `<button onclick="entregarOrden('${orden.id_venta}')" style="
+        width:100%;margin-top:8px;padding:8px;border:none;border-radius:8px;
+        background:var(--c-accent,#8B1A2E);color:#fff;font-weight:700;font-size:13px;cursor:pointer;">
+        ✓ Entregar orden</button>`
+    : `<button disabled style="
+        width:100%;margin-top:8px;padding:8px;border:none;border-radius:8px;
+        background:#333;color:#666;font-weight:700;font-size:13px;cursor:not-allowed;">
+        Entregar orden</button>`
 
   return `
     <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:4px;">
       <span class="kds-folio">${orden.folio || orden.id_venta}</span>
       <span class="kds-timer" id="timer-${orden.id_venta}">${timerStr(orden.confirmada_en)}</span>
     </div>
-    <div class="kds-tipo">${tipo} ${estado}</div>
-    <div class="kds-items">${itsHTML}</div>`
+    <div class="kds-tipo">${tipo}</div>
+    <div class="kds-items" style="margin-top:6px;">${itsHTML}</div>
+    ${btnEntregar}`
 }
 
-function actualizarSemaforo(orden) {
-  const card = document.getElementById('kds-ord-' + orden.id_venta)
+function actualizarCard(idVenta) {
+  const o    = ordenes[idVenta]
+  if (!o) return
+  const card = document.getElementById('kds-ord-' + idVenta)
   if (!card) return
-  const sem = semaforo(orden.confirmada_en, orden.tiempo_objetivo_seg, orden.tiempo_limite_seg)
-  card.className = 'kds-card ' + sem
-  const t = document.getElementById('timer-' + orden.id_venta)
-  if (t) t.textContent = timerStr(orden.confirmada_en)
+  const col = colorOrden(o.itemsEstado)
+  card.className = 'kds-card ' + (col === 'listo' ? 'verde' : col)
+  card.innerHTML  = buildCardHTML(o.orden, o.items, o.itemsEstado)
+  const t = document.getElementById('timer-' + idVenta)
+  if (t) t.textContent = timerStr(o.orden.confirmada_en)
 }
 
-// Actualizar timers cada segundo
+// Actualizar timers y colores cada segundo
 setInterval(() => {
-  Object.values(ordenes).forEach(o => actualizarSemaforo(o.orden))
+  Object.keys(ordenes).forEach(idVenta => {
+    const o    = ordenes[idVenta]
+    const card = document.getElementById('kds-ord-' + idVenta)
+    if (!card || !o) return
+    const col = colorOrden(o.itemsEstado)
+    card.className = 'kds-card ' + (col === 'listo' ? 'verde' : col)
+    const t = document.getElementById('timer-' + idVenta)
+    if (t) t.textContent = timerStr(o.orden.confirmada_en)
+  })
 }, 1000)
 
 function mostrarVacio() {
-  const grid = document.getElementById('kds-grid')
   document.getElementById('kds-empty').style.display = Object.keys(ordenes).length === 0 ? 'block' : 'none'
 }
 
@@ -145,10 +206,6 @@ function mostrarVacio() {
 function addCementerio(orden) {
   cementerio.unshift(orden)
   if (cementerio.length > 10) cementerio.pop()
-  renderCementerio()
-}
-
-function renderCementerio() {
   const cont = document.getElementById('kds-cemetery-list')
   cont.innerHTML = ''
   cementerio.forEach(o => {
@@ -159,12 +216,42 @@ function renderCementerio() {
   })
 }
 
+// ── Acción: marcar platillo listo ─────────────────────────────────────────────
+async function marcarItemListo(itemId, idVenta) {
+  const o   = ordenes[idVenta]
+  const ie  = o?.itemsEstado?.find(i => i.id === itemId)
+  if (!ie) return
+  const ahora = new Date().toISOString()
+  const tiempoReal = Math.floor((Date.now() - new Date(ie.creada_en).getTime()) / 1000)
+  const { error } = await window._db.from('orden_items_estado').update({
+    estado: 'listo', listo_en: ahora, tiempo_real_seg: tiempoReal
+  }).eq('id', itemId)
+  if (error) { console.error('marcarItemListo:', error); return }
+  // Actualizar local inmediatamente sin esperar Realtime
+  ie.estado = 'listo'; ie.listo_en = ahora; ie.tiempo_real_seg = tiempoReal
+  actualizarCard(idVenta)
+}
+
+// ── Acción: entregar orden ────────────────────────────────────────────────────
+async function entregarOrden(idVenta) {
+  const { error } = await window._db.from('ordenes_cocina')
+    .update({ estado: 'entregada', entregada_en: new Date().toISOString() })
+    .eq('id_venta', idVenta).eq('tenant_id', POS.TENANT_ID)
+  if (error) { console.error('entregarOrden:', error); return }
+  const o = ordenes[idVenta]
+  if (o) {
+    addCementerio({ ...o.orden, estado: 'entregada' })
+    ;(o.itemsEstado || []).forEach(i => { delete itemsEstadoIdx[i.id] })
+  }
+  delete ordenes[idVenta]
+  document.getElementById('kds-ord-' + idVenta)?.remove()
+  mostrarVacio()
+}
+
 // ── Cargar órdenes activas iniciales ──────────────────────────────────────────
 async function cargarActivas() {
-  // Cargar ventas para tener folio y tipo_entrega
   const { data: ords } = await window._db
-    .from('ordenes_cocina')
-    .select('*')
+    .from('ordenes_cocina').select('*')
     .eq('tenant_id', POS.TENANT_ID)
     .in('estado', ['pendiente', 'lista'])
     .order('confirmada_en', { ascending: true })
@@ -172,38 +259,28 @@ async function cargarActivas() {
   if (!ords || ords.length === 0) { mostrarVacio(); return }
 
   const ventaIds = ords.map(o => o.id_venta)
+  const ordenIds = ords.map(o => o.id)
 
-  // Obtener folios + tipo_entrega
-  const { data: ventas } = await window._db
-    .from('ventas')
-    .select('id, folio, tipo_entrega')
-    .eq('tenant_id', POS.TENANT_ID)
-    .in('id', ventaIds)
+  const [{ data: ventas }, { data: allItems }, { data: allEstados }] = await Promise.all([
+    window._db.from('ventas').select('id, folio, tipo_entrega').eq('tenant_id', POS.TENANT_ID).in('id', ventaIds),
+    window._db.from('venta_items').select('id_venta, nombre, cantidad, modificadores').eq('tenant_id', POS.TENANT_ID).in('id_venta', ventaIds),
+    window._db.from('orden_items_estado').select('id, id_orden_cocina, id_receta, nombre_platillo, estado, creada_en, listo_en, tiempo_real_seg, tiempo_amarillo_seg, tiempo_rojo_seg').eq('tenant_id', POS.TENANT_ID).in('id_orden_cocina', ordenIds)
+  ])
 
-  const ventaMap = {}
-  if (ventas) ventas.forEach(v => { ventaMap[v.id] = v })
-
-  // Obtener items
-  const { data: allItems } = await window._db
-    .from('venta_items')
-    .select('id_venta, nombre, cantidad, modificadores')
-    .eq('tenant_id', POS.TENANT_ID)
-    .in('id_venta', ventaIds)
-
-  const itemsMap = {}
-  if (allItems) allItems.forEach(it => {
-    if (!itemsMap[it.id_venta]) itemsMap[it.id_venta] = []
-    itemsMap[it.id_venta].push(it)
-  })
+  const ventaMap  = {}; (ventas    || []).forEach(v  => { ventaMap[v.id] = v })
+  const itemsMap  = {}; (allItems  || []).forEach(it => { if (!itemsMap[it.id_venta]) itemsMap[it.id_venta] = []; itemsMap[it.id_venta].push(it) })
+  const estadoMap = {}; (allEstados|| []).forEach(e  => { if (!estadoMap[e.id_orden_cocina]) estadoMap[e.id_orden_cocina] = []; estadoMap[e.id_orden_cocina].push(e) })
 
   const grid = document.getElementById('kds-grid')
   ords.forEach(ord => {
-    const venta = ventaMap[ord.id_venta] || {}
+    const venta       = ventaMap[ord.id_venta] || {}
     const ordenCompleta = { ...ord, folio: venta.folio, tipo_entrega: venta.tipo_entrega }
-    const items = itemsMap[ord.id_venta] || []
-    const card = crearCard(ordenCompleta, items)
+    const items       = itemsMap[ord.id_venta]  || []
+    const itemsEstado = estadoMap[ord.id]        || []
+    itemsEstado.forEach(i => { itemsEstadoIdx[i.id] = ord.id_venta })
+    const card = crearCard(ordenCompleta, items, itemsEstado)
     grid.appendChild(card)
-    ordenes[ord.id_venta] = { orden: ordenCompleta, items }
+    ordenes[ord.id_venta] = { orden: ordenCompleta, items, itemsEstado }
   })
   mostrarVacio()
 }
@@ -212,74 +289,65 @@ async function cargarActivas() {
 function suscribirRealtime() {
   window._db
     .channel('cocina-' + POS.TENANT_ID)
-    .on('postgres_changes', {
-      event: '*',
-      schema: 'public',
-      table: 'ordenes_cocina',
-      filter: 'tenant_id=eq.' + POS.TENANT_ID
-    }, async payload => {
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'ordenes_cocina', filter: 'tenant_id=eq.' + POS.TENANT_ID },
+    async payload => {
       const ord = payload.new || payload.old
       if (!ord) return
 
       if (payload.eventType === 'INSERT') {
-        // Nueva orden — necesitamos folio + items
-        const { data: venta } = await window._db
-          .from('ventas')
-          .select('id, folio, tipo_entrega')
-          .eq('id', ord.id_venta)
-          .eq('tenant_id', POS.TENANT_ID)
-          .single()
-
-        const { data: items } = await window._db
-          .from('venta_items')
-          .select('id_venta, nombre, cantidad, modificadores')
-          .eq('id_venta', ord.id_venta)
-          .eq('tenant_id', POS.TENANT_ID)
-
+        const [{ data: venta }, { data: items }, { data: itemsEstado }] = await Promise.all([
+          window._db.from('ventas').select('id, folio, tipo_entrega').eq('id', ord.id_venta).eq('tenant_id', POS.TENANT_ID).single(),
+          window._db.from('venta_items').select('id_venta, nombre, cantidad, modificadores').eq('id_venta', ord.id_venta).eq('tenant_id', POS.TENANT_ID),
+          window._db.from('orden_items_estado').select('id, id_orden_cocina, id_receta, nombre_platillo, estado, creada_en, listo_en, tiempo_real_seg, tiempo_amarillo_seg, tiempo_rojo_seg').eq('id_orden_cocina', ord.id).eq('tenant_id', POS.TENANT_ID)
+        ])
         const ordenCompleta = { ...ord, folio: venta?.folio, tipo_entrega: venta?.tipo_entrega }
-        const card = crearCard(ordenCompleta, items || [])
+        const ie = itemsEstado || []
+        ie.forEach(i => { itemsEstadoIdx[i.id] = ord.id_venta })
+        const card = crearCard(ordenCompleta, items || [], ie)
         document.getElementById('kds-grid').appendChild(card)
-        ordenes[ord.id_venta] = { orden: ordenCompleta, items: items || [] }
+        ordenes[ord.id_venta] = { orden: ordenCompleta, items: items || [], itemsEstado: ie }
         mostrarVacio()
       }
 
       if (payload.eventType === 'UPDATE') {
         const nuevo = payload.new
         if (nuevo.estado === 'entregada' || nuevo.estado === 'cancelada') {
-          // Quitar de activas, añadir al cementerio
-          const card = document.getElementById('kds-ord-' + nuevo.id_venta)
-          if (card) card.remove()
+          document.getElementById('kds-ord-' + nuevo.id_venta)?.remove()
           const o = ordenes[nuevo.id_venta]
-          if (o) addCementerio({ ...o.orden, estado: nuevo.estado })
+          if (o) {
+            addCementerio({ ...o.orden, estado: nuevo.estado })
+            ;(o.itemsEstado || []).forEach(i => { delete itemsEstadoIdx[i.id] })
+          }
           delete ordenes[nuevo.id_venta]
           mostrarVacio()
-        } else if (nuevo.estado === 'lista') {
-          // Actualizar estado en la tarjeta
-          if (ordenes[nuevo.id_venta]) {
-            ordenes[nuevo.id_venta].orden.estado = 'lista'
-            const card = document.getElementById('kds-ord-' + nuevo.id_venta)
-            if (card) card.innerHTML = buildCardHTML(ordenes[nuevo.id_venta].orden, ordenes[nuevo.id_venta].items)
-          }
         }
       }
     })
     .subscribe((status) => {
       const ind = document.getElementById('kds-conn')
-      if (status === 'SUBSCRIBED') {
-        ind.textContent = '🟢 En vivo'
-        ind.style.color = '#2ECC71'
-      } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
-        ind.textContent = '🔴 Desconectado — reconectando...'
-        ind.style.color = '#FF6B6B'
-        setTimeout(() => {
-          window._db.removeAllChannels()
-          suscribirRealtime()
-        }, 3000)
-      } else {
-        ind.textContent = '🟡 Conectando...'
-        ind.style.color = '#FFD166'
-      }
+      if (status === 'SUBSCRIBED') { ind.textContent = '🟢 En vivo'; ind.style.color = '#2ECC71' }
+      else if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
+        ind.textContent = '🔴 Desconectado — reconectando...'; ind.style.color = '#FF6B6B'
+        setTimeout(() => { window._db.removeAllChannels(); suscribirRealtime() }, 3000)
+      } else { ind.textContent = '🟡 Conectando...'; ind.style.color = '#FFD166' }
     })
+
+  // Suscripción a orden_items_estado para checks en tiempo real
+  window._db
+    .channel('items-estado-cocina-' + POS.TENANT_ID)
+    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'orden_items_estado', filter: 'tenant_id=eq.' + POS.TENANT_ID },
+    payload => {
+      const row = payload.new
+      if (!row) return
+      const idVenta = itemsEstadoIdx[row.id]
+      if (!idVenta) return
+      const o = ordenes[idVenta]
+      if (!o) return
+      const idx = (o.itemsEstado || []).findIndex(i => i.id === row.id)
+      if (idx >= 0) o.itemsEstado[idx] = { ...o.itemsEstado[idx], ...row }
+      actualizarCard(idVenta)
+    })
+    .subscribe()
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────────
