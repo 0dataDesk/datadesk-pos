@@ -670,7 +670,7 @@ textarea.intake-input{resize:none;line-height:1.5;}
 const PAGES = [
   { id:'res',       cat:'Hamburguesas',    label:'Res',       emoji:'🍔', title:'Hamburguesas de Res'   },
   { id:'pollo',     cat:'Pollo',           label:'Pollo',     emoji:'🍗', title:'Hamburguesas de Pollo' },
-  { id:'papas',     cat:'Acompañamientos', label:'Papas',     emoji:'🍟', title:'Papas'                 },
+  { id:'papas',     cat:'Acompañamientos', label:'Acompañamientos', emoji:'🍟', title:'Acompañamientos'   },
   { id:'refrescos', cat:'Bebidas',         label:'Bebidas',   emoji:'🥤', title:'Bebidas'               },
 ]
 const MOD_CATS  = ['Extras','Aderezos']
@@ -962,7 +962,7 @@ function renderRefrescosPage(cont, pg, others) {
   cont.innerHTML = `
     <h1 class="page-title">${pg.title}</h1>
     <div id="item-grid" style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap;">
-      <div class="item-card" style="flex:2;min-width:280px;">
+      <div class="item-card" style="flex:1.4;min-width:240px;">
         ${badgeRef}
         <div class="item-thumb">${pg.emoji}</div>
         <div class="item-body">
@@ -2956,7 +2956,7 @@ function actualizarPanelOrdenes() {
   const appEl      = document.getElementById('app')
   const appVisible = appEl && !appEl.classList.contains('hidden')
 
-  if (n === 0 || !appVisible) {
+  if (!appVisible) {
     panel.classList.add('hidden')
     if (mc) mc.style.paddingRight = ''
     return
@@ -2965,6 +2965,11 @@ function actualizarPanelOrdenes() {
   panel.classList.remove('hidden')
   if (mc) mc.style.paddingRight = '268px'
   if (!lista) return
+
+  if (n === 0) {
+    lista.innerHTML = '<p style="color:var(--muted);font-size:13px;padding:16px;text-align:center;">Sin órdenes activas</p>'
+    return
+  }
 
   lista.innerHTML = entries.map(([idVenta, o]) => {
     const elapsed = o.confirmada_en ? Math.floor((Date.now() - new Date(o.confirmada_en).getTime()) / 1000) : 0
