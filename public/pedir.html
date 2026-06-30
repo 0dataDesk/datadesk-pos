@@ -109,7 +109,7 @@ html,body{
   pointer-events:none;
 }
 .item-thumb{
-  width:100%;height:160px;
+  width:100%;height:var(--thumb-h,160px);
   background:var(--primary);overflow:hidden;border-radius:16px 16px 0 0;
   display:flex;align-items:center;justify-content:center;font-size:60px;
   flex-shrink:0;
@@ -443,7 +443,7 @@ textarea.intake-input{resize:none;line-height:1.5;}
 
 /* ── Panel órdenes activas ────────────────────────────────────────────────── */
 #ordenes-panel{
-  position:fixed;right:0;top:0;bottom:0;width:260px;z-index:30;
+  position:fixed;right:0;top:116px;bottom:0;width:260px;z-index:30;
   background:var(--surface);border-left:1px solid var(--border);
   display:flex;flex-direction:column;
   box-shadow:-4px 0 16px rgba(61,0,20,.12);
@@ -750,7 +750,7 @@ function applyBranding() {
   const N   = POS.NOMBRE
   const mkLogo = sz => `
     <div class="logo-box" style="width:${sz*.72}px;height:${sz*.72}px;color:var(--primary);">${FLAMA_SVG}</div>
-    <span class="logo-name" style="font-size:${sz}px;">${N.toUpperCase()}</span>`
+    <span class="logo-name" style="font-size:${sz}px;">🔥 ${N.toUpperCase()}</span>`
   document.getElementById('hdr-logo').innerHTML = mkLogo(36)
   document.getElementById('p1-logo').innerHTML  = mkLogo(48)
   document.getElementById('p2-logo').innerHTML  = mkLogo(36)
@@ -901,7 +901,7 @@ function getPgItems(pgId) {
     case 'refrescos': items = menuItems.filter(it => it.categoria === 'Bebidas' && !it.nombre.toLowerCase().startsWith('limonada')); break
     default: items = []
   }
-  return items.sort((a, b) => (a.orden ?? 999) - (b.orden ?? 999))
+  return items.sort((a, b) => (Number(a.orden) || 999) - (Number(b.orden) || 999))
 }
 
 // ── Página de Bebidas con selector de sabor ───────────────────────────────────
@@ -939,22 +939,22 @@ function renderRefrescosPage(cont, pg, others) {
     const inCart = carrito.filter(e => e.id_receta === a.id).reduce((s,e) => s + e.cantidad, 0)
     const badge  = inCart > 0 ? `<span class="item-badge">${inCart}</span>` : ''
     return `
-      <div class="item-card" id="agua-card-${a.id}" style="padding:12px 14px;">
+      <div class="item-card" id="agua-card-${a.id}">
         ${badge}
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
-          <span style="font-size:1.4rem;">💧</span>
-          <div>
-            <div class="item-name" style="font-size:0.95rem;">${a.nombre}</div>
-            <div class="item-price" style="font-size:0.9rem;margin-top:2px;">$${a.precio}</div>
-          </div>
+        <div class="item-thumb">💧</div>
+        <div class="item-body">
+          <div class="item-name">${a.nombre}</div>
+          <div class="item-price">$${a.precio}</div>
         </div>
-        <div class="drink-row">
-          <div class="stepper">
-            <button class="stbtn" onclick="adjAguaQty('${a.id}',-1)">−</button>
-            <span class="stval" id="agua-qty-${a.id}">1</span>
-            <button class="stbtn plus" onclick="adjAguaQty('${a.id}',1)">+</button>
+        <div class="item-foot">
+          <div class="drink-row">
+            <div class="stepper">
+              <button class="stbtn" onclick="adjAguaQty('${a.id}',-1)">−</button>
+              <span class="stval" id="agua-qty-${a.id}">1</span>
+              <button class="stbtn plus" onclick="adjAguaQty('${a.id}',1)">+</button>
+            </div>
+            <button class="btn-pri sm" onclick="addAgua('${a.id}','${a.nombre}',${a.precio})">Agregar →</button>
           </div>
-          <button class="btn-pri sm" onclick="addAgua('${a.id}','${a.nombre}',${a.precio})">Agregar →</button>
         </div>
       </div>`
   }).join('')
@@ -3050,8 +3050,36 @@ async function entregarOrden(idVenta) {
 }
 
 // ── Bootstrap ─────────────────────────────────────────────────────────────────
+function ajustarAlturaCards() {
+  const hdr     = document.querySelector('.site-hdr')
+  const nav     = document.getElementById('bot-nav')
+  const cartBar = document.getElementById('cart-bar')
+  const hdrH    = hdr     ? hdr.getBoundingClientRect().height     : 60
+  const navH    = nav     ? nav.getBoundingClientRect().height      : 56
+  const cartH   = cartBar && !cartBar.classList.contains('hidden')
+                    ? cartBar.getBoundingClientRect().height : 56
+  const pageTitle = 52  // h1.page-title estimado
+  const gridPad   = 36  // padding + gap
+  const available = window.innerHeight - hdrH - navH - cartH - pageTitle - gridPad
+  // Asumir máximo 2 filas de cards para categorías con más items
+  const thumbH = Math.max(80, Math.floor((available - 18) / 2) - 80)
+  document.documentElement.style.setProperty('--thumb-h', thumbH + 'px')
+}
+
+function ajustarPanelOrdenes() {
+  const hdr = document.querySelector('.site-hdr')
+  const nav = document.getElementById('bot-nav')
+  const panel = document.getElementById('ordenes-panel')
+  if (!panel) return
+  const top = (hdr ? hdr.getBoundingClientRect().height : 60) +
+              (nav  ? nav.getBoundingClientRect().height  : 56)
+  panel.style.top = top + 'px'
+}
+
 window.addEventListener('DOMContentLoaded', async () => {
   applyBranding()
+  requestAnimationFrame(() => { ajustarPanelOrdenes(); ajustarAlturaCards() })
+  window.addEventListener('resize', () => { ajustarPanelOrdenes(); ajustarAlturaCards() })
 
   // Cargar config_pos
   try {
