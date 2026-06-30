@@ -779,7 +779,7 @@ async function cargarMenu() {
 
     const pm = {}; if (precios) precios.forEach(p => { pm[p.id_item] = p.precio })
 
-    const all = recetas.map(r => ({ id_receta:r.id_receta, nombre:r.nombre_platillo, categoria:r.categoria, descripcion:r.descripcion||'', tagline:r.tagline||'', precio:pm[r.id_receta]||0 }))
+    const all = recetas.map(r => ({ id_receta:r.id_receta, nombre:r.nombre_platillo, categoria:r.categoria, descripcion:r.descripcion||'', tagline:r.tagline||'', precio:pm[r.id_receta]||0, orden:r.orden }))
     modSalsaFuria = all.filter(r => r.id_receta === 'RSA-004')
     modExtras = all.filter(r => r.categoria === 'Extras' && r.id_receta !== 'RSA-004')
     modSalsas = all.filter(r => r.categoria === 'Aderezos')
@@ -890,6 +890,7 @@ async function goPage(pgId) {
       <span class="nb-lbl">${p.label}</span>
     </button>`
   }).join('')
+  ajustarAlturaCards()
 }
 
 function getPgItems(pgId) {
@@ -3054,15 +3055,17 @@ function ajustarAlturaCards() {
   const hdr     = document.querySelector('.site-hdr')
   const nav     = document.getElementById('bot-nav')
   const cartBar = document.getElementById('cart-bar')
-  const hdrH    = hdr     ? hdr.getBoundingClientRect().height     : 60
-  const navH    = nav     ? nav.getBoundingClientRect().height      : 56
-  const cartH   = cartBar && !cartBar.classList.contains('hidden')
-                    ? cartBar.getBoundingClientRect().height : 56
-  const pageTitle = 52  // h1.page-title estimado
-  const gridPad   = 36  // padding + gap
+  const hdrH  = hdr     ? hdr.getBoundingClientRect().height  : 60
+  const navH  = nav     ? nav.getBoundingClientRect().height   : 56
+  const cartH = cartBar && !cartBar.classList.contains('hidden') ? cartBar.offsetHeight : 0
+  const pageTitle = 52
+  const gridPad   = 36
   const available = window.innerHeight - hdrH - navH - cartH - pageTitle - gridPad
-  // Asumir máximo 2 filas de cards para categorías con más items
-  const thumbH = Math.max(80, Math.floor((available - 18) / 2) - 80)
+  const itemsVisibles = typeof currentPg !== 'undefined' ? getPgItems(currentPg).length : 5
+  const columnas = window.innerWidth >= 900 ? 3 : 2
+  const filas    = Math.max(1, Math.ceil(itemsVisibles / columnas))
+  const gapTotal = (filas - 1) * 18
+  const thumbH   = Math.max(80, Math.floor((available - gapTotal) / filas) - 80)
   document.documentElement.style.setProperty('--thumb-h', thumbH + 'px')
 }
 
