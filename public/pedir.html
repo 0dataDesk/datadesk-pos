@@ -686,6 +686,8 @@ let carrito    = []    // líneas del carrito
 let drinkQty   = {}    // id_receta → qty inline para bebidas
 let currentPg   = 'res'
 let bebidasCombo = []  // bebidas disponibles para combo
+let comboPreciosMap = {} // id_item -> precio (listas combo_pollo, combo_upsell, promo_inauguracion, combo_furia)
+let aderezosCombo = []   // RSA-005/006/007/008 — aderezos del Combo Pollo Tenders
 let bebidaSeleccionada = { id: null, nombre: null }
 let refrescoQty = 1
 let metodoPago = 'efectivo'
@@ -701,7 +703,11 @@ let efectivoRecibido = 0  // captura de billetes entregados por el cliente
 let ordenActual = null
 
 // Estado de la hoja de personalización
-let cz = { item:null, cartIdx:null, cantidad:1, ingredientes:[], extras:[], salsas:[], nota:'', combo:{ activo:false, bebida_id:null, bebida_nombre:null, acompañamiento_id:null, acompañamiento_nombre:null } }
+let cz = { item:null, cartIdx:null, cantidad:1, ingredientes:[], extras:[], salsas:[], nota:'',
+  combo:{ activo:false, bebida_id:null, bebida_nombre:null, acompañamiento_id:null, acompañamiento_nombre:null },
+  comboPollo:{ activo:false, aderezo_id:null, aderezo_nombre:null, acompañamiento_id:null, acompañamiento_nombre:null, bebida_id:null, bebida_nombre:null },
+  comboPromoRes:{ activo:false, acompañamiento_id:null, acompañamiento_nombre:null, bebida_id:null, bebida_nombre:null }
+}
 
 // ── Estado de identificación + entrega ────────────────────────────────────────
 let cfg = {}         // filas de config_pos
@@ -784,7 +790,21 @@ async function cargarMenu() {
     modExtras = all.filter(r => r.categoria === 'Extras' && r.id_receta !== 'RSA-004')
     modSalsas = all.filter(r => r.categoria === 'Aderezos')
     menuItems = all.filter(r => MENU_CATS.includes(r.categoria))
+    const ADEREZOS_COMBO_POLLO = ['RSA-005','RSA-006','RSA-007','RSA-008']
+    aderezosCombo = all.filter(r => ADEREZOS_COMBO_POLLO.includes(r.id_receta))
     menuDataReady = true
+
+    // Orden alfabético de lista es determinista: 'combo_upsell' siempre se procesa después de
+    // 'combo_furia', así que su valor (el incremento real de camote) es el que prevalece para RAC-006.
+    const { data: preciosCombo, error: eCombo } = await window._db
+      .from('precios_venta')
+      .select('id_item, precio, lista')
+      .eq('tenant_id', POS.TENANT_ID)
+      .in('lista', ['combo_pollo','combo_upsell','promo_inauguracion','combo_furia'])
+      .order('lista')
+    if (eCombo) console.error('Error precios combo:', eCombo)
+    comboPreciosMap = {}
+    ;(preciosCombo || []).forEach(p => { comboPreciosMap[p.id_item] = Number(p.precio) })
 
     const { data: bebidas, error: eBeb } = await window._db
       .from('productos')
@@ -1139,7 +1159,9 @@ async function abrirCz(idReceta, cartIdx = null) {
     cantidad: (cartIdx !== null && carrito[cartIdx]) ? carrito[cartIdx].cantidad : 1,
     ingredientes: [], extras: [], salsas: [],
     nota: savedMods?.nota || '',
-    combo: savedMods?.combo || { activo: false, bebida_id: null, bebida_nombre: null, acompañamiento_id: null, acompañamiento_nombre: null }
+    combo: savedMods?.combo || { activo: false, bebida_id: null, bebida_nombre: null, acompañamiento_id: null, acompañamiento_nombre: null },
+    comboPollo: savedMods?.comboPollo || { activo: false, aderezo_id: null, aderezo_nombre: null, acompañamiento_id: null, acompañamiento_nombre: null, bebida_id: null, bebida_nombre: null },
+    comboPromoRes: savedMods?.comboPromoRes || { activo: false, acompañamiento_id: null, acompañamiento_nombre: null, bebida_id: null, bebida_nombre: null }
   }
 
   document.getElementById('cz-name').textContent = item.nombre
@@ -1280,8 +1302,112 @@ function togglePersonalizar() {
 }
 
 function buildCzBody(type, scroll) {
-  // 1 — Combo PRIMERO (solo burgers)
-  if (type === 'burger') {
+  // 1 — Combo PRIMERO (solo burgers) — variante según categoría del item
+  if (type === 'burger' && cz.item.categoria === 'Pollo') {
+    const comboOn = cz.comboPollo.activo
+    scroll.insertAdjacentHTML('beforeend', `
+      <div class="sh-sec">
+        <div class="sh-sec-ttl">Combo Pollo Tenders</div>
+        <div class="cz-row ${comboOn ? 'on' : 'off'}" id="combo-pollo-row"
+             style="cursor:pointer;" onclick="toggleComboPollo()">
+          <div class="cz-row-body">
+            <span class="cz-row-name">Tenders + Aderezo + Papas/Camote + Bebida</span>
+          </div>
+        </div>
+        <div id="combo-pollo-wrap" style="margin-top:10px;${comboOn ? '' : 'display:none;'}">
+          <div class="sh-sec-ttl" style="margin-bottom:8px;">Elige tu aderezo</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;">
+            ${aderezosCombo.map(a => {
+              const sel = cz.comboPollo.aderezo_id === a.id_receta
+              return `<div onclick="seleccionarAderezoComboPollo('${a.id_receta}','${a.nombre.replace(/'/g, "\\'")}')"
+                style="padding:10px 8px;border-radius:12px;text-align:center;cursor:pointer;font-size:13px;font-weight:600;
+                  border:1.5px solid ${sel ? 'var(--primary)' : 'var(--border)'};
+                  background:${sel ? 'var(--primary)' : 'var(--bg)'};
+                  color:${sel ? 'var(--on-pri)' : 'var(--text)'}"
+                id="ader-chip-${a.id_receta}">
+                ${a.nombre}
+              </div>`
+            }).join('')}
+          </div>
+          <div class="sh-sec-ttl" style="margin-bottom:8px;">Papas o Camote</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;">
+            ${[{id:'RAC-007',emoji:'🍟'},{id:'RAC-006',emoji:'🍠'}].map(a => {
+              const item = menuItems.find(x => x.id_receta === a.id)
+              const nombre = item?.nombre || a.id
+              const sel = cz.comboPollo.acompañamiento_id === a.id
+              return `<div onclick="seleccionarAcompañamientoComboPollo('${a.id}','${nombre.replace(/'/g, "\\'")}')"
+                style="padding:10px 8px;border-radius:12px;text-align:center;cursor:pointer;font-size:13px;font-weight:600;
+                  border:1.5px solid ${sel ? 'var(--primary)' : 'var(--border)'};
+                  background:${sel ? 'var(--primary)' : 'var(--bg)'};
+                  color:${sel ? 'var(--on-pri)' : 'var(--text)'}"
+                id="aco-pollo-chip-${a.id}">
+                ${a.emoji} ${nombre}
+              </div>`
+            }).join('')}
+          </div>
+          <div class="sh-sec-ttl" style="margin-bottom:8px;">Elige tu bebida</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+            ${bebidasCombo.map(b => {
+              const nombre = b.nombre_corto || b.id_producto
+              const sel = cz.comboPollo.bebida_id === b.id_producto
+              return `<div onclick="seleccionarBebidaComboPollo('${b.id_producto}','${nombre.replace(/'/g, "\\'")}')"
+                style="padding:10px 8px;border-radius:12px;text-align:center;cursor:pointer;font-size:13px;font-weight:600;
+                  border:1.5px solid ${sel ? 'var(--primary)' : 'var(--border)'};
+                  background:${sel ? 'var(--primary)' : 'var(--bg)'};
+                  color:${sel ? 'var(--on-pri)' : 'var(--text)'}"
+                id="beb-pollo-chip-${b.id_producto}">
+                ${nombre}
+              </div>`
+            }).join('')}
+          </div>
+        </div>
+      </div>`)
+  } else if (type === 'burger' && cz.item.categoria === 'Hamburguesas') {
+    const comboOn = cz.comboPromoRes.activo
+    scroll.insertAdjacentHTML('beforeend', `
+      <div class="sh-sec">
+        <div class="sh-sec-ttl">Promo Inauguración Res</div>
+        <div class="cz-row ${comboOn ? 'on' : 'off'}" id="combo-promores-row"
+             style="cursor:pointer;" onclick="toggleComboPromoRes()">
+          <div class="cz-row-body">
+            <span class="cz-row-name">Hamburguesa + Papas/Camote + Bebida</span>
+          </div>
+        </div>
+        <div id="combo-promores-wrap" style="margin-top:10px;${comboOn ? '' : 'display:none;'}">
+          <div class="sh-sec-ttl" style="margin-bottom:8px;">Papas o Camote</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;">
+            ${[{id:'RAC-004',emoji:'🍟'},{id:'RAC-006',emoji:'🍠'}].map(a => {
+              const item = menuItems.find(x => x.id_receta === a.id)
+              const nombre = item?.nombre || a.id
+              const sel = cz.comboPromoRes.acompañamiento_id === a.id
+              return `<div onclick="seleccionarAcompañamientoComboPromoRes('${a.id}','${nombre.replace(/'/g, "\\'")}')"
+                style="padding:10px 8px;border-radius:12px;text-align:center;cursor:pointer;font-size:13px;font-weight:600;
+                  border:1.5px solid ${sel ? 'var(--primary)' : 'var(--border)'};
+                  background:${sel ? 'var(--primary)' : 'var(--bg)'};
+                  color:${sel ? 'var(--on-pri)' : 'var(--text)'}"
+                id="aco-promores-chip-${a.id}">
+                ${a.emoji} ${nombre}
+              </div>`
+            }).join('')}
+          </div>
+          <div class="sh-sec-ttl" style="margin-bottom:8px;">Elige tu bebida</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+            ${bebidasCombo.map(b => {
+              const nombre = b.nombre_corto || b.id_producto
+              const sel = cz.comboPromoRes.bebida_id === b.id_producto
+              return `<div onclick="seleccionarBebidaComboPromoRes('${b.id_producto}','${nombre.replace(/'/g, "\\'")}')"
+                style="padding:10px 8px;border-radius:12px;text-align:center;cursor:pointer;font-size:13px;font-weight:600;
+                  border:1.5px solid ${sel ? 'var(--primary)' : 'var(--border)'};
+                  background:${sel ? 'var(--primary)' : 'var(--bg)'};
+                  color:${sel ? 'var(--on-pri)' : 'var(--text)'}"
+                id="beb-promores-chip-${b.id_producto}">
+                ${nombre}
+              </div>`
+            }).join('')}
+          </div>
+        </div>
+      </div>`)
+  } else if (type === 'burger') {
     const comboOn = cz.combo.activo
     scroll.insertAdjacentHTML('beforeend', `
       <div class="sh-sec">
@@ -1589,6 +1715,133 @@ function seleccionarBebidaCombo(id, nombre) {
   actualizarCzBtn()
 }
 
+// Precio de referencia de bebida de combo (RBE-004/005/006 son equivalentes en precio)
+function precioBebidaCombo() {
+  return comboPreciosMap['RBE-004'] ?? comboPreciosMap['RBE-005'] ?? comboPreciosMap['RBE-006'] ?? 0
+}
+
+// — Combo Pollo Tenders —
+function toggleComboPollo() {
+  cz.comboPollo.activo = !cz.comboPollo.activo
+  if (!cz.comboPollo.activo) {
+    cz.comboPollo.aderezo_id = null
+    cz.comboPollo.aderezo_nombre = null
+    cz.comboPollo.acompañamiento_id = null
+    cz.comboPollo.acompañamiento_nombre = null
+    cz.comboPollo.bebida_id = null
+    cz.comboPollo.bebida_nombre = null
+  }
+  const row = document.getElementById('combo-pollo-row')
+  if (row) row.className = 'cz-row ' + (cz.comboPollo.activo ? 'on' : 'off')
+  const wrap = document.getElementById('combo-pollo-wrap')
+  if (wrap) wrap.style.display = cz.comboPollo.activo ? '' : 'none'
+  actualizarCzBtn()
+}
+
+function seleccionarAderezoComboPollo(id, nombre) {
+  cz.comboPollo.aderezo_id = id
+  cz.comboPollo.aderezo_nombre = nombre
+  document.querySelectorAll('[id^="ader-chip-"]').forEach(el => {
+    const sel = el.id === 'ader-chip-' + id
+    el.style.background  = sel ? 'var(--primary)' : 'var(--bg)'
+    el.style.borderColor = sel ? 'var(--primary)' : 'var(--border)'
+    el.style.color       = sel ? 'var(--on-pri)' : 'var(--text)'
+  })
+  actualizarCzBtn()
+}
+
+function seleccionarAcompañamientoComboPollo(id, nombre) {
+  cz.comboPollo.acompañamiento_id = id
+  cz.comboPollo.acompañamiento_nombre = nombre
+  document.querySelectorAll('[id^="aco-pollo-chip-"]').forEach(el => {
+    const sel = el.id === 'aco-pollo-chip-' + id
+    el.style.background  = sel ? 'var(--primary)' : 'var(--bg)'
+    el.style.borderColor = sel ? 'var(--primary)' : 'var(--border)'
+    el.style.color       = sel ? 'var(--on-pri)' : 'var(--text)'
+  })
+  actualizarCzBtn()
+}
+
+function seleccionarBebidaComboPollo(id, nombre) {
+  cz.comboPollo.bebida_id = id
+  cz.comboPollo.bebida_nombre = nombre
+  document.querySelectorAll('[id^="beb-pollo-chip-"]').forEach(el => {
+    const sel = el.id === 'beb-pollo-chip-' + id
+    el.style.background  = sel ? 'var(--primary)' : 'var(--bg)'
+    el.style.borderColor = sel ? 'var(--primary)' : 'var(--border)'
+    el.style.color       = sel ? 'var(--on-pri)' : 'var(--text)'
+  })
+  actualizarCzBtn()
+}
+
+// Extra a sumar por el combo de Pollo (tenders + papas/camote + aderezo + bebida)
+function comboPolloTotalExtra() {
+  if (!cz.comboPollo.activo) return 0
+  const tenders = comboPreciosMap['RAC-008'] || 0
+  let side = 0
+  if (cz.comboPollo.acompañamiento_id === 'RAC-007') side = comboPreciosMap['RAC-007'] || 0
+  else if (cz.comboPollo.acompañamiento_id === 'RAC-006') side = (comboPreciosMap['RAC-007'] || 0) + (comboPreciosMap['RAC-006'] || 0)
+  const aderezo = cz.comboPollo.aderezo_id ? (comboPreciosMap[cz.comboPollo.aderezo_id] || 0) : 0
+  const bebida  = cz.comboPollo.bebida_id ? precioBebidaCombo() : 0
+  return tenders + side + aderezo + bebida
+}
+
+// — Promo Inauguración Res —
+function toggleComboPromoRes() {
+  cz.comboPromoRes.activo = !cz.comboPromoRes.activo
+  if (!cz.comboPromoRes.activo) {
+    cz.comboPromoRes.acompañamiento_id = null
+    cz.comboPromoRes.acompañamiento_nombre = null
+    cz.comboPromoRes.bebida_id = null
+    cz.comboPromoRes.bebida_nombre = null
+  }
+  const row = document.getElementById('combo-promores-row')
+  if (row) row.className = 'cz-row ' + (cz.comboPromoRes.activo ? 'on' : 'off')
+  const wrap = document.getElementById('combo-promores-wrap')
+  if (wrap) wrap.style.display = cz.comboPromoRes.activo ? '' : 'none'
+  actualizarCzBtn()
+}
+
+function seleccionarAcompañamientoComboPromoRes(id, nombre) {
+  cz.comboPromoRes.acompañamiento_id = id
+  cz.comboPromoRes.acompañamiento_nombre = nombre
+  document.querySelectorAll('[id^="aco-promores-chip-"]').forEach(el => {
+    const sel = el.id === 'aco-promores-chip-' + id
+    el.style.background  = sel ? 'var(--primary)' : 'var(--bg)'
+    el.style.borderColor = sel ? 'var(--primary)' : 'var(--border)'
+    el.style.color       = sel ? 'var(--on-pri)' : 'var(--text)'
+  })
+  actualizarCzBtn()
+}
+
+function seleccionarBebidaComboPromoRes(id, nombre) {
+  cz.comboPromoRes.bebida_id = id
+  cz.comboPromoRes.bebida_nombre = nombre
+  document.querySelectorAll('[id^="beb-promores-chip-"]').forEach(el => {
+    const sel = el.id === 'beb-promores-chip-' + id
+    el.style.background  = sel ? 'var(--primary)' : 'var(--bg)'
+    el.style.borderColor = sel ? 'var(--primary)' : 'var(--border)'
+    el.style.color       = sel ? 'var(--on-pri)' : 'var(--text)'
+  })
+  actualizarCzBtn()
+}
+
+// Precio de la hamburguesa mientras la Promo Inauguración está activa (reemplaza su precio normal)
+function comboPromoResPrecioBurger() {
+  if (!cz.comboPromoRes.activo) return cz.item?.precio || 0
+  return comboPreciosMap[cz.item.id_receta] ?? (cz.item?.precio || 0)
+}
+
+// Extra a sumar por la Promo Inauguración Res (papas/camote + bebida) — no incluye la hamburguesa
+function comboPromoResTotalExtra() {
+  if (!cz.comboPromoRes.activo) return 0
+  let side = 0
+  if (cz.comboPromoRes.acompañamiento_id === 'RAC-004') side = comboPreciosMap['RAC-004'] || 0
+  else if (cz.comboPromoRes.acompañamiento_id === 'RAC-006') side = (comboPreciosMap['RAC-004'] || 0) + (comboPreciosMap['RAC-006'] || 0)
+  const bebida = cz.comboPromoRes.bebida_id ? precioBebidaCombo() : 0
+  return side + bebida
+}
+
 function czCant(delta) {
   cz.cantidad = Math.max(1, cz.cantidad + delta)
   document.getElementById('cz-cant').textContent = cz.cantidad
@@ -1600,13 +1853,31 @@ function actualizarCzBtn() {
   const extrasSum = cz.extras.filter(e => e.qty > 0).reduce((s, e) => s + e.precio * e.qty, 0)
   const salsasSum = cz.salsas.reduce((s, sa) => s + (sa.cantidad || 1) * (sa.precio || 15), 0)
   const comboSum  = cz.combo.activo ? 60 : 0
-  const total     = ((cz.item?.precio || 0) + ingExtrasSum + extrasSum + salsasSum + comboSum) * cz.cantidad
+  const comboPolloSum     = comboPolloTotalExtra()
+  const comboPromoResSum  = comboPromoResTotalExtra()
+  const precioBase = cz.comboPromoRes.activo ? comboPromoResPrecioBurger() : (cz.item?.precio || 0)
+  const total     = (precioBase + ingExtrasSum + extrasSum + salsasSum + comboSum + comboPolloSum + comboPromoResSum) * cz.cantidad
   const btn       = document.getElementById('cz-add-btn')
   if (!btn) return
   if (cz.combo.activo && !cz.combo.acompañamiento_id) {
     btn.textContent = 'Selecciona un acompañamiento'
     btn.disabled    = true
   } else if (cz.combo.activo && !cz.combo.bebida_id) {
+    btn.textContent = 'Selecciona una bebida para el combo'
+    btn.disabled    = true
+  } else if (cz.comboPollo.activo && !cz.comboPollo.aderezo_id) {
+    btn.textContent = 'Selecciona un aderezo'
+    btn.disabled    = true
+  } else if (cz.comboPollo.activo && !cz.comboPollo.acompañamiento_id) {
+    btn.textContent = 'Selecciona un acompañamiento'
+    btn.disabled    = true
+  } else if (cz.comboPollo.activo && !cz.comboPollo.bebida_id) {
+    btn.textContent = 'Selecciona una bebida para el combo'
+    btn.disabled    = true
+  } else if (cz.comboPromoRes.activo && !cz.comboPromoRes.acompañamiento_id) {
+    btn.textContent = 'Selecciona un acompañamiento'
+    btn.disabled    = true
+  } else if (cz.comboPromoRes.activo && !cz.comboPromoRes.bebida_id) {
     btn.textContent = 'Selecciona una bebida para el combo'
     btn.disabled    = true
   } else {
@@ -1622,11 +1893,14 @@ function guardarCz() {
   const extrasSum = cz.extras.filter(e => e.qty > 0).reduce((s, e) => s + e.precio * e.qty, 0)
   const salsasSum = cz.salsas.reduce((s, sa) => s + (sa.cantidad || 1) * (sa.precio || 15), 0)
   const comboSum  = cz.combo.activo ? 60 : 0
-  const importe   = ((cz.item?.precio || 0) + ingExtrasSum + extrasSum + salsasSum + comboSum) * cz.cantidad
+  const comboPolloSum     = comboPolloTotalExtra()
+  const comboPromoResSum  = comboPromoResTotalExtra()
+  const precioBase = cz.comboPromoRes.activo ? comboPromoResPrecioBurger() : (cz.item?.precio || 0)
+  const importe   = (precioBase + ingExtrasSum + extrasSum + salsasSum + comboSum + comboPolloSum + comboPromoResSum) * cz.cantidad
   const entry = {
     id_receta:   cz.item.id_receta,
     nombre:      cz.item.nombre,
-    precio_base: cz.item.precio,
+    precio_base: precioBase,
     cantidad:    cz.cantidad,
     mods: {
       ingredientes: cz.ingredientes.map(i => ({ id:i.id, nombre:i.nombre, qty:i.qty, on:i.on, precio_extra:i.precio_extra||0 })),
@@ -1634,6 +1908,8 @@ function guardarCz() {
       salsas:       cz.salsas.map(s => ({ id:s.id, nombre:s.nombre, precio:s.precio, cantidad:s.cantidad||1 })),
       nota:         cz.nota,
       combo:        cz.combo,
+      comboPollo:   cz.comboPollo,
+      comboPromoRes: cz.comboPromoRes,
     },
     importe,
   }
@@ -1647,7 +1923,11 @@ function guardarCz() {
 
 function cerrarCz() {
   document.getElementById('sheet-cz').classList.add('hidden')
-  cz = { item:null, cartIdx:null, cantidad:1, ingredientes:[], extras:[], salsas:[], nota:'', combo:{ activo:false, bebida_id:null, bebida_nombre:null, acompañamiento_id:null, acompañamiento_nombre:null } }
+  cz = { item:null, cartIdx:null, cantidad:1, ingredientes:[], extras:[], salsas:[], nota:'',
+    combo:{ activo:false, bebida_id:null, bebida_nombre:null, acompañamiento_id:null, acompañamiento_nombre:null },
+    comboPollo:{ activo:false, aderezo_id:null, aderezo_nombre:null, acompañamiento_id:null, acompañamiento_nombre:null, bebida_id:null, bebida_nombre:null },
+    comboPromoRes:{ activo:false, acompañamiento_id:null, acompañamiento_nombre:null, bebida_id:null, bebida_nombre:null }
+  }
 }
 
 // ── Carrito ───────────────────────────────────────────────────────────────────
@@ -1705,6 +1985,8 @@ function renderCart() {
     // Salsas
     if ((m.salsas||[]).length) parts.push(m.salsas.map(s => s.nombre).join(', '))
     if (m.combo?.activo && m.combo.bebida_nombre) parts.push('🍟 Combo: ' + (m.combo.acompañamiento_nombre || 'Papas Clásicas') + ' + ' + m.combo.bebida_nombre)
+    if (m.comboPollo?.activo && m.comboPollo.bebida_nombre) parts.push('🍗 Combo Pollo Tenders: ' + (m.comboPollo.aderezo_nombre || '') + ', ' + (m.comboPollo.acompañamiento_nombre || '') + ' + ' + m.comboPollo.bebida_nombre)
+    if (m.comboPromoRes?.activo && m.comboPromoRes.bebida_nombre) parts.push('🎉 Promo Inauguración: ' + (m.comboPromoRes.acompañamiento_nombre || '') + ' + ' + m.comboPromoRes.bebida_nombre)
     if (m.nota) parts.push('📝 ' + m.nota)
 
     const esBebida = menuItems.some(m => m.id_receta === item.id_receta && m.categoria === 'Bebidas')
@@ -2511,6 +2793,126 @@ async function confirmarOrden() {
             creado_por:      'operador'
           })
         }
+      }
+
+      if (it.mods.comboPollo?.activo) {
+        items.push({
+          tenant_id:       POS.TENANT_ID,
+          id_venta:        venta.id,
+          id_item:         'REX-COM-002',
+          tipo_item:       'receta',
+          nombre:          'Combo Pollo Tenders',
+          cantidad:        it.cantidad,
+          precio_unitario: 0,
+          importe:         0,
+          modificadores:   { es_componente_combo: true },
+          notas:           'componente combo',
+          creado_por:      'operador'
+        })
+        const tendersPrecio = comboPreciosMap['RAC-008'] || 0
+        items.push({
+          tenant_id:       POS.TENANT_ID,
+          id_venta:        venta.id,
+          id_item:         'RAC-008',
+          tipo_item:       'receta',
+          nombre:          'Tenders Chicos (Combo Pollo)',
+          cantidad:        it.cantidad,
+          precio_unitario: tendersPrecio,
+          importe:         tendersPrecio * it.cantidad,
+          modificadores:   { es_componente_combo: true },
+          notas:           'componente combo',
+          creado_por:      'operador'
+        })
+        const sideIdPollo   = it.mods.comboPollo.acompañamiento_id
+        const sideBasePollo = comboPreciosMap['RAC-007'] || 0
+        const sidePrecioPollo = sideIdPollo === 'RAC-006' ? sideBasePollo + (comboPreciosMap['RAC-006'] || 0) : sideBasePollo
+        items.push({
+          tenant_id:       POS.TENANT_ID,
+          id_venta:        venta.id,
+          id_item:         sideIdPollo,
+          tipo_item:       'receta',
+          nombre:          it.mods.comboPollo.acompañamiento_nombre,
+          cantidad:        it.cantidad,
+          precio_unitario: sidePrecioPollo,
+          importe:         sidePrecioPollo * it.cantidad,
+          modificadores:   { es_componente_combo: true },
+          notas:           'componente combo',
+          creado_por:      'operador'
+        })
+        const aderezoPrecio = comboPreciosMap[it.mods.comboPollo.aderezo_id] || 0
+        items.push({
+          tenant_id:       POS.TENANT_ID,
+          id_venta:        venta.id,
+          id_item:         it.mods.comboPollo.aderezo_id,
+          tipo_item:       'receta',
+          nombre:          it.mods.comboPollo.aderezo_nombre,
+          cantidad:        it.cantidad,
+          precio_unitario: aderezoPrecio,
+          importe:         aderezoPrecio * it.cantidad,
+          modificadores:   { es_componente_combo: true },
+          notas:           'componente combo',
+          creado_por:      'operador'
+        })
+        const bebidaPrecioPollo = precioBebidaCombo()
+        items.push({
+          tenant_id:       POS.TENANT_ID,
+          id_venta:        venta.id,
+          id_item:         it.mods.comboPollo.bebida_id,
+          tipo_item:       'producto',
+          nombre:          it.mods.comboPollo.bebida_nombre,
+          cantidad:        it.cantidad,
+          precio_unitario: bebidaPrecioPollo,
+          importe:         bebidaPrecioPollo * it.cantidad,
+          modificadores:   { es_componente_combo: true },
+          notas:           'componente combo',
+          creado_por:      'operador'
+        })
+      }
+
+      if (it.mods.comboPromoRes?.activo) {
+        items.push({
+          tenant_id:       POS.TENANT_ID,
+          id_venta:        venta.id,
+          id_item:         'REX-COM-003',
+          tipo_item:       'receta',
+          nombre:          'Promo Inauguración Res',
+          cantidad:        it.cantidad,
+          precio_unitario: 0,
+          importe:         0,
+          modificadores:   { es_componente_combo: true },
+          notas:           'componente combo',
+          creado_por:      'operador'
+        })
+        const sideIdRes   = it.mods.comboPromoRes.acompañamiento_id
+        const sideBaseRes = comboPreciosMap['RAC-004'] || 0
+        const sidePrecioRes = sideIdRes === 'RAC-006' ? sideBaseRes + (comboPreciosMap['RAC-006'] || 0) : sideBaseRes
+        items.push({
+          tenant_id:       POS.TENANT_ID,
+          id_venta:        venta.id,
+          id_item:         sideIdRes,
+          tipo_item:       'receta',
+          nombre:          it.mods.comboPromoRes.acompañamiento_nombre,
+          cantidad:        it.cantidad,
+          precio_unitario: sidePrecioRes,
+          importe:         sidePrecioRes * it.cantidad,
+          modificadores:   { es_componente_combo: true },
+          notas:           'componente combo',
+          creado_por:      'operador'
+        })
+        const bebidaPrecioRes = precioBebidaCombo()
+        items.push({
+          tenant_id:       POS.TENANT_ID,
+          id_venta:        venta.id,
+          id_item:         it.mods.comboPromoRes.bebida_id,
+          tipo_item:       'producto',
+          nombre:          it.mods.comboPromoRes.bebida_nombre,
+          cantidad:        it.cantidad,
+          precio_unitario: bebidaPrecioRes,
+          importe:         bebidaPrecioRes * it.cantidad,
+          modificadores:   { es_componente_combo: true },
+          notas:           'componente combo',
+          creado_por:      'operador'
+        })
       }
 
       // Extras seleccionados
