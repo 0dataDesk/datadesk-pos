@@ -698,6 +698,14 @@ let propinaTipo = null    // null|'efectivo'|'tarjeta'|'mixto'
 let propinaSubtipo = 'debito'
 let propinasMixtas = []   // [{tipo:'efectivo'|'debito'|'credito', monto:0}]
 let efectivoRecibido = 0  // captura de billetes entregados por el cliente
+let deliveryPlataforma = null // 'didi'|'rappi'|'uber' — plataforma elegida al pagar con Delivery
+
+// Plataformas de delivery disponibles como forma de pago (id: minúsculas, sin acentos)
+const PLATAFORMAS_DELIVERY = [
+  { id: 'didi',  label: 'Didi',  emoji: '🚗' },
+  { id: 'rappi', label: 'Rappi', emoji: '🛵' },
+  { id: 'uber',  label: 'Uber',  emoji: '🚙' }
+]
 
 // Orden activa (folio + pin generados al confirmar)
 let ordenActual = null
@@ -2202,7 +2210,7 @@ function mostrarResumen() {
         <span id="resumen-subtotal" style="font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:2.2rem;
                      color:var(--primary);">$${total}</span>
       </div>
-      <div style="margin-bottom:16px;">
+      <div style="margin-bottom:16px;" id="descuento-seccion">
         <div id="cortesia-descuento-bar" style="display:none;margin-bottom:8px;padding:10px 14px;
           background:rgba(76,153,80,0.1);border-radius:12px;border:1px solid rgba(76,153,80,0.3);">
           <div style="display:flex;justify-content:space-between;font-size:14px;font-weight:700;color:#3A8C3E;margin-bottom:4px;">
@@ -2223,24 +2231,30 @@ function mostrarResumen() {
       </div>
       <div style="margin-bottom:16px;">
         <div class="sh-sec-ttl" style="margin-bottom:8px;">Método de pago</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;">
           <button id="pago-efectivo"
             onclick="elegirMetodoPago('efectivo')"
-            style="padding:13px;border-radius:12px;font-size:14px;font-weight:600;cursor:pointer;
+            style="padding:13px 6px;border-radius:12px;font-size:13px;font-weight:600;cursor:pointer;
               border:1.5px solid var(--primary);background:var(--primary);color:var(--on-pri);">
             💵 Efectivo
           </button>
           <button id="pago-tarjeta"
             onclick="elegirMetodoPago('tarjeta')"
-            style="padding:13px;border-radius:12px;font-size:14px;font-weight:600;cursor:pointer;
+            style="padding:13px 6px;border-radius:12px;font-size:13px;font-weight:600;cursor:pointer;
               border:1.5px solid var(--border);background:var(--bg);color:var(--text);">
             💳 Tarjeta
           </button>
           <button id="pago-mixto"
             onclick="elegirMetodoPago('mixto')"
-            style="padding:13px;border-radius:12px;font-size:14px;font-weight:600;cursor:pointer;
+            style="padding:13px 6px;border-radius:12px;font-size:13px;font-weight:600;cursor:pointer;
               border:1.5px solid var(--border);background:var(--bg);color:var(--text);">
             🔀 Mixto
+          </button>
+          <button id="pago-delivery"
+            onclick="elegirMetodoPago('delivery')"
+            style="padding:13px 6px;border-radius:12px;font-size:13px;font-weight:600;cursor:pointer;
+              border:1.5px solid var(--border);background:var(--bg);color:var(--text);">
+            🛵 Delivery
           </button>
         </div>
         <div id="efectivo-detalle" style="margin-top:10px;">
@@ -2292,8 +2306,19 @@ function mostrarResumen() {
             El descuento cambió. Reconfigura el pago mixto.
           </div>
         </div>
+        <div id="delivery-detalle" style="display:none;margin-top:10px;">
+          <div class="sh-sec-ttl" style="margin-bottom:8px;">Elige la plataforma</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
+            ${PLATAFORMAS_DELIVERY.map(p => `
+              <button onclick="seleccionarDeliveryPlataforma('${p.id}')"
+                style="padding:13px 6px;border-radius:12px;font-size:13px;font-weight:600;cursor:pointer;
+                  border:1.5px solid var(--border);background:var(--bg);color:var(--text);">
+                ${p.emoji} ${p.label}
+              </button>`).join('')}
+          </div>
+        </div>
       </div>
-      <div style="margin-bottom:16px;">
+      <div style="margin-bottom:16px;" id="propina-seccion">
         <button id="btn-propina-toggle" onclick="togglePropinaPanel()"
           style="width:100%;padding:12px;border-radius:12px;font-size:14px;font-weight:600;
             cursor:pointer;border:1.5px dashed var(--border);background:transparent;color:var(--muted);">
@@ -2529,10 +2554,12 @@ function _actualizarTotalPropinaMixta() {
 function elegirMetodoPago(metodo) {
   metodoPago = metodo
   efectivoRecibido = 0
+  deliveryPlataforma = null
   const btns = {
     efectivo: document.getElementById('pago-efectivo'),
     tarjeta:  document.getElementById('pago-tarjeta'),
-    mixto:    document.getElementById('pago-mixto')
+    mixto:    document.getElementById('pago-mixto'),
+    delivery: document.getElementById('pago-delivery')
   }
   Object.entries(btns).forEach(([key, btn]) => {
     if (!btn) return
@@ -2563,11 +2590,29 @@ function elegirMetodoPago(metodo) {
       renderPagosMixtos()
     }
   }
+  const deliveryDetalle = document.getElementById('delivery-detalle')
+  if (deliveryDetalle) deliveryDetalle.style.display = metodo === 'delivery' ? '' : 'none'
+  const descuentoSeccion = document.getElementById('descuento-seccion')
+  if (descuentoSeccion) descuentoSeccion.style.display = metodo === 'delivery' ? 'none' : ''
+  const propinaSeccion = document.getElementById('propina-seccion')
+  if (propinaSeccion) propinaSeccion.style.display = metodo === 'delivery' ? 'none' : ''
   // Tarjeta: habilitar confirmar de inmediato
   if (metodo === 'tarjeta') {
     const btn = document.getElementById('btn-confirmar')
     if (btn) btn.disabled = false
   }
+  // Delivery: se confirma al elegir plataforma, no con el botón principal
+  if (metodo === 'delivery') {
+    const btn = document.getElementById('btn-confirmar')
+    if (btn) btn.disabled = true
+  }
+}
+
+function seleccionarDeliveryPlataforma(plataforma) {
+  if (deliveryPlataforma) return
+  deliveryPlataforma = plataforma
+  document.querySelectorAll('#delivery-detalle button').forEach(btn => { btn.disabled = true })
+  confirmarOrden()
 }
 
 function elegirSubtipoTarjeta(subtipo) {
@@ -2777,11 +2822,14 @@ function volverAlCarrito() {
 }
 
 async function confirmarOrden() {
-  const subtotal   = carrito.reduce((s, i) => s + i.importe, 0)
-  const descMonto  = cortesiaDescPct > 0 ? subtotal * cortesiaDescPct / 100 : 0
-  const total      = subtotal - descMonto + propina
+  if (metodoPago === 'delivery' && !deliveryPlataforma) return
 
-  if (total <= 0) {
+  const subtotal   = carrito.reduce((s, i) => s + i.importe, 0)
+  const descMonto  = metodoPago === 'delivery' ? 0 : (cortesiaDescPct > 0 ? subtotal * cortesiaDescPct / 100 : 0)
+  const propinaEfectiva = metodoPago === 'delivery' ? 0 : propina
+  const total      = metodoPago === 'delivery' ? subtotal : (subtotal - descMonto + propinaEfectiva)
+
+  if (metodoPago !== 'delivery' && total <= 0) {
     const ok = confirm(`¿Confirmar cortesía del ${cortesiaDescPct}%?\nSubtotal original: $${subtotal}\nTotal a cobrar: $0`)
     if (!ok) return
   }
@@ -2807,14 +2855,14 @@ async function confirmarOrden() {
         tenant_id:         POS.TENANT_ID,
         folio,
         canal:             'mostrador',
-        metodo_pago:       metodoPago === 'tarjeta' ? subtipoTarjeta : metodoPago,
-        monto_efectivo:    metodoPago === 'mixto' ? (() => { const t = pagosMixtos.filter(p=>p.tipo!=='efectivo').reduce((s,p)=>s+(parseFloat(p.monto)||0),0); return total-t })() : (metodoPago === 'efectivo' ? total : 0),
-        monto_tarjeta:     metodoPago === 'mixto' ? pagosMixtos.filter(p=>p.tipo!=='efectivo').reduce((s,p)=>s+(parseFloat(p.monto)||0),0) : (metodoPago === 'tarjeta' ? total : 0),
+        metodo_pago:       metodoPago === 'delivery' ? 'delivery' : (metodoPago === 'tarjeta' ? subtipoTarjeta : metodoPago),
+        monto_efectivo:    metodoPago === 'delivery' ? null : (metodoPago === 'mixto' ? (() => { const t = pagosMixtos.filter(p=>p.tipo!=='efectivo').reduce((s,p)=>s+(parseFloat(p.monto)||0),0); return total-t })() : (metodoPago === 'efectivo' ? total : 0)),
+        monto_tarjeta:     metodoPago === 'delivery' ? null : (metodoPago === 'mixto' ? pagosMixtos.filter(p=>p.tipo!=='efectivo').reduce((s,p)=>s+(parseFloat(p.monto)||0),0) : (metodoPago === 'tarjeta' ? total : 0)),
         subtotal,
-        propina,
+        propina: propinaEfectiva,
         total,
-        descuento_porcentaje: cortesiaDescPct > 0 ? cortesiaDescPct : null,
-        pagos_detalle:     metodoPago === 'mixto' ? (() => {
+        descuento_porcentaje: metodoPago === 'delivery' ? null : (cortesiaDescPct > 0 ? cortesiaDescPct : null),
+        pagos_detalle:     metodoPago === 'delivery' ? [{ tipo: deliveryPlataforma }] : (metodoPago === 'mixto' ? (() => {
             const tT = pagosMixtos.filter(p=>p.tipo!=='efectivo').reduce((s,p)=>s+(parseFloat(p.monto)||0),0)
             const efSpl = pagosMixtos.filter(p=>p.tipo==='efectivo')
             const efSh  = efSpl.length > 0 ? (total - tT) / efSpl.length : 0
@@ -2824,8 +2872,8 @@ async function confirmarOrden() {
           })()
           : metodoPago === 'tarjeta'
             ? [{ tipo: subtipoTarjeta, monto: total }]
-            : [{ tipo: 'efectivo', monto: total, recibido: efectivoRecibido, cambio: efectivoRecibido - total }],
-        propina_detalle:   propinaTipo === 'mixto' ? propinasMixtas : (propinaTipo === 'tarjeta' ? [{ tipo: propinaSubtipo, monto: propina }] : propinaTipo === 'efectivo' ? [{ tipo: 'efectivo', monto: propina }] : []),
+            : [{ tipo: 'efectivo', monto: total, recibido: efectivoRecibido, cambio: efectivoRecibido - total }]),
+        propina_detalle:   metodoPago === 'delivery' ? [] : (propinaTipo === 'mixto' ? propinasMixtas : (propinaTipo === 'tarjeta' ? [{ tipo: propinaSubtipo, monto: propina }] : propinaTipo === 'efectivo' ? [{ tipo: 'efectivo', monto: propina }] : [])),
         estado:            'cerrada',
         creado_por:        'operador',
         cliente_nombre:    'Cliente',
