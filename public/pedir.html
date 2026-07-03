@@ -706,7 +706,7 @@ let ordenActual = null
 let cz = { item:null, cartIdx:null, cantidad:1, ingredientes:[], extras:[], salsas:[], nota:'',
   combo:{ activo:false, bebida_id:null, bebida_nombre:null, acompañamiento_id:null, acompañamiento_nombre:null },
   comboPollo:{ activo:false, aderezo_id:null, aderezo_nombre:null, acompañamiento_id:null, acompañamiento_nombre:null, bebida_id:null, bebida_nombre:null },
-  comboPromoRes:{ activo:false, acompañamiento_id:null, acompañamiento_nombre:null, bebida_id:null, bebida_nombre:null }
+  comboPromoRes:{ activo:false, acompañamiento_id:null, acompañamiento_nombre:null, bebida_id:null, bebida_nombre:null, promoPrecio:true }
 }
 
 // ── Estado de identificación + entrega ────────────────────────────────────────
@@ -1161,7 +1161,7 @@ async function abrirCz(idReceta, cartIdx = null) {
     nota: savedMods?.nota || '',
     combo: savedMods?.combo || { activo: false, bebida_id: null, bebida_nombre: null, acompañamiento_id: null, acompañamiento_nombre: null },
     comboPollo: savedMods?.comboPollo || { activo: false, aderezo_id: null, aderezo_nombre: null, acompañamiento_id: null, acompañamiento_nombre: null, bebida_id: null, bebida_nombre: null },
-    comboPromoRes: savedMods?.comboPromoRes || { activo: false, acompañamiento_id: null, acompañamiento_nombre: null, bebida_id: null, bebida_nombre: null }
+    comboPromoRes: savedMods?.comboPromoRes || { activo: false, acompañamiento_id: null, acompañamiento_nombre: null, bebida_id: null, bebida_nombre: null, promoPrecio: true }
   }
 
   document.getElementById('cz-name').textContent = item.nombre
@@ -1374,6 +1374,13 @@ function buildCzBody(type, scroll) {
           </div>
         </div>
         <div id="combo-promores-wrap" style="margin-top:10px;${comboOn ? '' : 'display:none;'}">
+          <div class="cz-row ${cz.comboPromoRes.promoPrecio !== false ? 'on' : 'off'}" id="combo-promores-precio-row"
+               style="cursor:pointer;margin-bottom:14px;" onclick="toggleComboPromoResPrecio()">
+            <div class="cz-row-body">
+              <span class="cz-row-name">Aplicar promo de precio</span>
+              <span class="cz-row-price">${cz.comboPromoRes.promoPrecio !== false ? `Hamburguesa a $${comboPromoResPrecioBurger()}` : `Hamburguesa a precio normal $${cz.item.precio}`}</span>
+            </div>
+          </div>
           <div class="sh-sec-ttl" style="margin-bottom:8px;">Papas o Camote</div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;">
             ${[{id:'RAC-004',emoji:'🍟'},{id:'RAC-006',emoji:'🍠'}].map(a => {
@@ -1794,11 +1801,32 @@ function toggleComboPromoRes() {
     cz.comboPromoRes.acompañamiento_nombre = null
     cz.comboPromoRes.bebida_id = null
     cz.comboPromoRes.bebida_nombre = null
+  } else {
+    cz.comboPromoRes.promoPrecio = true
   }
   const row = document.getElementById('combo-promores-row')
   if (row) row.className = 'cz-row ' + (cz.comboPromoRes.activo ? 'on' : 'off')
   const wrap = document.getElementById('combo-promores-wrap')
   if (wrap) wrap.style.display = cz.comboPromoRes.activo ? '' : 'none'
+  const precioRow = document.getElementById('combo-promores-precio-row')
+  if (precioRow && cz.comboPromoRes.activo) {
+    precioRow.className = 'cz-row on'
+    const priceEl = precioRow.querySelector('.cz-row-price')
+    if (priceEl) priceEl.textContent = `Hamburguesa a $${comboPromoResPrecioBurger()}`
+  }
+  actualizarCzBtn()
+}
+
+function toggleComboPromoResPrecio() {
+  cz.comboPromoRes.promoPrecio = !cz.comboPromoRes.promoPrecio
+  const row = document.getElementById('combo-promores-precio-row')
+  if (row) {
+    row.className = 'cz-row ' + (cz.comboPromoRes.promoPrecio ? 'on' : 'off')
+    const priceEl = row.querySelector('.cz-row-price')
+    if (priceEl) priceEl.textContent = cz.comboPromoRes.promoPrecio
+      ? `Hamburguesa a $${comboPromoResPrecioBurger()}`
+      : `Hamburguesa a precio normal $${cz.item.precio}`
+  }
   actualizarCzBtn()
 }
 
@@ -1829,6 +1857,7 @@ function seleccionarBebidaComboPromoRes(id, nombre) {
 // Precio de la hamburguesa mientras la Promo Inauguración está activa (reemplaza su precio normal)
 function comboPromoResPrecioBurger() {
   if (!cz.comboPromoRes.activo) return cz.item?.precio || 0
+  if (cz.comboPromoRes.promoPrecio === false) return cz.item?.precio || 0
   return comboPreciosMap[cz.item.id_receta] ?? (cz.item?.precio || 0)
 }
 
@@ -1926,7 +1955,7 @@ function cerrarCz() {
   cz = { item:null, cartIdx:null, cantidad:1, ingredientes:[], extras:[], salsas:[], nota:'',
     combo:{ activo:false, bebida_id:null, bebida_nombre:null, acompañamiento_id:null, acompañamiento_nombre:null },
     comboPollo:{ activo:false, aderezo_id:null, aderezo_nombre:null, acompañamiento_id:null, acompañamiento_nombre:null, bebida_id:null, bebida_nombre:null },
-    comboPromoRes:{ activo:false, acompañamiento_id:null, acompañamiento_nombre:null, bebida_id:null, bebida_nombre:null }
+    comboPromoRes:{ activo:false, acompañamiento_id:null, acompañamiento_nombre:null, bebida_id:null, bebida_nombre:null, promoPrecio:true }
   }
 }
 
@@ -1986,7 +2015,10 @@ function renderCart() {
     if ((m.salsas||[]).length) parts.push(m.salsas.map(s => s.nombre).join(', '))
     if (m.combo?.activo && m.combo.bebida_nombre) parts.push('🍟 Combo: ' + (m.combo.acompañamiento_nombre || 'Papas Clásicas') + ' + ' + m.combo.bebida_nombre)
     if (m.comboPollo?.activo && m.comboPollo.bebida_nombre) parts.push('🍗 Combo Pollo Tenders: ' + (m.comboPollo.aderezo_nombre || '') + ', ' + (m.comboPollo.acompañamiento_nombre || '') + ' + ' + m.comboPollo.bebida_nombre)
-    if (m.comboPromoRes?.activo && m.comboPromoRes.bebida_nombre) parts.push('🎉 Promo Inauguración: ' + (m.comboPromoRes.acompañamiento_nombre || '') + ' + ' + m.comboPromoRes.bebida_nombre)
+    if (m.comboPromoRes?.activo && m.comboPromoRes.bebida_nombre) {
+      const labelPromoRes = m.comboPromoRes.promoPrecio === false ? '🎉 Combo Res (precio normal): ' : '🎉 Promo Inauguración: '
+      parts.push(labelPromoRes + (m.comboPromoRes.acompañamiento_nombre || '') + ' + ' + m.comboPromoRes.bebida_nombre)
+    }
     if (m.nota) parts.push('📝 ' + m.nota)
 
     const esBebida = menuItems.some(m => m.id_receta === item.id_receta && m.categoria === 'Bebidas')
@@ -2319,6 +2351,11 @@ function elegirSubtipoPropina(subtipo) {
 function actualizarPropina(val) {
   propina = Math.max(0, parseFloat(val) || 0)
   _actualizarTotalConPropina()
+  if (metodoPago === 'efectivo') {
+    const subtotal = carrito.reduce((s, i) => s + i.importe, 0)
+    const descMonto = cortesiaDescPct > 0 ? Math.round(subtotal * cortesiaDescPct) / 100 : 0
+    if (subtotal - descMonto === 0) pagarExacto()
+  }
 }
 function aplicarPropinaPct(pct) {
   const subtotal = carrito.reduce((s, i) => s + i.importe, 0)
@@ -2327,6 +2364,7 @@ function aplicarPropinaPct(pct) {
   const inp = document.getElementById('input-propina')
   if (inp) inp.value = propina
   _actualizarTotalConPropina()
+  if (metodoPago === 'efectivo' && subtotal - descMonto === 0) pagarExacto()
 }
 function _actualizarTotalConPropina() {
   const subtotal = carrito.reduce((s, i) => s + i.importe, 0)
