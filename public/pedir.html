@@ -678,6 +678,7 @@ const MENU_CATS = ['Hamburguesas','Pollo','Acompañamientos','Bebidas']
 
 // ── Estado global ─────────────────────────────────────────────────────────────
 let menuItems    = []  // ítems del menú (sin Extras/Salsas)
+let catalogoAll  = []  // catálogo completo sin filtrar (incluye tipo_receta='receta' para lookups internos de combo)
 let modExtras    = []  // ítems de categoría Extras
 let modSalsas    = []  // ítems de categoría Aderezos
 let modSalsaFuria = [] // RSA-004 — sección propia
@@ -775,7 +776,7 @@ async function cargarMenu() {
   try {
     const { data: recetas, error: e1 } = await window._db
       .from('catalogo_recetas')
-      .select('id_receta, nombre_platillo, categoria, descripcion, tagline, orden')
+      .select('id_receta, nombre_platillo, categoria, descripcion, tagline, orden, tipo_receta')
       .eq('tenant_id', POS.TENANT_ID)
       .eq('fuente',    POS.FUENTE)
       .eq('activo',    true)
@@ -793,11 +794,12 @@ async function cargarMenu() {
 
     const pm = {}; if (precios) precios.forEach(p => { pm[p.id_item] = p.precio })
 
-    const all = recetas.map(r => ({ id_receta:r.id_receta, nombre:r.nombre_platillo, categoria:r.categoria, descripcion:r.descripcion||'', tagline:r.tagline||'', precio:pm[r.id_receta]||0, orden:r.orden }))
+    const all = recetas.map(r => ({ id_receta:r.id_receta, nombre:r.nombre_platillo, categoria:r.categoria, descripcion:r.descripcion||'', tagline:r.tagline||'', precio:pm[r.id_receta]||0, orden:r.orden, tipo_receta:r.tipo_receta }))
+    catalogoAll = all
     modSalsaFuria = all.filter(r => r.id_receta === 'RSA-004')
     modExtras = all.filter(r => r.categoria === 'Extras' && r.id_receta !== 'RSA-004')
     modSalsas = all.filter(r => r.categoria === 'Aderezos')
-    menuItems = all.filter(r => MENU_CATS.includes(r.categoria))
+    menuItems = all.filter(r => MENU_CATS.includes(r.categoria) && r.tipo_receta !== 'receta')
     const ADEREZOS_COMBO_POLLO = ['RSA-005','RSA-006','RSA-007','RSA-008']
     aderezosCombo = all.filter(r => ADEREZOS_COMBO_POLLO.includes(r.id_receta))
     menuDataReady = true
@@ -1340,7 +1342,7 @@ function buildCzBody(type, scroll) {
           <div class="sh-sec-ttl" style="margin-bottom:8px;">Papas o Camote</div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;">
             ${[{id:'RAC-007',emoji:'🍟'},{id:'RAC-006',emoji:'🍠'}].map(a => {
-              const item = menuItems.find(x => x.id_receta === a.id)
+              const item = catalogoAll.find(x => x.id_receta === a.id)
               const nombre = item?.nombre || a.id
               const sel = cz.comboPollo.acompañamiento_id === a.id
               return `<div onclick="seleccionarAcompañamientoComboPollo('${a.id}','${nombre.replace(/'/g, "\\'")}')"
