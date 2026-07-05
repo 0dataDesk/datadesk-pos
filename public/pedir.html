@@ -675,6 +675,11 @@ const PAGES = [
 ]
 const MOD_CATS  = ['Extras','Aderezos']
 const MENU_CATS = ['Hamburguesas','Pollo','Acompañamientos','Bebidas']
+// Mapeo único: receta de tanda (venta) → producto listo para servir (consumo real de 1 porción)
+const ADEREZO_RECETA_A_PRODUCTO = {'RSA-004':'RSR-004','RSA-005':'RSR-008','RSA-006':'RSR-006','RSA-007':'RSR-007','RSA-008':'RSR-009'}
+const PORCION_ADEREZO_G = 45
+// Acompañamientos que requieren aderezo obligatorio incluido (RAC-009 trae su propio aderezo horneado)
+const ACOMP_REQUIERE_ADEREZO = ['RAC-004','RAC-006']
 
 // ── Estado global ─────────────────────────────────────────────────────────────
 let menuItems    = []  // ítems del menú (sin Extras/Salsas)
@@ -1169,9 +1174,10 @@ async function abrirCz(idReceta, cartIdx = null) {
     cantidad: (cartIdx !== null && carrito[cartIdx]) ? carrito[cartIdx].cantidad : 1,
     ingredientes: [], extras: [], salsas: [],
     nota: savedMods?.nota || '',
-    combo: savedMods?.combo || { activo: false, bebida_id: null, bebida_nombre: null, acompañamiento_id: null, acompañamiento_nombre: null },
+    aderezoIncluido: savedMods?.aderezoIncluido || null,
+    combo: savedMods?.combo || { activo: false, bebida_id: null, bebida_nombre: null, acompañamiento_id: null, acompañamiento_nombre: null, aderezo_id: null, aderezo_nombre: null },
     comboPollo: savedMods?.comboPollo || { activo: false, aderezo_id: null, aderezo_nombre: null, acompañamiento_id: null, acompañamiento_nombre: null, bebida_id: null, bebida_nombre: null },
-    comboPromoRes: savedMods?.comboPromoRes || { activo: false, acompañamiento_id: null, acompañamiento_nombre: null, bebida_id: null, bebida_nombre: null, promoPrecio: true }
+    comboPromoRes: savedMods?.comboPromoRes || { activo: false, acompañamiento_id: null, acompañamiento_nombre: null, bebida_id: null, bebida_nombre: null, promoPrecio: true, aderezo_id: null, aderezo_nombre: null }
   }
 
   document.getElementById('cz-name').textContent = item.nombre
@@ -1400,6 +1406,20 @@ function buildCzBody(type, scroll) {
               </div>`
             }).join('')}
           </div>
+          <div class="sh-sec-ttl" style="margin-bottom:8px;">Elige tu aderezo</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;">
+            ${aderezosCombo.map(a => {
+              const sel = cz.combo.aderezo_id === a.id_receta
+              return `<div onclick="seleccionarAderezoCombo('${a.id_receta}','${a.nombre.replace(/'/g, "\\'")}')"
+                style="padding:10px 8px;border-radius:12px;text-align:center;cursor:pointer;font-size:13px;font-weight:600;
+                  border:1.5px solid ${sel ? 'var(--primary)' : 'var(--border)'};
+                  background:${sel ? 'var(--primary)' : 'var(--bg)'};
+                  color:${sel ? 'var(--on-pri)' : 'var(--text)'}"
+                id="ader-combo-chip-${a.id_receta}">
+                ${a.nombre}
+              </div>`
+            }).join('')}
+          </div>
           <div class="sh-sec-ttl" style="margin-bottom:8px;">Elige tu bebida</div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
             ${bebidasCombo.map(b => {
@@ -1452,6 +1472,20 @@ function buildCzBody(type, scroll) {
               </div>`
             }).join('')}
           </div>
+          <div class="sh-sec-ttl" style="margin-bottom:8px;">Elige tu aderezo</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;">
+            ${aderezosCombo.map(a => {
+              const sel = cz.comboPromoRes.aderezo_id === a.id_receta
+              return `<div onclick="seleccionarAderezoComboPromoRes('${a.id_receta}','${a.nombre.replace(/'/g, "\\'")}')"
+                style="padding:10px 8px;border-radius:12px;text-align:center;cursor:pointer;font-size:13px;font-weight:600;
+                  border:1.5px solid ${sel ? 'var(--primary)' : 'var(--border)'};
+                  background:${sel ? 'var(--primary)' : 'var(--bg)'};
+                  color:${sel ? 'var(--on-pri)' : 'var(--text)'}"
+                id="ader-promores-chip-${a.id_receta}">
+                ${a.nombre}
+              </div>`
+            }).join('')}
+          </div>
           <div class="sh-sec-ttl" style="margin-bottom:8px;">Elige tu bebida</div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
             ${bebidasCombo.map(b => {
@@ -1498,6 +1532,20 @@ function buildCzBody(type, scroll) {
               </div>`
             }).join('')}
           </div>
+          <div class="sh-sec-ttl" style="margin-bottom:8px;">Elige tu aderezo</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;">
+            ${aderezosCombo.map(a => {
+              const sel = cz.combo.aderezo_id === a.id_receta
+              return `<div onclick="seleccionarAderezoCombo('${a.id_receta}','${a.nombre.replace(/'/g, "\\'")}')"
+                style="padding:10px 8px;border-radius:12px;text-align:center;cursor:pointer;font-size:13px;font-weight:600;
+                  border:1.5px solid ${sel ? 'var(--primary)' : 'var(--border)'};
+                  background:${sel ? 'var(--primary)' : 'var(--bg)'};
+                  color:${sel ? 'var(--on-pri)' : 'var(--text)'}"
+                id="ader-combo-chip-${a.id_receta}">
+                ${a.nombre}
+              </div>`
+            }).join('')}
+          </div>
           <div class="sh-sec-ttl" style="margin-bottom:8px;">Elige tu bebida</div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
             ${bebidasCombo.map(b => {
@@ -1513,6 +1561,24 @@ function buildCzBody(type, scroll) {
               </div>`
             }).join('')}
           </div>
+        </div>
+      </div>`)
+  } else if (type === 'side' && ACOMP_REQUIERE_ADEREZO.includes(cz.item.id_receta)) {
+    scroll.insertAdjacentHTML('beforeend', `
+      <div class="sh-sec">
+        <div class="sh-sec-ttl">Elige tu aderezo</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          ${aderezosCombo.map(a => {
+            const sel = cz.aderezoIncluido?.id === a.id_receta
+            return `<div onclick="seleccionarAderezoIncluido('${a.id_receta}','${a.nombre.replace(/'/g, "\\'")}')"
+              style="padding:10px 8px;border-radius:12px;text-align:center;cursor:pointer;font-size:13px;font-weight:600;
+                border:1.5px solid ${sel ? 'var(--primary)' : 'var(--border)'};
+                background:${sel ? 'var(--primary)' : 'var(--bg)'};
+                color:${sel ? 'var(--on-pri)' : 'var(--text)'}"
+              id="ader-inc-chip-${a.id_receta}">
+              ${a.nombre}
+            </div>`
+          }).join('')}
         </div>
       </div>`)
   }
@@ -1745,6 +1811,8 @@ function toggleCombo() {
     cz.combo.bebida_nombre = null
     cz.combo.acompañamiento_id = null
     cz.combo.acompañamiento_nombre = null
+    cz.combo.aderezo_id = null
+    cz.combo.aderezo_nombre = null
   } else if (cz.comboPollo.activo) {
     cz.comboPollo.activo = false
     cz.comboPollo.aderezo_id = null
@@ -1810,6 +1878,8 @@ function toggleComboPollo() {
     cz.combo.bebida_nombre = null
     cz.combo.acompañamiento_id = null
     cz.combo.acompañamiento_nombre = null
+    cz.combo.aderezo_id = null
+    cz.combo.aderezo_nombre = null
     const cRow = document.getElementById('combo-row')
     if (cRow) cRow.className = 'cz-row off'
     const cWrap = document.getElementById('combo-bebidas-wrap')
@@ -1827,6 +1897,44 @@ function seleccionarAderezoComboPollo(id, nombre) {
   cz.comboPollo.aderezo_nombre = nombre
   document.querySelectorAll('[id^="ader-chip-"]').forEach(el => {
     const sel = el.id === 'ader-chip-' + id
+    el.style.background  = sel ? 'var(--primary)' : 'var(--bg)'
+    el.style.borderColor = sel ? 'var(--primary)' : 'var(--border)'
+    el.style.color       = sel ? 'var(--on-pri)' : 'var(--text)'
+  })
+  actualizarCzBtn()
+}
+
+// Aderezo obligatorio incluido (papas/camote sueltas — fuera de combo)
+function seleccionarAderezoIncluido(id, nombre) {
+  cz.aderezoIncluido = { id, nombre }
+  document.querySelectorAll('[id^="ader-inc-chip-"]').forEach(el => {
+    const sel = el.id === 'ader-inc-chip-' + id
+    el.style.background  = sel ? 'var(--primary)' : 'var(--bg)'
+    el.style.borderColor = sel ? 'var(--primary)' : 'var(--border)'
+    el.style.color       = sel ? 'var(--on-pri)' : 'var(--text)'
+  })
+  actualizarCzBtn()
+}
+
+// Aderezo obligatorio incluido — Combo Papas + Bebida (REX-COM-001)
+function seleccionarAderezoCombo(id, nombre) {
+  cz.combo.aderezo_id = id
+  cz.combo.aderezo_nombre = nombre
+  document.querySelectorAll('[id^="ader-combo-chip-"]').forEach(el => {
+    const sel = el.id === 'ader-combo-chip-' + id
+    el.style.background  = sel ? 'var(--primary)' : 'var(--bg)'
+    el.style.borderColor = sel ? 'var(--primary)' : 'var(--border)'
+    el.style.color       = sel ? 'var(--on-pri)' : 'var(--text)'
+  })
+  actualizarCzBtn()
+}
+
+// Aderezo obligatorio incluido — Promo Inauguración Res (REX-COM-003)
+function seleccionarAderezoComboPromoRes(id, nombre) {
+  cz.comboPromoRes.aderezo_id = id
+  cz.comboPromoRes.aderezo_nombre = nombre
+  document.querySelectorAll('[id^="ader-promores-chip-"]').forEach(el => {
+    const sel = el.id === 'ader-promores-chip-' + id
     el.style.background  = sel ? 'var(--primary)' : 'var(--bg)'
     el.style.borderColor = sel ? 'var(--primary)' : 'var(--border)'
     el.style.color       = sel ? 'var(--on-pri)' : 'var(--text)'
@@ -1878,6 +1986,8 @@ function toggleComboPromoRes() {
     cz.comboPromoRes.acompañamiento_nombre = null
     cz.comboPromoRes.bebida_id = null
     cz.comboPromoRes.bebida_nombre = null
+    cz.comboPromoRes.aderezo_id = null
+    cz.comboPromoRes.aderezo_nombre = null
   } else {
     cz.comboPromoRes.promoPrecio = true
   }
@@ -1965,8 +2075,15 @@ function actualizarCzBtn() {
   const total     = (precioBase + ingExtrasSum + extrasSum + salsasSum + comboSum + comboPolloSum + comboPromoResSum) * cz.cantidad
   const btn       = document.getElementById('cz-add-btn')
   if (!btn) return
-  if (cz.combo.activo && !cz.combo.acompañamiento_id) {
+  const requiereAderezoIncluido = cz.item && ACOMP_REQUIERE_ADEREZO.includes(cz.item.id_receta)
+  if (requiereAderezoIncluido && !cz.aderezoIncluido?.id) {
+    btn.textContent = 'Selecciona un aderezo'
+    btn.disabled    = true
+  } else if (cz.combo.activo && !cz.combo.acompañamiento_id) {
     btn.textContent = 'Selecciona un acompañamiento'
+    btn.disabled    = true
+  } else if (cz.combo.activo && !cz.combo.aderezo_id) {
+    btn.textContent = 'Selecciona un aderezo'
     btn.disabled    = true
   } else if (cz.combo.activo && !cz.combo.bebida_id) {
     btn.textContent = 'Selecciona una bebida para el combo'
@@ -1982,6 +2099,9 @@ function actualizarCzBtn() {
     btn.disabled    = true
   } else if (cz.comboPromoRes.activo && !cz.comboPromoRes.acompañamiento_id) {
     btn.textContent = 'Selecciona un acompañamiento'
+    btn.disabled    = true
+  } else if (cz.comboPromoRes.activo && !cz.comboPromoRes.aderezo_id) {
+    btn.textContent = 'Selecciona un aderezo'
     btn.disabled    = true
   } else if (cz.comboPromoRes.activo && !cz.comboPromoRes.bebida_id) {
     btn.textContent = 'Selecciona una bebida para el combo'
@@ -2013,6 +2133,7 @@ function guardarCz() {
       extras:       cz.extras.filter(e => e.qty > 0).map(e => ({ id:e.id, nombre:e.nombre, precio:e.precio, qty:e.qty })),
       salsas:       cz.salsas.map(s => ({ id:s.id, nombre:s.nombre, precio:s.precio, cantidad:s.cantidad||1 })),
       nota:         cz.nota,
+      aderezoIncluido: cz.aderezoIncluido || null,
       combo:        cz.combo,
       comboPollo:   cz.comboPollo,
       comboPromoRes: cz.comboPromoRes,
@@ -2029,10 +2150,10 @@ function guardarCz() {
 
 function cerrarCz() {
   document.getElementById('sheet-cz').classList.add('hidden')
-  cz = { item:null, cartIdx:null, cantidad:1, ingredientes:[], extras:[], salsas:[], nota:'',
-    combo:{ activo:false, bebida_id:null, bebida_nombre:null, acompañamiento_id:null, acompañamiento_nombre:null },
+  cz = { item:null, cartIdx:null, cantidad:1, ingredientes:[], extras:[], salsas:[], nota:'', aderezoIncluido:null,
+    combo:{ activo:false, bebida_id:null, bebida_nombre:null, acompañamiento_id:null, acompañamiento_nombre:null, aderezo_id:null, aderezo_nombre:null },
     comboPollo:{ activo:false, aderezo_id:null, aderezo_nombre:null, acompañamiento_id:null, acompañamiento_nombre:null, bebida_id:null, bebida_nombre:null },
-    comboPromoRes:{ activo:false, acompañamiento_id:null, acompañamiento_nombre:null, bebida_id:null, bebida_nombre:null, promoPrecio:true }
+    comboPromoRes:{ activo:false, acompañamiento_id:null, acompañamiento_nombre:null, bebida_id:null, bebida_nombre:null, promoPrecio:true, aderezo_id:null, aderezo_nombre:null }
   }
 }
 
@@ -2823,6 +2944,23 @@ function volverAlCarrito() {
   setTimeout(abrirCart, 50)
 }
 
+// venta_item de una porción real de aderezo (45g) — nunca la receta de tanda completa (RSA-XXX)
+function itemAderezo(id_venta, idOriginal, nombre, porciones, cantidadPedido, precioUnitario, notas, modificadores) {
+  return {
+    tenant_id:       POS.TENANT_ID,
+    id_venta,
+    id_item:         ADEREZO_RECETA_A_PRODUCTO[idOriginal] || idOriginal,
+    tipo_item:       'producto',
+    nombre,
+    cantidad:        PORCION_ADEREZO_G * porciones * cantidadPedido,
+    precio_unitario: precioUnitario,
+    importe:         precioUnitario * porciones * cantidadPedido,
+    modificadores,
+    notas,
+    creado_por:      'operador'
+  }
+}
+
 async function confirmarOrden() {
   if (metodoPago === 'delivery' && !deliveryPlataforma) return
 
@@ -2904,6 +3042,9 @@ async function confirmarOrden() {
         modificadores:   it.mods,
         notas:           it.mods.nota || null
       })
+      if (it.mods.aderezoIncluido?.id) {
+        items.push(itemAderezo(venta.id, it.mods.aderezoIncluido.id, it.mods.aderezoIncluido.nombre, 1, it.cantidad, 0, 'aderezo incluido', { incluido: true }))
+      }
       if (it.mods.combo?.activo) {
         items.push({
           tenant_id:       POS.TENANT_ID,
@@ -2932,6 +3073,9 @@ async function confirmarOrden() {
             notas:           'componente combo',
             creado_por:      'operador'
           })
+        }
+        if (it.mods.combo.aderezo_id) {
+          items.push(itemAderezo(venta.id, it.mods.combo.aderezo_id, it.mods.combo.aderezo_nombre, 1, it.cantidad, 0, 'aderezo incluido', { es_componente_combo: true, incluido: true }))
         }
         if (it.mods.combo.bebida_id) {
           items.push({
@@ -2995,19 +3139,7 @@ async function confirmarOrden() {
           creado_por:      'operador'
         })
         const aderezoPrecio = comboPreciosMap[it.mods.comboPollo.aderezo_id] || 0
-        items.push({
-          tenant_id:       POS.TENANT_ID,
-          id_venta:        venta.id,
-          id_item:         it.mods.comboPollo.aderezo_id,
-          tipo_item:       'receta',
-          nombre:          it.mods.comboPollo.aderezo_nombre,
-          cantidad:        it.cantidad,
-          precio_unitario: aderezoPrecio,
-          importe:         aderezoPrecio * it.cantidad,
-          modificadores:   { es_componente_combo: true },
-          notas:           'componente combo',
-          creado_por:      'operador'
-        })
+        items.push(itemAderezo(venta.id, it.mods.comboPollo.aderezo_id, it.mods.comboPollo.aderezo_nombre, 1, it.cantidad, aderezoPrecio, 'componente combo', { es_componente_combo: true }))
         const bebidaPrecioPollo = precioBebidaCombo()
         items.push({
           tenant_id:       POS.TENANT_ID,
@@ -3054,6 +3186,9 @@ async function confirmarOrden() {
           notas:           'componente combo',
           creado_por:      'operador'
         })
+        if (it.mods.comboPromoRes.aderezo_id) {
+          items.push(itemAderezo(venta.id, it.mods.comboPromoRes.aderezo_id, it.mods.comboPromoRes.aderezo_nombre, 1, it.cantidad, 0, 'aderezo incluido', { es_componente_combo: true, incluido: true }))
+        }
         const bebidaPrecioRes = precioBebidaCombo()
         items.push({
           tenant_id:       POS.TENANT_ID,
@@ -3070,8 +3205,12 @@ async function confirmarOrden() {
         })
       }
 
-      // Extras seleccionados
+      // Extras seleccionados (RSA-004 Salsa Furia vive aquí mezclada con extras reales — se vende como porción)
       ;(it.mods.extras || []).filter(ex => ex.qty > 0).forEach(ex => {
+        if (ADEREZO_RECETA_A_PRODUCTO[ex.id]) {
+          items.push(itemAderezo(venta.id, ex.id, ex.nombre, ex.qty, it.cantidad, ex.precio || 0, 'extra', { es_extra: true }))
+          return
+        }
         items.push({
           tenant_id:       POS.TENANT_ID,
           id_venta:        venta.id,
@@ -3087,21 +3226,9 @@ async function confirmarOrden() {
         })
       })
 
-      // Salsas seleccionadas
+      // Salsas seleccionadas (aderezos de la sección "Aderezos — $15 c/u") — se venden como porción, no como tanda
       ;(it.mods.salsas || []).forEach(sa => {
-        items.push({
-          tenant_id:       POS.TENANT_ID,
-          id_venta:        venta.id,
-          id_item:         sa.id,
-          tipo_item:       'receta',
-          nombre:          sa.nombre,
-          cantidad:        (sa.cantidad || 1) * it.cantidad,
-          precio_unitario: sa.precio || 0,
-          importe:         (sa.precio || 0) * (sa.cantidad || 1) * it.cantidad,
-          modificadores:   { es_salsa: true },
-          notas:           'salsa',
-          creado_por:      'operador'
-        })
+        items.push(itemAderezo(venta.id, sa.id, sa.nombre, sa.cantidad || 1, it.cantidad, sa.precio || 0, 'salsa', { es_salsa: true }))
       })
 
       // Ingredientes con qty > 1 (la unidad base ya está en la receta)
