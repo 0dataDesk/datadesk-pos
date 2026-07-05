@@ -709,6 +709,7 @@ let efectivoRecibido = 0  // captura de billetes entregados por el cliente
 let deliveryPlataforma = null // 'didi'|'rappi'|'uber' — plataforma elegida al pagar con Delivery
 let tipoEntregaVenta = 'barra' // 'barra'|'llevar'
 let bolsasSeleccionadas = { chica: 0, grande: 0 } // contadores independientes por tamaño, llevar
+let cerrarMesaState = { idVenta: null, clam: false, bolsas: { chica: 0, grande: 0 } } // modal "Cerrar mesa"
 
 // Plataformas de delivery disponibles como forma de pago (id: minúsculas, sin acentos)
 const PLATAFORMAS_DELIVERY = [
@@ -3085,7 +3086,7 @@ async function confirmarOrden() {
             ? [{ tipo: subtipoTarjeta, monto: total }]
             : [{ tipo: 'efectivo', monto: total, recibido: efectivoRecibido, cambio: efectivoRecibido - total }]),
         propina_detalle:   metodoPago === 'delivery' ? [] : (propinaTipo === 'mixto' ? propinasMixtas : (propinaTipo === 'tarjeta' ? [{ tipo: propinaSubtipo, monto: propina }] : propinaTipo === 'efectivo' ? [{ tipo: 'efectivo', monto: propina }] : [])),
-        estado:            'cerrada',
+        estado:            'abierta',
         creado_por:        'operador',
         cliente_nombre:    'Cliente',
         cliente_celular:   '0000000000',
@@ -3705,23 +3706,32 @@ let ordenesSubscripcion = null
 let opTickerInterval   = null
 
 async function cargarOrdenesActivas() {
+  // Una venta sigue "activa" en el panel mientras estado='abierta' — sin importar si ya se entregó
+  // (comer-aquí espera a "Cerrar mesa"; para llevar cierra sola al entregar, ver entregarOrden()).
+  const { data: ventasAbiertas } = await window._db
+    .from('ventas')
+    .select('id, folio, tipo_entrega')
+    .eq('tenant_id', POS.TENANT_ID)
+    .eq('estado', 'abierta')
+
+  if (!ventasAbiertas || ventasAbiertas.length === 0) { ordenesActivas = {}; actualizarPanelOrdenes(); return }
+
+  const ventaIds = ventasAbiertas.map(v => v.id)
   const { data: ocs } = await window._db
     .from('ordenes_cocina')
     .select('id, id_venta, estado, confirmada_en')
+    .in('id_venta', ventaIds)
     .eq('tenant_id', POS.TENANT_ID)
-    .in('estado', ['pendiente', 'lista'])
 
   if (!ocs || ocs.length === 0) { ordenesActivas = {}; actualizarPanelOrdenes(); return }
 
-  const ventaIds  = ocs.map(o => o.id_venta)
   const ordenIds  = ocs.map(o => o.id)
-  const [{ data: ventas }, { data: items }, { data: estados }] = await Promise.all([
-    window._db.from('ventas').select('id, folio').in('id', ventaIds).eq('tenant_id', POS.TENANT_ID),
-    window._db.from('venta_items').select('id_venta, nombre, cantidad').in('id_venta', ventaIds).eq('tenant_id', POS.TENANT_ID),
+  const [{ data: items }, { data: estados }] = await Promise.all([
+    window._db.from('venta_items').select('id_venta, id_item, tipo_item, nombre, cantidad').in('id_venta', ventaIds).eq('tenant_id', POS.TENANT_ID),
     window._db.from('orden_items_estado').select('id, id_orden_cocina, nombre_platillo, estado, creada_en').in('id_orden_cocina', ordenIds).eq('tenant_id', POS.TENANT_ID)
   ])
 
-  const folioMap  = {}; (ventas  || []).forEach(v  => { folioMap[v.id] = v.folio })
+  const ventaMap  = {}; ventasAbiertas.forEach(v => { ventaMap[v.id] = v })
   const itemsMap  = {}; (items   || []).forEach(it => {
     if (!itemsMap[it.id_venta]) itemsMap[it.id_venta] = []
     itemsMap[it.id_venta].push(it)
@@ -3733,8 +3743,10 @@ async function cargarOrdenesActivas() {
 
   ordenesActivas = {}
   ocs.forEach(oc => {
+    const venta = ventaMap[oc.id_venta]
+    if (!venta) return
     ordenesActivas[oc.id_venta] = {
-      id: oc.id, folio: folioMap[oc.id_venta] || oc.id_venta,
+      id: oc.id, folio: venta.folio || oc.id_venta, tipo_entrega: venta.tipo_entrega,
       estado: oc.estado, confirmada_en: oc.confirmada_en,
       items: itemsMap[oc.id_venta] || [],
       itemsEstado: estadoMap[oc.id] || []
@@ -3792,19 +3804,30 @@ function actualizarPanelOrdenes() {
           return `<div style="display:flex;align-items:center;font-size:12px;color:var(--text);margin-bottom:2px;">${dot}<span style="flex:1;">${it.nombre_platillo}</span>${btnListo}</div>`
         }).join('')
       : o.items.slice(0, 5).map(it => `<div style="font-size:12px;color:var(--text);margin-bottom:2px;">${it.nombre} ×${it.cantidad}</div>`).join('')
-    const btnStyle = todosListos || ie.length === 0
-      ? 'width:100%;margin-top:6px;'
-      : 'width:100%;margin-top:6px;opacity:.4;cursor:not-allowed;'
-    const btnDisabled = (todosListos || ie.length === 0) ? '' : 'disabled'
+    // Comer-aquí ya entregado espera "Cerrar mesa"; para llevar tiene su propio acento mientras está pendiente
+    const esperandoCierre = o.tipo_entrega === 'barra' && o.estado === 'entregada'
+    const cardStyle = esperandoCierre
+      ? 'background:var(--border);border:1.5px solid var(--primary);'
+      : (o.tipo_entrega === 'llevar' ? 'border:2px solid var(--primary);' : '')
+    const accionHtml = esperandoCierre
+      ? `<button class="btn-pri sm" style="width:100%;margin-top:6px;"
+          onclick="abrirModalCerrarMesa('${idVenta}')">🧾 Cerrar mesa</button>`
+      : (() => {
+          const btnStyle = todosListos || ie.length === 0
+            ? 'width:100%;margin-top:6px;'
+            : 'width:100%;margin-top:6px;opacity:.4;cursor:not-allowed;'
+          const btnDisabled = (todosListos || ie.length === 0) ? '' : 'disabled'
+          return `<button class="btn-pri sm" style="${btnStyle}" ${btnDisabled}
+            onclick="entregarOrden('${idVenta}')">✓ Entregar</button>`
+        })()
     return `
-      <div class="op-card" id="op-card-${idVenta}">
+      <div class="op-card" id="op-card-${idVenta}" style="${cardStyle}">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
           <span class="op-card-folio">${o.folio}</span>
           <span class="op-card-timer" id="op-timer-${idVenta}">${mm}:${ss}</span>
         </div>
         <div style="margin:4px 0;">${itemsHtml}</div>
-        <button class="btn-pri sm" style="${btnStyle}" ${btnDisabled}
-          onclick="entregarOrden('${idVenta}')">✓ Entregar</button>
+        ${accionHtml}
       </div>`
   }).join('')
 }
@@ -3839,7 +3862,9 @@ function suscribirOrdenes() {
       if (payload.eventType === 'INSERT') {
         if (row.estado === 'pendiente' || row.estado === 'lista') cargarOrdenesActivas()
       } else if (payload.eventType === 'UPDATE') {
-        if (row.estado === 'entregada' || row.estado === 'cancelada') {
+        // 'entregada' ya NO remueve la card aquí — comer-aquí espera a "Cerrar mesa"
+        // (ventas.estado='cerrada' es la señal real de remoción, ver suscripción de abajo)
+        if (row.estado === 'cancelada') {
           delete ordenesActivas[row.id_venta]
           actualizarPanelOrdenes()
         } else if (ordenesActivas[row.id_venta]) {
@@ -3850,6 +3875,15 @@ function suscribirOrdenes() {
         delete ordenesActivas[row.id_venta]
         actualizarPanelOrdenes()
       }
+    })
+    .on('postgres_changes', {
+      event: 'UPDATE', schema: 'public', table: 'ventas',
+      filter: `tenant_id=eq.${POS.TENANT_ID}`
+    }, payload => {
+      const row = payload.new
+      if (!row || row.estado === 'abierta') return
+      delete ordenesActivas[row.id]
+      actualizarPanelOrdenes()
     })
     .subscribe()
 
@@ -3883,7 +3917,20 @@ async function entregarOrden(idVenta) {
     .eq('id_venta', idVenta)
     .eq('tenant_id', POS.TENANT_ID)
   if (error) { alert('Error: ' + error.message); return }
-  delete ordenesActivas[idVenta]
+
+  if (ordenesActivas[idVenta]?.tipo_entrega === 'llevar') {
+    // Para llevar: cascada automática, la venta se cierra en la misma acción
+    const { error: e2 } = await window._db
+      .from('ventas')
+      .update({ estado: 'cerrada' })
+      .eq('id', idVenta)
+      .eq('tenant_id', POS.TENANT_ID)
+    if (e2) { alert('Error al cerrar venta: ' + e2.message); return }
+    delete ordenesActivas[idVenta]
+  } else if (ordenesActivas[idVenta]) {
+    // Comer-aquí: la mesa sigue abierta hasta "Cerrar mesa"
+    ordenesActivas[idVenta].estado = 'entregada'
+  }
   actualizarPanelOrdenes()
 }
 
@@ -3901,6 +3948,75 @@ async function marcarItemListoPOS(itemId, idVenta) {
   if (error) { console.error('marcarItemListoPOS:', error); return }
   // Actualizar local inmediatamente sin esperar Realtime
   ie.estado = 'listo'; ie.listo_en = ahora; ie.tiempo_real_seg = tiempoReal
+  actualizarPanelOrdenes()
+}
+
+// ── Cerrar mesa (comer-aquí) — clam/bolsa de última hora + cierre de venta ─────
+function abrirModalCerrarMesa(idVenta) {
+  cerrarMesaState = { idVenta, clam: false, bolsas: { chica: 0, grande: 0 } }
+  elegirClamMesa(false)
+  const elC = document.getElementById('cm-bolsa-chica-val')
+  const elG = document.getElementById('cm-bolsa-grande-val')
+  if (elC) elC.textContent = '0'
+  if (elG) elG.textContent = '0'
+  document.getElementById('modal-cerrar-mesa').style.display = 'flex'
+}
+
+function cerrarModalCerrarMesa() {
+  document.getElementById('modal-cerrar-mesa').style.display = 'none'
+}
+
+function elegirClamMesa(val) {
+  cerrarMesaState.clam = val
+  const btnSi = document.getElementById('cm-clam-si')
+  const btnNo = document.getElementById('cm-clam-no')
+  ;[[btnSi, true], [btnNo, false]].forEach(([btn, key]) => {
+    if (!btn) return
+    const sel = key === val
+    btn.style.background  = sel ? 'var(--primary)' : 'var(--bg)'
+    btn.style.borderColor = sel ? 'var(--primary)' : 'var(--border)'
+    btn.style.color       = sel ? 'var(--on-pri)'  : 'var(--text)'
+  })
+}
+
+function adjBolsaMesa(tamaño, delta) {
+  cerrarMesaState.bolsas[tamaño] = Math.max(0, (cerrarMesaState.bolsas[tamaño] || 0) + delta)
+  const el = document.getElementById('cm-bolsa-' + tamaño + '-val')
+  if (el) el.textContent = cerrarMesaState.bolsas[tamaño]
+}
+
+async function confirmarCierreMesa() {
+  const idVenta = cerrarMesaState.idVenta
+  if (!idVenta) return
+  const o = ordenesActivas[idVenta]
+  const items = []
+
+  if (cerrarMesaState.clam) {
+    // Items reales de la venta, no el carrito ni el catálogo en vivo — la venta ya se confirmó antes
+    const burgers = (o?.items || []).reduce((s, it) => s + (esBurgerOPollo(it.id_item) ? it.cantidad : 0), 0)
+    if (burgers > 0) items.push(itemDesechable(idVenta, 'DES-003', 'Clam', burgers))
+  }
+  if (cerrarMesaState.bolsas.chica > 0)  items.push(itemDesechable(idVenta, 'DES-005', 'Bolsa chica', cerrarMesaState.bolsas.chica))
+  if (cerrarMesaState.bolsas.grande > 0) items.push(itemDesechable(idVenta, 'DES-004', 'Bolsa grande', cerrarMesaState.bolsas.grande))
+
+  try {
+    if (items.length) {
+      const { error: e1 } = await window._db.from('venta_items').insert(items)
+      if (e1) throw e1
+    }
+    const { error: e2 } = await window._db
+      .from('ventas')
+      .update({ estado: 'cerrada' })
+      .eq('id', idVenta)
+      .eq('tenant_id', POS.TENANT_ID)
+    if (e2) throw e2
+  } catch (err) {
+    alert('Error al cerrar mesa: ' + (err.message || JSON.stringify(err)))
+    return
+  }
+
+  cerrarModalCerrarMesa()
+  delete ordenesActivas[idVenta]
   actualizarPanelOrdenes()
 }
 
@@ -4125,6 +4241,62 @@ function quitarDescuento() {
             background:var(--primary,#3D0014);color:#fff;font-size:14px;font-weight:700;
             cursor:pointer;opacity:0.5;">Aplicar</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal cerrar mesa -->
+<div id="modal-cerrar-mesa" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);
+  z-index:9999;align-items:center;justify-content:center;padding:20px;">
+  <div style="background:var(--surface,#fff);border-radius:20px;padding:28px 24px;
+    width:100%;max-width:340px;box-shadow:0 8px 32px rgba(0,0,0,0.2);">
+    <div style="font-size:1.3rem;font-weight:800;margin-bottom:16px;text-align:center;">🧾 Cerrar mesa</div>
+
+    <div class="sh-sec-ttl" style="margin-bottom:8px;">¿Se lo lleva para llevar?</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:18px;">
+      <button id="cm-clam-si" onclick="elegirClamMesa(true)"
+        style="padding:11px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;
+          border:1.5px solid var(--border);background:var(--bg);color:var(--text);">Sí</button>
+      <button id="cm-clam-no" onclick="elegirClamMesa(false)"
+        style="padding:11px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;
+          border:1.5px solid var(--primary);background:var(--primary);color:var(--on-pri);">No</button>
+    </div>
+
+    <div class="sh-sec-ttl" style="margin-bottom:8px;">Bolsas</div>
+    <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:20px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        <span style="font-size:14px;color:var(--text);font-weight:600;">Chica</span>
+        <div style="display:flex;align-items:center;gap:14px;">
+          <button onclick="adjBolsaMesa('chica',-1)" style="
+            border:1.5px solid var(--border);background:var(--bg);color:var(--text);
+            border-radius:8px;width:30px;height:30px;font-size:16px;cursor:pointer;line-height:1;">−</button>
+          <span id="cm-bolsa-chica-val" style="font-size:15px;font-weight:700;min-width:16px;text-align:center;">0</span>
+          <button onclick="adjBolsaMesa('chica',1)" style="
+            border:1.5px solid var(--border);background:var(--bg);color:var(--text);
+            border-radius:8px;width:30px;height:30px;font-size:16px;cursor:pointer;line-height:1;">+</button>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        <span style="font-size:14px;color:var(--text);font-weight:600;">Grande</span>
+        <div style="display:flex;align-items:center;gap:14px;">
+          <button onclick="adjBolsaMesa('grande',-1)" style="
+            border:1.5px solid var(--border);background:var(--bg);color:var(--text);
+            border-radius:8px;width:30px;height:30px;font-size:16px;cursor:pointer;line-height:1;">−</button>
+          <span id="cm-bolsa-grande-val" style="font-size:15px;font-weight:700;min-width:16px;text-align:center;">0</span>
+          <button onclick="adjBolsaMesa('grande',1)" style="
+            border:1.5px solid var(--border);background:var(--bg);color:var(--text);
+            border-radius:8px;width:30px;height:30px;font-size:16px;cursor:pointer;line-height:1;">+</button>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:10px;">
+      <button onclick="cerrarModalCerrarMesa()"
+        style="flex:1;padding:13px;border-radius:12px;border:1.5px solid var(--border);
+          background:transparent;font-size:14px;font-weight:600;cursor:pointer;">Cancelar</button>
+      <button onclick="confirmarCierreMesa()"
+        style="flex:2;padding:13px;border-radius:12px;border:none;
+          background:var(--primary);color:var(--on-pri);font-size:14px;font-weight:700;cursor:pointer;">Confirmar cierre</button>
     </div>
   </div>
 </div>
