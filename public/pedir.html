@@ -680,6 +680,8 @@ const ADEREZO_RECETA_A_PRODUCTO = {'RSA-004':'RSR-004','RSA-005':'RSR-008','RSA-
 const PORCION_ADEREZO_G = 45
 // Acompañamientos que requieren aderezo obligatorio incluido (RAC-009 trae su propio aderezo horneado)
 const ACOMP_REQUIERE_ADEREZO = ['RAC-004','RAC-006']
+// Acompañamientos que llevan vaso 12oz (RAC-008 Tenders Chicos no lleva vaso de papa)
+const SIDES_CON_VASO = ['RAC-004','RAC-005','RAC-006','RAC-007','RAC-009']
 
 // ── Estado global ─────────────────────────────────────────────────────────────
 let menuItems    = []  // ítems del menú (sin Extras/Salsas)
@@ -705,6 +707,8 @@ let propinaSubtipo = 'debito'
 let propinasMixtas = []   // [{tipo:'efectivo'|'debito'|'credito', monto:0}]
 let efectivoRecibido = 0  // captura de billetes entregados por el cliente
 let deliveryPlataforma = null // 'didi'|'rappi'|'uber' — plataforma elegida al pagar con Delivery
+let tipoEntregaVenta = 'barra' // 'barra'|'llevar'
+let bolsaSeleccionada = null   // { tamaño:'individual'|'grande', cantidad:N } o null
 
 // Plataformas de delivery disponibles como forma de pago (id: minúsculas, sin acentos)
 const PLATAFORMAS_DELIVERY = [
@@ -2293,6 +2297,58 @@ function mostrarResumen() {
         </button>
       </div>
       <div style="margin-bottom:16px;">
+        <div class="sh-sec-ttl" style="margin-bottom:8px;">Tipo de entrega</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          <button id="entrega-barra"
+            onclick="toggleTipoEntrega('barra')"
+            style="padding:13px 6px;border-radius:12px;font-size:13px;font-weight:600;cursor:pointer;
+              border:1.5px solid ${tipoEntregaVenta === 'barra' ? 'var(--primary)' : 'var(--border)'};
+              background:${tipoEntregaVenta === 'barra' ? 'var(--primary)' : 'var(--bg)'};
+              color:${tipoEntregaVenta === 'barra' ? 'var(--on-pri)' : 'var(--text)'};">
+            🍽️ Comer aquí
+          </button>
+          <button id="entrega-llevar"
+            onclick="toggleTipoEntrega('llevar')"
+            style="padding:13px 6px;border-radius:12px;font-size:13px;font-weight:600;cursor:pointer;
+              border:1.5px solid ${tipoEntregaVenta === 'llevar' ? 'var(--primary)' : 'var(--border)'};
+              background:${tipoEntregaVenta === 'llevar' ? 'var(--primary)' : 'var(--bg)'};
+              color:${tipoEntregaVenta === 'llevar' ? 'var(--on-pri)' : 'var(--text)'};">
+            🥡 Para llevar
+          </button>
+        </div>
+        <div id="bolsa-detalle" style="margin-top:10px;${tipoEntregaVenta === 'llevar' ? '' : 'display:none;'}">
+          <div class="sh-sec-ttl" style="margin-bottom:8px;">Tamaño de bolsa</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
+            <button id="bolsa-individual"
+              onclick="seleccionarTamañoBolsa('individual')"
+              style="padding:10px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;
+                border:1.5px solid ${bolsaSeleccionada?.tamaño === 'individual' ? 'var(--primary)' : 'var(--border)'};
+                background:${bolsaSeleccionada?.tamaño === 'individual' ? 'var(--primary)' : 'var(--bg)'};
+                color:${bolsaSeleccionada?.tamaño === 'individual' ? 'var(--on-pri)' : 'var(--text)'};">
+              Individual
+            </button>
+            <button id="bolsa-grande"
+              onclick="seleccionarTamañoBolsa('grande')"
+              style="padding:10px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;
+                border:1.5px solid ${bolsaSeleccionada?.tamaño === 'grande' ? 'var(--primary)' : 'var(--border)'};
+                background:${bolsaSeleccionada?.tamaño === 'grande' ? 'var(--primary)' : 'var(--bg)'};
+                color:${bolsaSeleccionada?.tamaño === 'grande' ? 'var(--on-pri)' : 'var(--text)'};">
+              Grande
+            </button>
+          </div>
+          <div style="display:flex;align-items:center;gap:14px;">
+            <span style="font-size:13px;color:var(--muted);">Cantidad</span>
+            <button onclick="adjBolsaCantidad(-1)" style="
+              border:1.5px solid var(--border);background:var(--bg);color:var(--text);
+              border-radius:8px;width:30px;height:30px;font-size:16px;cursor:pointer;line-height:1;">−</button>
+            <span id="bolsa-cantidad-val" style="font-size:15px;font-weight:700;min-width:16px;text-align:center;">${bolsaSeleccionada?.cantidad || 1}</span>
+            <button onclick="adjBolsaCantidad(1)" style="
+              border:1.5px solid var(--border);background:var(--bg);color:var(--text);
+              border-radius:8px;width:30px;height:30px;font-size:16px;cursor:pointer;line-height:1;">+</button>
+          </div>
+        </div>
+      </div>
+      <div style="margin-bottom:16px;">
         <div class="sh-sec-ttl" style="margin-bottom:8px;">Método de pago</div>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;">
           <button id="pago-efectivo"
@@ -2614,6 +2670,42 @@ function _actualizarTotalPropinaMixta() {
   _actualizarTotalConPropina()
 }
 
+function toggleTipoEntrega(tipo) {
+  tipoEntregaVenta = tipo
+  const btnBarra  = document.getElementById('entrega-barra')
+  const btnLlevar = document.getElementById('entrega-llevar')
+  ;[[btnBarra, 'barra'], [btnLlevar, 'llevar']].forEach(([btn, key]) => {
+    if (!btn) return
+    const sel = key === tipo
+    btn.style.background  = sel ? 'var(--primary)' : 'var(--bg)'
+    btn.style.borderColor = sel ? 'var(--primary)' : 'var(--border)'
+    btn.style.color       = sel ? 'var(--on-pri)'  : 'var(--text)'
+  })
+  const detalle = document.getElementById('bolsa-detalle')
+  if (detalle) detalle.style.display = tipo === 'llevar' ? '' : 'none'
+  if (tipo === 'barra') bolsaSeleccionada = null
+}
+
+function seleccionarTamañoBolsa(tamaño) {
+  bolsaSeleccionada = { tamaño, cantidad: bolsaSeleccionada?.cantidad || 1 }
+  const btnInd = document.getElementById('bolsa-individual')
+  const btnGra = document.getElementById('bolsa-grande')
+  ;[[btnInd, 'individual'], [btnGra, 'grande']].forEach(([btn, key]) => {
+    if (!btn) return
+    const sel = key === tamaño
+    btn.style.background  = sel ? 'var(--primary)' : 'var(--bg)'
+    btn.style.borderColor = sel ? 'var(--primary)' : 'var(--border)'
+    btn.style.color       = sel ? 'var(--on-pri)'  : 'var(--text)'
+  })
+}
+
+function adjBolsaCantidad(delta) {
+  if (!bolsaSeleccionada) bolsaSeleccionada = { tamaño: null, cantidad: 1 }
+  bolsaSeleccionada.cantidad = Math.max(1, (bolsaSeleccionada.cantidad || 1) + delta)
+  const el = document.getElementById('bolsa-cantidad-val')
+  if (el) el.textContent = bolsaSeleccionada.cantidad
+}
+
 function elegirMetodoPago(metodo) {
   metodoPago = metodo
   efectivoRecibido = 0
@@ -2884,25 +2976,48 @@ function volverAlCarrito() {
   setTimeout(abrirCart, 50)
 }
 
-// venta_item de una porción real de aderezo (45g) — nunca la receta de tanda completa (RSA-XXX)
+// venta_items de una porción real de aderezo (45g) + su vaso souflé y tapa — nunca la receta de tanda completa (RSA-XXX)
 function itemAderezo(id_venta, idOriginal, nombre, porciones, cantidadPedido, precioUnitario, notas, modificadores) {
+  const cantidadEnvase = porciones * cantidadPedido
+  return [
+    {
+      tenant_id:       POS.TENANT_ID,
+      id_venta,
+      id_item:         ADEREZO_RECETA_A_PRODUCTO[idOriginal] || idOriginal,
+      tipo_item:       'producto',
+      nombre,
+      cantidad:        PORCION_ADEREZO_G * porciones * cantidadPedido,
+      precio_unitario: precioUnitario,
+      importe:         precioUnitario * porciones * cantidadPedido,
+      modificadores,
+      notas,
+      creado_por:      'operador'
+    },
+    itemDesechable(id_venta, 'DES-008', 'Vaso souflé 2oz', cantidadEnvase),
+    itemDesechable(id_venta, 'DES-009', 'Tapa souflé', cantidadEnvase)
+  ]
+}
+
+// venta_item de un desechable de consumo (no se cobra aparte)
+function itemDesechable(id_venta, id_producto, nombre, cantidad) {
   return {
     tenant_id:       POS.TENANT_ID,
     id_venta,
-    id_item:         ADEREZO_RECETA_A_PRODUCTO[idOriginal] || idOriginal,
+    id_item:         id_producto,
     tipo_item:       'producto',
     nombre,
-    cantidad:        PORCION_ADEREZO_G * porciones * cantidadPedido,
-    precio_unitario: precioUnitario,
-    importe:         precioUnitario * porciones * cantidadPedido,
-    modificadores,
-    notas,
+    cantidad,
+    precio_unitario: 0,
+    importe:         0,
+    modificadores:   {},
+    notas:           'desechable',
     creado_por:      'operador'
   }
 }
 
 async function confirmarOrden() {
   if (metodoPago === 'delivery' && !deliveryPlataforma) return
+  if (tipoEntregaVenta === 'llevar' && !bolsaSeleccionada?.tamaño) { alert('Selecciona el tamaño de bolsa'); return }
 
   const subtotal   = carrito.reduce((s, i) => s + i.importe, 0)
   const descMonto  = metodoPago === 'delivery' ? 0 : (cortesiaDescPct > 0 ? subtotal * cortesiaDescPct / 100 : 0)
@@ -2958,7 +3073,7 @@ async function confirmarOrden() {
         creado_por:        'operador',
         cliente_nombre:    'Cliente',
         cliente_celular:   '0000000000',
-        tipo_entrega:      'barra',
+        tipo_entrega:      tipoEntregaVenta,
         direccion_entrega: null,
         entrega_lat:       null,
         entrega_lng:       null,
@@ -2983,8 +3098,19 @@ async function confirmarOrden() {
         notas:           it.mods.nota || null
       })
       if (it.mods.aderezoIncluido?.id) {
-        items.push(itemAderezo(venta.id, it.mods.aderezoIncluido.id, it.mods.aderezoIncluido.nombre, 1, it.cantidad, 0, 'aderezo incluido', { incluido: true }))
+        items.push(...itemAderezo(venta.id, it.mods.aderezoIncluido.id, it.mods.aderezoIncluido.nombre, 1, it.cantidad, 0, 'aderezo incluido', { incluido: true }))
       }
+
+      // Desechables de consumo real — liner por burger/pollo, vaso 12oz por papas/camote (sueltas o en combo)
+      const catItem = catalogoAll.find(x => x.id_receta === it.id_receta)?.categoria
+      if (catItem === 'Hamburguesas' || catItem === 'Pollo') {
+        items.push(itemDesechable(venta.id, 'DES-006', 'Liner', it.cantidad))
+        if (tipoEntregaVenta === 'llevar') items.push(itemDesechable(venta.id, 'DES-003', 'Clam', it.cantidad))
+      }
+      if (SIDES_CON_VASO.includes(it.id_receta) || it.mods.combo?.activo || it.mods.comboPollo?.activo || it.mods.comboPromoRes?.activo) {
+        items.push(itemDesechable(venta.id, 'DES-010', 'Vaso 12oz', it.cantidad))
+      }
+
       if (it.mods.combo?.activo) {
         items.push({
           tenant_id:       POS.TENANT_ID,
@@ -3015,7 +3141,7 @@ async function confirmarOrden() {
           })
         }
         if (it.mods.combo.aderezo_id) {
-          items.push(itemAderezo(venta.id, it.mods.combo.aderezo_id, it.mods.combo.aderezo_nombre, 1, it.cantidad, 0, 'aderezo incluido', { es_componente_combo: true, incluido: true }))
+          items.push(...itemAderezo(venta.id, it.mods.combo.aderezo_id, it.mods.combo.aderezo_nombre, 1, it.cantidad, 0, 'aderezo incluido', { es_componente_combo: true, incluido: true }))
         }
         if (it.mods.combo.bebida_id) {
           items.push({
@@ -3079,7 +3205,7 @@ async function confirmarOrden() {
           creado_por:      'operador'
         })
         const aderezoPrecio = comboPreciosMap[it.mods.comboPollo.aderezo_id] || 0
-        items.push(itemAderezo(venta.id, it.mods.comboPollo.aderezo_id, it.mods.comboPollo.aderezo_nombre, 1, it.cantidad, aderezoPrecio, 'componente combo', { es_componente_combo: true }))
+        items.push(...itemAderezo(venta.id, it.mods.comboPollo.aderezo_id, it.mods.comboPollo.aderezo_nombre, 1, it.cantidad, aderezoPrecio, 'componente combo', { es_componente_combo: true }))
         const bebidaPrecioPollo = precioBebidaCombo()
         items.push({
           tenant_id:       POS.TENANT_ID,
@@ -3127,7 +3253,7 @@ async function confirmarOrden() {
           creado_por:      'operador'
         })
         if (it.mods.comboPromoRes.aderezo_id) {
-          items.push(itemAderezo(venta.id, it.mods.comboPromoRes.aderezo_id, it.mods.comboPromoRes.aderezo_nombre, 1, it.cantidad, 0, 'aderezo incluido', { es_componente_combo: true, incluido: true }))
+          items.push(...itemAderezo(venta.id, it.mods.comboPromoRes.aderezo_id, it.mods.comboPromoRes.aderezo_nombre, 1, it.cantidad, 0, 'aderezo incluido', { es_componente_combo: true, incluido: true }))
         }
         const bebidaPrecioRes = precioBebidaCombo()
         items.push({
@@ -3148,7 +3274,7 @@ async function confirmarOrden() {
       // Extras seleccionados (RSA-004 Salsa Furia vive aquí mezclada con extras reales — se vende como porción)
       ;(it.mods.extras || []).filter(ex => ex.qty > 0).forEach(ex => {
         if (ADEREZO_RECETA_A_PRODUCTO[ex.id]) {
-          items.push(itemAderezo(venta.id, ex.id, ex.nombre, ex.qty, it.cantidad, ex.precio || 0, 'extra', { es_extra: true }))
+          items.push(...itemAderezo(venta.id, ex.id, ex.nombre, ex.qty, it.cantidad, ex.precio || 0, 'extra', { es_extra: true }))
           return
         }
         items.push({
@@ -3168,7 +3294,7 @@ async function confirmarOrden() {
 
       // Salsas seleccionadas (aderezos de la sección "Aderezos — $15 c/u") — se venden como porción, no como tanda
       ;(it.mods.salsas || []).forEach(sa => {
-        items.push(itemAderezo(venta.id, sa.id, sa.nombre, sa.cantidad || 1, it.cantidad, sa.precio || 0, 'salsa', { es_salsa: true }))
+        items.push(...itemAderezo(venta.id, sa.id, sa.nombre, sa.cantidad || 1, it.cantidad, sa.precio || 0, 'salsa', { es_salsa: true }))
       })
 
       // Ingredientes con qty > 1 (la unidad base ya está en la receta)
@@ -3188,6 +3314,12 @@ async function confirmarOrden() {
         })
       })
     })
+
+    if (tipoEntregaVenta === 'llevar' && bolsaSeleccionada?.tamaño) {
+      const idBolsa     = bolsaSeleccionada.tamaño === 'grande' ? 'DES-004' : 'DES-005'
+      const nombreBolsa = bolsaSeleccionada.tamaño === 'grande' ? 'Bolsa grande' : 'Bolsa individual'
+      items.push(itemDesechable(venta.id, idBolsa, nombreBolsa, bolsaSeleccionada.cantidad))
+    }
 
     const { data: ventaItemsInsertados, error: e2 } = await window._db.from('venta_items').insert(items).select()
     if (e2) throw e2
@@ -3291,6 +3423,8 @@ function cerrarOrdenExitosa(folio) {
   propinaSubtipo = 'debito'
   propinasMixtas = []
   efectivoRecibido = 0
+  tipoEntregaVenta = 'barra'
+  bolsaSeleccionada = null
   updateCartBar()
   setTimeout(() => goPage('res'), 2000)
 }
