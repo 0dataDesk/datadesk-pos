@@ -805,7 +805,7 @@ async function cargarMenu() {
     modExtras = all.filter(r => r.categoria === 'Extras' && r.id_receta !== 'RSA-004')
     modSalsas = all.filter(r => r.categoria === 'Aderezos')
     menuItems = all.filter(r => MENU_CATS.includes(r.categoria) && r.tipo_receta !== 'receta')
-    const ADEREZOS_COMBO_POLLO = ['RSA-005','RSA-006','RSA-007','RSA-008']
+    const ADEREZOS_COMBO_POLLO = ['RSA-004','RSA-005','RSA-006','RSA-007','RSA-008']
     aderezosCombo = all.filter(r => ADEREZOS_COMBO_POLLO.includes(r.id_receta))
     menuDataReady = true
 
@@ -1497,66 +1497,6 @@ function buildCzBody(type, scroll) {
                   background:${sel ? 'var(--primary)' : 'var(--bg)'};
                   color:${sel ? 'var(--on-pri)' : 'var(--text)'}"
                 id="beb-promores-chip-${b.id_producto}">
-                ${nombre}
-              </div>`
-            }).join('')}
-          </div>
-        </div>
-      </div>`)
-  } else if (type === 'burger') {
-    const comboOn = cz.combo.activo
-    scroll.insertAdjacentHTML('beforeend', `
-      <div class="sh-sec">
-        <div class="sh-sec-ttl">Agregar Combo — +$60</div>
-        <div class="cz-row ${comboOn ? 'on' : 'off'}" id="combo-row"
-             style="cursor:pointer;" onclick="toggleCombo()">
-          <div class="cz-row-body">
-            <span class="cz-row-name">Combo Papas + Bebida</span>
-            <span class="cz-row-price">+$60</span>
-          </div>
-        </div>
-        <div id="combo-bebidas-wrap" style="margin-top:10px;${comboOn ? '' : 'display:none;'}">
-          <div class="sh-sec-ttl" style="margin-bottom:8px;">Elige tu acompañamiento</div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;">
-            ${[{id:'RAC-004',emoji:'🍟'},{id:'RAC-006',emoji:'🍠'}].map(a => {
-              const item = menuItems.find(x => x.id_receta === a.id)
-              const nombre = item?.nombre || a.id
-              const sel = cz.combo.acompañamiento_id === a.id
-              return `<div onclick="seleccionarAcompañamientoCombo('${a.id}','${nombre.replace(/'/g, "\\'")}')"
-                style="padding:10px 8px;border-radius:12px;text-align:center;cursor:pointer;font-size:13px;font-weight:600;
-                  border:1.5px solid ${sel ? 'var(--primary)' : 'var(--border)'};
-                  background:${sel ? 'var(--primary)' : 'var(--bg)'};
-                  color:${sel ? 'var(--on-pri)' : 'var(--text)'}"
-                id="aco-chip-${a.id}">
-                ${a.emoji} ${nombre}
-              </div>`
-            }).join('')}
-          </div>
-          <div class="sh-sec-ttl" style="margin-bottom:8px;">Elige tu aderezo</div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;">
-            ${aderezosCombo.map(a => {
-              const sel = cz.combo.aderezo_id === a.id_receta
-              return `<div onclick="seleccionarAderezoCombo('${a.id_receta}','${a.nombre.replace(/'/g, "\\'")}')"
-                style="padding:10px 8px;border-radius:12px;text-align:center;cursor:pointer;font-size:13px;font-weight:600;
-                  border:1.5px solid ${sel ? 'var(--primary)' : 'var(--border)'};
-                  background:${sel ? 'var(--primary)' : 'var(--bg)'};
-                  color:${sel ? 'var(--on-pri)' : 'var(--text)'}"
-                id="ader-combo-chip-${a.id_receta}">
-                ${a.nombre}
-              </div>`
-            }).join('')}
-          </div>
-          <div class="sh-sec-ttl" style="margin-bottom:8px;">Elige tu bebida</div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-            ${bebidasCombo.map(b => {
-              const nombre = b.nombre_corto || b.id_producto
-              const sel = cz.combo.bebida_id === b.id_producto
-              return `<div onclick="seleccionarBebidaCombo('${b.id_producto}','${nombre.replace(/'/g, "\\'")}')"
-                style="padding:10px 8px;border-radius:12px;text-align:center;cursor:pointer;font-size:13px;font-weight:600;
-                  border:1.5px solid ${sel ? 'var(--primary)' : 'var(--border)'};
-                  background:${sel ? 'var(--primary)' : 'var(--bg)'};
-                  color:${sel ? 'var(--on-pri)' : 'var(--text)'}"
-                id="beb-chip-${b.id_producto}">
                 ${nombre}
               </div>`
             }).join('')}
