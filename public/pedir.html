@@ -708,7 +708,7 @@ let propinasMixtas = []   // [{tipo:'efectivo'|'debito'|'credito', monto:0}]
 let efectivoRecibido = 0  // captura de billetes entregados por el cliente
 let deliveryPlataforma = null // 'didi'|'rappi'|'uber' — plataforma elegida al pagar con Delivery
 let tipoEntregaVenta = 'barra' // 'barra'|'llevar'
-let bolsaSeleccionada = null   // { tamaño:'individual'|'grande', cantidad:N } o null
+let bolsasSeleccionadas = { chica: 0, grande: 0 } // contadores independientes por tamaño, llevar
 
 // Plataformas de delivery disponibles como forma de pago (id: minúsculas, sin acentos)
 const PLATAFORMAS_DELIVERY = [
@@ -2317,34 +2317,32 @@ function mostrarResumen() {
           </button>
         </div>
         <div id="bolsa-detalle" style="margin-top:10px;${tipoEntregaVenta === 'llevar' ? '' : 'display:none;'}">
-          <div class="sh-sec-ttl" style="margin-bottom:8px;">Tamaño de bolsa</div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
-            <button id="bolsa-individual"
-              onclick="seleccionarTamañoBolsa('individual')"
-              style="padding:10px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;
-                border:1.5px solid ${bolsaSeleccionada?.tamaño === 'individual' ? 'var(--primary)' : 'var(--border)'};
-                background:${bolsaSeleccionada?.tamaño === 'individual' ? 'var(--primary)' : 'var(--bg)'};
-                color:${bolsaSeleccionada?.tamaño === 'individual' ? 'var(--on-pri)' : 'var(--text)'};">
-              Individual
-            </button>
-            <button id="bolsa-grande"
-              onclick="seleccionarTamañoBolsa('grande')"
-              style="padding:10px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;
-                border:1.5px solid ${bolsaSeleccionada?.tamaño === 'grande' ? 'var(--primary)' : 'var(--border)'};
-                background:${bolsaSeleccionada?.tamaño === 'grande' ? 'var(--primary)' : 'var(--bg)'};
-                color:${bolsaSeleccionada?.tamaño === 'grande' ? 'var(--on-pri)' : 'var(--text)'};">
-              Grande
-            </button>
-          </div>
-          <div style="display:flex;align-items:center;gap:14px;">
-            <span style="font-size:13px;color:var(--muted);">Cantidad</span>
-            <button onclick="adjBolsaCantidad(-1)" style="
-              border:1.5px solid var(--border);background:var(--bg);color:var(--text);
-              border-radius:8px;width:30px;height:30px;font-size:16px;cursor:pointer;line-height:1;">−</button>
-            <span id="bolsa-cantidad-val" style="font-size:15px;font-weight:700;min-width:16px;text-align:center;">${bolsaSeleccionada?.cantidad || 1}</span>
-            <button onclick="adjBolsaCantidad(1)" style="
-              border:1.5px solid var(--border);background:var(--bg);color:var(--text);
-              border-radius:8px;width:30px;height:30px;font-size:16px;cursor:pointer;line-height:1;">+</button>
+          <div class="sh-sec-ttl" style="margin-bottom:8px;">Bolsas</div>
+          <div style="display:flex;flex-direction:column;gap:10px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;">
+              <span style="font-size:14px;color:var(--text);font-weight:600;">Chica</span>
+              <div style="display:flex;align-items:center;gap:14px;">
+                <button onclick="adjBolsa('chica',-1)" style="
+                  border:1.5px solid var(--border);background:var(--bg);color:var(--text);
+                  border-radius:8px;width:30px;height:30px;font-size:16px;cursor:pointer;line-height:1;">−</button>
+                <span id="bolsa-chica-val" style="font-size:15px;font-weight:700;min-width:16px;text-align:center;">${bolsasSeleccionadas.chica}</span>
+                <button onclick="adjBolsa('chica',1)" style="
+                  border:1.5px solid var(--border);background:var(--bg);color:var(--text);
+                  border-radius:8px;width:30px;height:30px;font-size:16px;cursor:pointer;line-height:1;">+</button>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;">
+              <span style="font-size:14px;color:var(--text);font-weight:600;">Grande</span>
+              <div style="display:flex;align-items:center;gap:14px;">
+                <button onclick="adjBolsa('grande',-1)" style="
+                  border:1.5px solid var(--border);background:var(--bg);color:var(--text);
+                  border-radius:8px;width:30px;height:30px;font-size:16px;cursor:pointer;line-height:1;">−</button>
+                <span id="bolsa-grande-val" style="font-size:15px;font-weight:700;min-width:16px;text-align:center;">${bolsasSeleccionadas.grande}</span>
+                <button onclick="adjBolsa('grande',1)" style="
+                  border:1.5px solid var(--border);background:var(--bg);color:var(--text);
+                  border-radius:8px;width:30px;height:30px;font-size:16px;cursor:pointer;line-height:1;">+</button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -2670,6 +2668,34 @@ function _actualizarTotalPropinaMixta() {
   _actualizarTotalConPropina()
 }
 
+// ¿El id_receta es una hamburguesa o pollo? (misma clasificación que usa el liner en confirmarOrden)
+function esBurgerOPollo(id_receta) {
+  const cat = catalogoAll.find(x => x.id_receta === id_receta)?.categoria
+  return cat === 'Hamburguesas' || cat === 'Pollo'
+}
+
+function contarBurgersCarrito() {
+  return carrito.reduce((s, it) => s + (esBurgerOPollo(it.id_receta) ? it.cantidad : 0), 0)
+}
+
+// Sugerido: minimiza la cantidad total de bolsas (grande cubre hasta 4 cajas, chica hasta 1)
+function sugerirBolsas(n) {
+  if (n <= 0) return { chica: 0, grande: 0 }
+  let grande = Math.floor(n / 4)
+  const resto = n % 4
+  let chica = 0
+  if (resto === 1) chica = 1
+  else if (resto >= 2) grande += 1
+  return { chica, grande }
+}
+
+function renderBolsasVal() {
+  const elC = document.getElementById('bolsa-chica-val')
+  const elG = document.getElementById('bolsa-grande-val')
+  if (elC) elC.textContent = bolsasSeleccionadas.chica
+  if (elG) elG.textContent = bolsasSeleccionadas.grande
+}
+
 function toggleTipoEntrega(tipo) {
   tipoEntregaVenta = tipo
   const btnBarra  = document.getElementById('entrega-barra')
@@ -2683,27 +2709,17 @@ function toggleTipoEntrega(tipo) {
   })
   const detalle = document.getElementById('bolsa-detalle')
   if (detalle) detalle.style.display = tipo === 'llevar' ? '' : 'none'
-  if (tipo === 'barra') bolsaSeleccionada = null
+  if (tipo === 'barra') {
+    bolsasSeleccionadas = { chica: 0, grande: 0 }
+  } else {
+    bolsasSeleccionadas = sugerirBolsas(contarBurgersCarrito())
+    renderBolsasVal()
+  }
 }
 
-function seleccionarTamañoBolsa(tamaño) {
-  bolsaSeleccionada = { tamaño, cantidad: bolsaSeleccionada?.cantidad || 1 }
-  const btnInd = document.getElementById('bolsa-individual')
-  const btnGra = document.getElementById('bolsa-grande')
-  ;[[btnInd, 'individual'], [btnGra, 'grande']].forEach(([btn, key]) => {
-    if (!btn) return
-    const sel = key === tamaño
-    btn.style.background  = sel ? 'var(--primary)' : 'var(--bg)'
-    btn.style.borderColor = sel ? 'var(--primary)' : 'var(--border)'
-    btn.style.color       = sel ? 'var(--on-pri)'  : 'var(--text)'
-  })
-}
-
-function adjBolsaCantidad(delta) {
-  if (!bolsaSeleccionada) bolsaSeleccionada = { tamaño: null, cantidad: 1 }
-  bolsaSeleccionada.cantidad = Math.max(1, (bolsaSeleccionada.cantidad || 1) + delta)
-  const el = document.getElementById('bolsa-cantidad-val')
-  if (el) el.textContent = bolsaSeleccionada.cantidad
+function adjBolsa(tamaño, delta) {
+  bolsasSeleccionadas[tamaño] = Math.max(0, (bolsasSeleccionadas[tamaño] || 0) + delta)
+  renderBolsasVal()
 }
 
 function elegirMetodoPago(metodo) {
@@ -3017,7 +3033,7 @@ function itemDesechable(id_venta, id_producto, nombre, cantidad) {
 
 async function confirmarOrden() {
   if (metodoPago === 'delivery' && !deliveryPlataforma) return
-  if (tipoEntregaVenta === 'llevar' && !bolsaSeleccionada?.tamaño) { alert('Selecciona el tamaño de bolsa'); return }
+  if (tipoEntregaVenta === 'llevar' && bolsasSeleccionadas.chica === 0 && bolsasSeleccionadas.grande === 0) { alert('Selecciona al menos una bolsa'); return }
 
   const subtotal   = carrito.reduce((s, i) => s + i.importe, 0)
   const descMonto  = metodoPago === 'delivery' ? 0 : (cortesiaDescPct > 0 ? subtotal * cortesiaDescPct / 100 : 0)
@@ -3102,8 +3118,7 @@ async function confirmarOrden() {
       }
 
       // Desechables de consumo real — liner por burger/pollo, vaso 12oz por papas/camote (sueltas o en combo)
-      const catItem = catalogoAll.find(x => x.id_receta === it.id_receta)?.categoria
-      if (catItem === 'Hamburguesas' || catItem === 'Pollo') {
+      if (esBurgerOPollo(it.id_receta)) {
         items.push(itemDesechable(venta.id, 'DES-006', 'Liner', it.cantidad))
         if (tipoEntregaVenta === 'llevar') items.push(itemDesechable(venta.id, 'DES-003', 'Clam', it.cantidad))
       }
@@ -3315,10 +3330,9 @@ async function confirmarOrden() {
       })
     })
 
-    if (tipoEntregaVenta === 'llevar' && bolsaSeleccionada?.tamaño) {
-      const idBolsa     = bolsaSeleccionada.tamaño === 'grande' ? 'DES-004' : 'DES-005'
-      const nombreBolsa = bolsaSeleccionada.tamaño === 'grande' ? 'Bolsa grande' : 'Bolsa individual'
-      items.push(itemDesechable(venta.id, idBolsa, nombreBolsa, bolsaSeleccionada.cantidad))
+    if (tipoEntregaVenta === 'llevar') {
+      if (bolsasSeleccionadas.chica > 0)  items.push(itemDesechable(venta.id, 'DES-005', 'Bolsa chica', bolsasSeleccionadas.chica))
+      if (bolsasSeleccionadas.grande > 0) items.push(itemDesechable(venta.id, 'DES-004', 'Bolsa grande', bolsasSeleccionadas.grande))
     }
 
     const { data: ventaItemsInsertados, error: e2 } = await window._db.from('venta_items').insert(items).select()
@@ -3424,7 +3438,7 @@ function cerrarOrdenExitosa(folio) {
   propinasMixtas = []
   efectivoRecibido = 0
   tipoEntregaVenta = 'barra'
-  bolsaSeleccionada = null
+  bolsasSeleccionadas = { chica: 0, grande: 0 }
   updateCartBar()
   setTimeout(() => goPage('res'), 2000)
 }
