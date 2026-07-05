@@ -3636,7 +3636,12 @@ function actualizarPanelOrdenes() {
           const dot = listo
             ? '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#3A8C3E;margin-right:5px;flex-shrink:0;"></span>'
             : '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#c8892a;margin-right:5px;flex-shrink:0;"></span>'
-          return `<div style="display:flex;align-items:center;font-size:12px;color:var(--text);margin-bottom:2px;">${dot}${it.nombre_platillo}</div>`
+          const btnListo = listo
+            ? ''
+            : `<button onclick="marcarItemListoPOS('${it.id}','${idVenta}')" style="
+                border:none;background:var(--primary);color:#fff;border-radius:6px;
+                padding:1px 7px;font-size:11px;cursor:pointer;line-height:1.6;margin-left:6px;flex-shrink:0;">✓</button>`
+          return `<div style="display:flex;align-items:center;font-size:12px;color:var(--text);margin-bottom:2px;">${dot}<span style="flex:1;">${it.nombre_platillo}</span>${btnListo}</div>`
         }).join('')
       : o.items.slice(0, 5).map(it => `<div style="font-size:12px;color:var(--text);margin-bottom:2px;">${it.nombre} ×${it.cantidad}</div>`).join('')
     const btnStyle = todosListos || ie.length === 0
@@ -3731,6 +3736,23 @@ async function entregarOrden(idVenta) {
     .eq('tenant_id', POS.TENANT_ID)
   if (error) { alert('Error: ' + error.message); return }
   delete ordenesActivas[idVenta]
+  actualizarPanelOrdenes()
+}
+
+async function marcarItemListoPOS(itemId, idVenta) {
+  const o  = ordenesActivas[idVenta]
+  const ie = o?.itemsEstado?.find(i => i.id === itemId)
+  if (!ie) return
+  const ahora      = new Date().toISOString()
+  const tiempoReal = Math.floor((Date.now() - new Date(ie.creada_en).getTime()) / 1000)
+  const { error } = await window._db
+    .from('orden_items_estado')
+    .update({ estado: 'listo', listo_en: ahora, tiempo_real_seg: tiempoReal })
+    .eq('id', itemId)
+    .eq('tenant_id', POS.TENANT_ID)
+  if (error) { console.error('marcarItemListoPOS:', error); return }
+  // Actualizar local inmediatamente sin esperar Realtime
+  ie.estado = 'listo'; ie.listo_en = ahora; ie.tiempo_real_seg = tiempoReal
   actualizarPanelOrdenes()
 }
 

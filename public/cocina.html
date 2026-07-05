@@ -114,7 +114,6 @@ const COLOR_DOT = {
 function buildCardHTML(orden, items, itemsEstado) {
   const col  = colorOrden(itemsEstado)
   const tipo = orden.tipo_entrega || ''
-  const todosListos = itemsEstado && itemsEstado.length > 0 && itemsEstado.every(i => i.estado === 'listo')
 
   let itsHTML = ''
   if (itemsEstado && itemsEstado.length > 0) {
@@ -122,15 +121,9 @@ function buildCardHTML(orden, items, itemsEstado) {
       const c    = colorPlatillo(ie)
       const dot  = `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;flex-shrink:0;${COLOR_DOT[c]}"></span>`
       const listo = ie.estado === 'listo'
-      const btnCheck = listo
-        ? `<span style="font-size:13px;color:#9E9E9E;">✓</span>`
-        : `<button onclick="marcarItemListo('${ie.id}','${orden.id_venta}')" style="
-            border:none;background:var(--c-accent,#8B1A2E);color:#fff;border-radius:6px;
-            padding:2px 8px;font-size:12px;cursor:pointer;line-height:1.6;">✓</button>`
       itsHTML += `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
         ${dot}
         <span style="flex:1;font-size:13px;${listo ? 'text-decoration:line-through;opacity:.5;' : ''}">${ie.nombre_platillo}</span>
-        ${btnCheck}
       </div>`
     })
   } else {
@@ -153,24 +146,13 @@ function buildCardHTML(orden, items, itemsEstado) {
     })
   }
 
-  const btnEntregar = todosListos || !itemsEstado || itemsEstado.length === 0
-    ? `<button onclick="entregarOrden('${orden.id_venta}')" style="
-        width:100%;margin-top:8px;padding:8px;border:none;border-radius:8px;
-        background:var(--c-accent,#8B1A2E);color:#fff;font-weight:700;font-size:13px;cursor:pointer;">
-        ✓ Entregar orden</button>`
-    : `<button disabled style="
-        width:100%;margin-top:8px;padding:8px;border:none;border-radius:8px;
-        background:#333;color:#666;font-weight:700;font-size:13px;cursor:not-allowed;">
-        Entregar orden</button>`
-
   return `
     <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:4px;">
       <span class="kds-folio">${orden.folio || orden.id_venta}</span>
       <span class="kds-timer" id="timer-${orden.id_venta}">${timerStr(orden.confirmada_en)}</span>
     </div>
     <div class="kds-tipo">${tipo}</div>
-    <div class="kds-items" style="margin-top:6px;">${itsHTML}</div>
-    ${btnEntregar}`
+    <div class="kds-items" style="margin-top:6px;">${itsHTML}</div>`
 }
 
 function actualizarCard(idVenta) {
@@ -214,38 +196,6 @@ function addCementerio(orden) {
     div.innerHTML = `<span class="kds-dead-folio">${o.folio || o.id_venta}</span><br><span>${o.estado}</span>`
     cont.appendChild(div)
   })
-}
-
-// ── Acción: marcar platillo listo ─────────────────────────────────────────────
-async function marcarItemListo(itemId, idVenta) {
-  const o   = ordenes[idVenta]
-  const ie  = o?.itemsEstado?.find(i => i.id === itemId)
-  if (!ie) return
-  const ahora = new Date().toISOString()
-  const tiempoReal = Math.floor((Date.now() - new Date(ie.creada_en).getTime()) / 1000)
-  const { error } = await window._db.from('orden_items_estado').update({
-    estado: 'listo', listo_en: ahora, tiempo_real_seg: tiempoReal
-  }).eq('id', itemId)
-  if (error) { console.error('marcarItemListo:', error); return }
-  // Actualizar local inmediatamente sin esperar Realtime
-  ie.estado = 'listo'; ie.listo_en = ahora; ie.tiempo_real_seg = tiempoReal
-  actualizarCard(idVenta)
-}
-
-// ── Acción: entregar orden ────────────────────────────────────────────────────
-async function entregarOrden(idVenta) {
-  const { error } = await window._db.from('ordenes_cocina')
-    .update({ estado: 'entregada', entregada_en: new Date().toISOString() })
-    .eq('id_venta', idVenta).eq('tenant_id', POS.TENANT_ID)
-  if (error) { console.error('entregarOrden:', error); return }
-  const o = ordenes[idVenta]
-  if (o) {
-    addCementerio({ ...o.orden, estado: 'entregada' })
-    ;(o.itemsEstado || []).forEach(i => { delete itemsEstadoIdx[i.id] })
-  }
-  delete ordenes[idVenta]
-  document.getElementById('kds-ord-' + idVenta)?.remove()
-  mostrarVacio()
 }
 
 // ── Cargar órdenes activas iniciales ──────────────────────────────────────────
