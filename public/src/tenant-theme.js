@@ -11,6 +11,8 @@ const TENANT_PALETTES = {
     '--primary':        '#792c24',
     '--pdk':            '#5a1f19',
     '--on-pri':         '#ffefc5',
+    '--accent-llevar':    '#2E8B7A',
+    '--on-accent-llevar': '#ffffff',
   },
   tita: {
     '--c-primary':      '#6A9BB5',
@@ -24,6 +26,8 @@ const TENANT_PALETTES = {
     '--primary':        '#6A9BB5',
     '--pdk':            '#4A7A94',
     '--on-pri':         '#ffffff',
+    '--accent-llevar':    '#D98A3D',
+    '--on-accent-llevar': '#ffffff',
   },
 }
 

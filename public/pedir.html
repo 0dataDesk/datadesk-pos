@@ -2311,9 +2311,9 @@ function mostrarResumen() {
           <button id="entrega-llevar"
             onclick="toggleTipoEntrega('llevar')"
             style="padding:13px 6px;border-radius:12px;font-size:13px;font-weight:600;cursor:pointer;
-              border:1.5px solid ${tipoEntregaVenta === 'llevar' ? 'var(--primary)' : 'var(--border)'};
-              background:${tipoEntregaVenta === 'llevar' ? 'var(--primary)' : 'var(--bg)'};
-              color:${tipoEntregaVenta === 'llevar' ? 'var(--on-pri)' : 'var(--text)'};">
+              border:1.5px solid ${tipoEntregaVenta === 'llevar' ? 'var(--accent-llevar)' : 'var(--border)'};
+              background:${tipoEntregaVenta === 'llevar' ? 'var(--accent-llevar)' : 'var(--bg)'};
+              color:${tipoEntregaVenta === 'llevar' ? 'var(--on-accent-llevar)' : 'var(--text)'};">
             🥡 Para llevar
           </button>
         </div>
@@ -2701,12 +2701,12 @@ function toggleTipoEntrega(tipo) {
   tipoEntregaVenta = tipo
   const btnBarra  = document.getElementById('entrega-barra')
   const btnLlevar = document.getElementById('entrega-llevar')
-  ;[[btnBarra, 'barra'], [btnLlevar, 'llevar']].forEach(([btn, key]) => {
+  ;[[btnBarra, 'barra', '--primary', '--on-pri'], [btnLlevar, 'llevar', '--accent-llevar', '--on-accent-llevar']].forEach(([btn, key, colorVar, onVar]) => {
     if (!btn) return
     const sel = key === tipo
-    btn.style.background  = sel ? 'var(--primary)' : 'var(--bg)'
-    btn.style.borderColor = sel ? 'var(--primary)' : 'var(--border)'
-    btn.style.color       = sel ? 'var(--on-pri)'  : 'var(--text)'
+    btn.style.background  = sel ? `var(${colorVar})` : 'var(--bg)'
+    btn.style.borderColor = sel ? `var(${colorVar})` : 'var(--border)'
+    btn.style.color       = sel ? `var(${onVar})`    : 'var(--text)'
   })
   const detalle = document.getElementById('bolsa-detalle')
   if (detalle) detalle.style.display = tipo === 'llevar' ? '' : 'none'
@@ -3797,7 +3797,12 @@ function actualizarPanelOrdenes() {
             ? '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#3A8C3E;margin-right:5px;flex-shrink:0;"></span>'
             : '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#c8892a;margin-right:5px;flex-shrink:0;"></span>'
           const btnListo = listo
-            ? ''
+            ? (() => {
+                const tSec = it.tiempo_real_seg || 0
+                const tMM  = String(Math.floor(tSec / 60)).padStart(2, '0')
+                const tSS  = String(tSec % 60).padStart(2, '0')
+                return `<span style="font-size:11px;color:var(--muted);margin-left:6px;flex-shrink:0;">${tMM}:${tSS}</span>`
+              })()
             : `<button onclick="marcarItemListoPOS('${it.id}','${idVenta}')" style="
                 border:none;background:var(--primary);color:#fff;border-radius:6px;
                 padding:1px 7px;font-size:11px;cursor:pointer;line-height:1.6;margin-left:6px;flex-shrink:0;">✓</button>`
@@ -3806,9 +3811,11 @@ function actualizarPanelOrdenes() {
       : o.items.slice(0, 5).map(it => `<div style="font-size:12px;color:var(--text);margin-bottom:2px;">${it.nombre} ×${it.cantidad}</div>`).join('')
     // Comer-aquí ya entregado espera "Cerrar mesa"; para llevar tiene su propio acento mientras está pendiente
     const esperandoCierre = o.tipo_entrega === 'barra' && o.estado === 'entregada'
-    const cardStyle = esperandoCierre
-      ? 'background:var(--border);border:1.5px solid var(--primary);'
-      : (o.tipo_entrega === 'llevar' ? 'border:2px solid var(--primary);' : '')
+    const cardStyle = o.tipo_entrega === 'llevar'
+      ? 'border:2px solid var(--accent-llevar);'
+      : (esperandoCierre
+          ? 'background:var(--border);border:1.5px solid var(--primary);'
+          : 'border:1.5px solid var(--primary);')
     const accionHtml = esperandoCierre
       ? `<button class="btn-pri sm" style="width:100%;margin-top:6px;"
           onclick="abrirModalCerrarMesa('${idVenta}')">🧾 Cerrar mesa</button>`
@@ -3890,20 +3897,36 @@ function suscribirOrdenes() {
   window._db
     .channel('items-estado-pos-' + POS.TENANT_ID)
     .on('postgres_changes', {
-      event: 'UPDATE', schema: 'public', table: 'orden_items_estado',
+      event: '*', schema: 'public', table: 'orden_items_estado',
       filter: `tenant_id=eq.${POS.TENANT_ID}`
     }, payload => {
       const row = payload.new
       if (!row) return
-      // Encontrar la orden activa que contiene este item
-      for (const [idVenta, o] of Object.entries(ordenesActivas)) {
-        if (o.id === row.id_orden_cocina) {
-          const idx = (o.itemsEstado || []).findIndex(i => i.id === row.id)
-          if (idx >= 0) o.itemsEstado[idx] = { ...o.itemsEstado[idx], ...row }
-          else if (!o.itemsEstado) o.itemsEstado = [row]
-          else o.itemsEstado.push(row)
-          actualizarPanelOrdenes()
-          break
+
+      if (payload.eventType === 'INSERT') {
+        // Cierra el hueco entre el INSERT de la orden y el de sus platillos
+        for (const [idVenta, o] of Object.entries(ordenesActivas)) {
+          if (o.id === row.id_orden_cocina) {
+            o.itemsEstado = o.itemsEstado || []
+            if (!o.itemsEstado.some(i => i.id === row.id)) o.itemsEstado.push(row)
+            actualizarPanelOrdenes()
+            break
+          }
+        }
+        return
+      }
+
+      if (payload.eventType === 'UPDATE') {
+        // Encontrar la orden activa que contiene este item
+        for (const [idVenta, o] of Object.entries(ordenesActivas)) {
+          if (o.id === row.id_orden_cocina) {
+            const idx = (o.itemsEstado || []).findIndex(i => i.id === row.id)
+            if (idx >= 0) o.itemsEstado[idx] = { ...o.itemsEstado[idx], ...row }
+            else if (!o.itemsEstado) o.itemsEstado = [row]
+            else o.itemsEstado.push(row)
+            actualizarPanelOrdenes()
+            break
+          }
         }
       }
     })
@@ -4255,7 +4278,7 @@ function quitarDescuento() {
     width:100%;max-width:340px;box-shadow:0 8px 32px rgba(0,0,0,0.2);">
     <div style="font-size:1.3rem;font-weight:800;margin-bottom:16px;text-align:center;">🧾 Cerrar mesa</div>
 
-    <div class="sh-sec-ttl" style="margin-bottom:8px;">¿Se lo lleva para llevar?</div>
+    <div class="sh-sec-ttl" style="margin-bottom:8px;">¿Necesita clam para las sobras?</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:18px;">
       <button id="cm-clam-si" onclick="elegirClamMesa(true)"
         style="padding:11px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;

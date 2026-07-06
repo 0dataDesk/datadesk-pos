@@ -285,17 +285,35 @@ function suscribirRealtime() {
   // Suscripción a orden_items_estado para checks en tiempo real
   window._db
     .channel('items-estado-cocina-' + POS.TENANT_ID)
-    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'orden_items_estado', filter: 'tenant_id=eq.' + POS.TENANT_ID },
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'orden_items_estado', filter: 'tenant_id=eq.' + POS.TENANT_ID },
     payload => {
       const row = payload.new
       if (!row) return
-      const idVenta = itemsEstadoIdx[row.id]
-      if (!idVenta) return
-      const o = ordenes[idVenta]
-      if (!o) return
-      const idx = (o.itemsEstado || []).findIndex(i => i.id === row.id)
-      if (idx >= 0) o.itemsEstado[idx] = { ...o.itemsEstado[idx], ...row }
-      actualizarCard(idVenta)
+
+      if (payload.eventType === 'INSERT') {
+        // La orden puede haber llegado (INSERT de ordenes_cocina) antes que sus platillos:
+        // si el item aún no está indexado, ubicar la orden por id_orden_cocina.
+        let idVenta = itemsEstadoIdx[row.id]
+        if (!idVenta) idVenta = Object.keys(ordenes).find(k => ordenes[k].orden.id === row.id_orden_cocina)
+        if (!idVenta) return
+        const o = ordenes[idVenta]
+        if (!o) return
+        o.itemsEstado = o.itemsEstado || []
+        if (!o.itemsEstado.some(i => i.id === row.id)) o.itemsEstado.push(row)
+        itemsEstadoIdx[row.id] = idVenta
+        actualizarCard(idVenta)
+        return
+      }
+
+      if (payload.eventType === 'UPDATE') {
+        const idVenta = itemsEstadoIdx[row.id]
+        if (!idVenta) return
+        const o = ordenes[idVenta]
+        if (!o) return
+        const idx = (o.itemsEstado || []).findIndex(i => i.id === row.id)
+        if (idx >= 0) o.itemsEstado[idx] = { ...o.itemsEstado[idx], ...row }
+        actualizarCard(idVenta)
+      }
     })
     .subscribe()
 }
