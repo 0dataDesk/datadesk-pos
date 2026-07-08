@@ -3791,23 +3791,39 @@ function actualizarPanelOrdenes() {
     const ie = o.itemsEstado || []
     const todosListos = ie.length > 0 && ie.every(i => i.estado === 'listo')
     const itemsHtml = ie.length > 0
-      ? ie.map(it => {
-          const listo = it.estado === 'listo'
-          const dot = listo
-            ? '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#3A8C3E;margin-right:5px;flex-shrink:0;"></span>'
-            : '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#c8892a;margin-right:5px;flex-shrink:0;"></span>'
-          const btnListo = listo
-            ? (() => {
-                const tSec = it.tiempo_real_seg || 0
-                const tMM  = String(Math.floor(tSec / 60)).padStart(2, '0')
-                const tSS  = String(tSec % 60).padStart(2, '0')
-                return `<span style="font-size:11px;color:var(--muted);margin-left:6px;flex-shrink:0;">${tMM}:${tSS}</span>`
-              })()
-            : `<button onclick="marcarItemListoPOS('${it.id}','${idVenta}')" style="
-                border:none;background:var(--primary);color:#fff;border-radius:6px;
-                padding:1px 7px;font-size:11px;cursor:pointer;line-height:1.6;margin-left:6px;flex-shrink:0;">✓</button>`
-          return `<div style="display:flex;align-items:center;font-size:12px;color:var(--text);margin-bottom:2px;">${dot}<span style="flex:1;">${it.nombre_platillo}</span>${btnListo}</div>`
-        }).join('')
+      ? (() => {
+          const grupos = {}
+          ie.forEach(it => {
+            if (!grupos[it.nombre_platillo]) grupos[it.nombre_platillo] = []
+            grupos[it.nombre_platillo].push(it)
+          })
+          return Object.entries(grupos).map(([nombrePlatillo, unidades]) => {
+            const multiple = unidades.length > 1
+            const headerHtml = multiple
+              ? `<div style="font-size:12px;font-weight:600;color:var(--text);margin-top:4px;">${nombrePlatillo} ×${unidades.length}</div>`
+              : ''
+            const unidadesHtml = unidades.map((it, idx) => {
+              const listo = it.estado === 'listo'
+              const dot = listo
+                ? '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#3A8C3E;margin-right:5px;flex-shrink:0;"></span>'
+                : '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#c8892a;margin-right:5px;flex-shrink:0;"></span>'
+              const btnListo = listo
+                ? (() => {
+                    const tSec = it.tiempo_real_seg || 0
+                    const tMM  = String(Math.floor(tSec / 60)).padStart(2, '0')
+                    const tSS  = String(tSec % 60).padStart(2, '0')
+                    return `<span style="font-size:11px;color:var(--muted);margin-left:6px;flex-shrink:0;">${tMM}:${tSS}</span>`
+                  })()
+                : `<button onclick="marcarItemListoPOS('${it.id}','${idVenta}')" style="
+                    border:none;background:var(--primary);color:#fff;border-radius:6px;
+                    padding:1px 7px;font-size:11px;cursor:pointer;line-height:1.6;margin-left:6px;flex-shrink:0;">✓</button>`
+              const etiqueta = multiple ? `Unidad ${idx + 1}` : nombrePlatillo
+              const indent = multiple ? 'padding-left:10px;' : ''
+              return `<div style="display:flex;align-items:center;font-size:12px;color:var(--text);margin-bottom:2px;${indent}">${dot}<span style="flex:1;">${etiqueta}</span>${btnListo}</div>`
+            }).join('')
+            return headerHtml + unidadesHtml
+          }).join('')
+        })()
       : o.items.slice(0, 5).map(it => `<div style="font-size:12px;color:var(--text);margin-bottom:2px;">${it.nombre} ×${it.cantidad}</div>`).join('')
     // Comer-aquí ya entregado espera "Cerrar mesa"; para llevar tiene su propio acento mientras está pendiente
     const esperandoCierre = o.tipo_entrega === 'barra' && o.estado === 'entregada'
