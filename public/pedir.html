@@ -66,6 +66,9 @@ html,body{
   flex:1;max-width:960px;width:100%;margin:0 auto;
   padding:0 20px 80px;/* bottom clearance for cart bar */
 }
+@media(min-width:1024px){
+  #main-content{ max-width:1240px; }
+}
 .page-title{
   font-family:'Barlow Condensed',sans-serif;font-weight:900;
   font-size:clamp(2.2rem,6vw,3.4rem);
@@ -78,6 +81,9 @@ html,body{
   display:grid;
   grid-template-columns:repeat(auto-fill,minmax(260px,1fr));
   gap:18px;
+}
+@media(min-width:1024px){
+  .item-grid{ grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); }
 }
 
 /* ── Item card ────────────────────────────────────────────────────────────── */
@@ -176,6 +182,33 @@ html,body{
 .nav-btn:hover{border-color:var(--primary);background:var(--pdim);}
 .nb-icon {font-size:22px;display:block;line-height:1.2;}
 .nb-lbl  {font-size:12px;font-weight:600;color:var(--muted);display:block;margin-top:2px;}
+
+/* ── Botón flotante de volver (siempre visible, discreto) ──────────────────── */
+.floating-back-btn{
+  position:fixed;top:70px;left:16px;z-index:25;
+  display:flex;align-items:center;gap:6px;
+  padding:8px 14px;border-radius:20px;border:1px solid var(--border);
+  background:var(--surface);color:var(--text);
+  font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;
+  cursor:pointer;box-shadow:0 2px 10px rgba(61,0,20,.15);
+  transition:all .15s;
+}
+.floating-back-btn:hover{border-color:var(--primary);background:var(--pdim);}
+
+/* ── Tiles grandes de inicio (Res/Pollo/Acompañamientos/Bebidas) ───────────── */
+.inicio-grid{
+  max-width:960px;margin:24px auto;padding:0 16px;
+  display:grid;grid-template-columns:repeat(2,1fr);gap:16px;
+}
+@media(min-width:640px){ .inicio-grid{ grid-template-columns:repeat(4,1fr); } }
+.inicio-tile{
+  background:var(--surface);border:1.5px solid var(--border);border-radius:16px;
+  padding:28px 12px;text-align:center;cursor:pointer;transition:all .15s;
+  display:flex;flex-direction:column;align-items:center;gap:8px;position:relative;
+}
+.inicio-tile:hover{border-color:var(--primary);transform:translateY(-2px);}
+.inicio-tile-emoji{font-size:40px;line-height:1;}
+.inicio-tile-label{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:1.15rem;letter-spacing:.5px;color:var(--text);}
 
 /* ── Sheet (slide-up) ─────────────────────────────────────────────────────── */
 .sheet{position:fixed;inset:0;z-index:40;display:flex;flex-direction:column;justify-content:flex-end;}
@@ -570,10 +603,13 @@ textarea.intake-input{resize:none;line-height:1.5;}
     </div>
   </header>
 
-  <!-- ── NAV CATEGORÍAS (sticky, debajo del header) ────────────────────── -->
-  <nav class="bot-nav" id="bot-nav">
+  <!-- ── NAV CATEGORÍAS (sticky, debajo del header) — oculta, ya no se usa como tabs ── -->
+  <nav class="bot-nav hidden" id="bot-nav">
     <div class="bot-nav-inner" id="nav-btns"></div>
   </nav>
+
+  <!-- ── Botón flotante de volver a inicio ──────────────────────────────── -->
+  <button class="floating-back-btn hidden" id="floating-back-btn" onclick="mostrarInicio()">← Volver</button>
 
   <!-- ── CONTENIDO PRINCIPAL ────────────────────────────────────────────── -->
   <div id="main-content">
@@ -692,7 +728,7 @@ let modSalsaFuria = [] // RSA-004 — sección propia
 let ingCache   = {}    // id_receta → [{producto, nombre_corto}]
 let carrito    = []    // líneas del carrito
 let drinkQty   = {}    // id_receta → qty inline para bebidas
-let currentPg   = 'res'
+let currentPg   = 'inicio'
 let bebidasCombo = []  // bebidas disponibles para combo
 let comboPreciosMap = {} // id_item -> precio (listas combo_pollo, combo_upsell, promo_inauguracion, combo_furia)
 let aderezosCombo = []   // RSA-005/006/007/008 — aderezos del Combo Pollo Tenders
@@ -828,7 +864,7 @@ async function cargarMenu() {
 
     const { data: bebidas, error: eBeb } = await window._db
       .from('productos')
-      .select('id_producto, nombre_corto')
+      .select('id_producto, nombre_corto, foto_url')
       .eq('tenant_id', POS.TENANT_ID)
       .eq('activo', true)
       .in('id_producto', [
@@ -844,16 +880,17 @@ async function cargarMenu() {
   }
 }
 
-function _itemThumbHtml(it, pg) {
+function _itemThumbHtml(it, pg, alturaPx) {
+  const estilo = alturaPx ? `style="padding:0;height:${alturaPx}px"` : `style="padding:0"`
   if (it.foto_url) {
     try {
       const { data } = window._db.storage.from('recetas').getPublicUrl(it.foto_url)
       if (data && data.publicUrl) {
-        return `<div class="item-thumb" style="padding:0"><img src="${data.publicUrl}" alt="${it.nombre}" loading="lazy" style="width:100%;height:100%;object-fit:cover;display:block"></div>`
+        return `<div class="item-thumb" ${estilo}><img src="${data.publicUrl}" alt="${it.nombre}" loading="lazy" style="width:100%;height:100%;object-fit:cover;display:block"></div>`
       }
     } catch (e) {}
   }
-  return `<div class="item-thumb">${pg.emoji}</div>`
+  return `<div class="item-thumb" ${alturaPx ? `style="height:${alturaPx}px"` : ''}>${pg.emoji}</div>`
 }
 
 // ── Navegación ────────────────────────────────────────────────────────────────
@@ -870,7 +907,7 @@ async function goPage(pgId) {
     if (bebidasCombo.length === 0) {
       const { data: beb } = await window._db
         .from('productos')
-        .select('id_producto, nombre_corto')
+        .select('id_producto, nombre_corto, foto_url')
         .eq('tenant_id', POS.TENANT_ID)
         .eq('activo', true)
         .in('id_producto', ['BEB-026','BEB-027','BEB-028','BEB-029',
@@ -894,7 +931,7 @@ async function goPage(pgId) {
       drinkQty[it.id_receta] = drinkQty[it.id_receta] || 1
       card.innerHTML = `
         ${badge}
-        ${_itemThumbHtml(it, pg)}
+        ${_itemThumbHtml(it, pg, 220)}
         <div class="item-body">
           <div class="item-name">${it.nombre}</div>
           ${it.descripcion ? `<div class="item-desc" style="font-style:italic;">${it.descripcion}</div>` : ''}
@@ -927,22 +964,55 @@ async function goPage(pgId) {
     grid.appendChild(card)
   })
 
-  // Navegación inferior
-  document.getElementById('bot-nav').classList.remove('hidden')
+  // Ya no se pintan tabs de otras categorías: se navega con el botón flotante de volver
+  document.getElementById('bot-nav').classList.add('hidden')
   document.getElementById('main-content').style.paddingRight = ''
   actualizarPanelOrdenes()
-  document.getElementById('nav-btns').innerHTML = others.map(p => {
-    const navQty = carrito
-      .filter(e => { const m = menuItems.find(x => x.id_receta === e.id_receta); return m && m.categoria === p.cat })
-      .reduce((s, e) => s + e.cantidad, 0)
-    const navBadge = navQty > 0 ? `<span class="nav-badge">${navQty}</span>` : ''
-    return `<button class="nav-btn" onclick="goPage('${p.id}')">
-      ${navBadge}
-      <span class="nb-icon">${p.emoji}</span>
-      <span class="nb-lbl">${p.label}</span>
-    </button>`
-  }).join('')
+  mostrarBotonFlotante()
   ajustarAlturaCards()
+}
+
+function mostrarBotonFlotante() {
+  const btn = document.getElementById('floating-back-btn')
+  if (btn) btn.classList.remove('hidden')
+}
+
+function ocultarBotonFlotante() {
+  const btn = document.getElementById('floating-back-btn')
+  if (btn) btn.classList.add('hidden')
+}
+
+// ── Pantalla de inicio: 4 tiles grandes (Res/Pollo/Acompañamientos/Bebidas) ──
+function mostrarInicio() {
+  currentPg = 'inicio'
+  document.getElementById('bot-nav').classList.add('hidden')
+  ocultarBotonFlotante()
+  document.getElementById('main-content').style.paddingRight = ''
+
+  const cont = document.getElementById('main-content')
+  cont.innerHTML = `
+    <div class="inicio-grid">
+      ${PAGES.map(p => {
+        const navQty = carrito
+          .filter(e => { const m = menuItems.find(x => x.id_receta === e.id_receta); return m && m.categoria === p.cat })
+          .reduce((s, e) => s + e.cantidad, 0)
+        const navBadge = navQty > 0 ? `<span class="nav-badge" style="top:8px;right:8px">${navQty}</span>` : ''
+        return `
+          <div class="inicio-tile" onclick="goPage('${p.id}')">
+            ${navBadge}
+            <span class="inicio-tile-emoji">${p.emoji}</span>
+            <span class="inicio-tile-label">${p.label}</span>
+          </div>`
+      }).join('')}
+    </div>
+  `
+  actualizarPanelOrdenes()
+}
+
+// Refresca la vista actual (inicio o una categoría) sin perder el lugar donde está el usuario
+function refrescarVistaActual() {
+  if (currentPg === 'inicio') mostrarInicio()
+  else goPage(currentPg)
 }
 
 function getPgItems(pgId) {
@@ -969,14 +1039,28 @@ function renderRefrescosPage(cont, pg, others) {
   const sabores   = bebidasCombo.filter(b => !EXCLUIR_SABORES.includes(b.id_producto))
 
   const chipsHtml = sabores.length
-    ? sabores.map(b => `
+    ? sabores.map(b => {
+        let fotoHtml = ''
+        if (b.foto_url) {
+          try {
+            const { data } = window._db.storage.from('recetas').getPublicUrl(b.foto_url)
+            if (data && data.publicUrl) {
+              fotoHtml = `<div style="width:100%;height:70px;border-radius:8px;overflow:hidden;margin-bottom:6px">
+                <img src="${data.publicUrl}" alt="${b.nombre_corto}" loading="lazy" style="width:100%;height:100%;object-fit:cover;display:block">
+              </div>`
+            }
+          } catch (e) {}
+        }
+        return `
         <div id="sabor-chip-${b.id_producto}"
           onclick="seleccionarSabor('${b.id_producto}','${b.nombre_corto.replace(/'/g,"\\'")}');"
-          style="padding:10px 8px;border-radius:12px;text-align:center;cursor:pointer;
+          style="padding:8px;border-radius:12px;text-align:center;cursor:pointer;
             font-size:13px;font-weight:600;
             border:1.5px solid var(--border);background:var(--bg);color:var(--text);">
+          ${fotoHtml}
           ${b.nombre_corto}
-        </div>`).join('')
+        </div>`
+      }).join('')
     : '<p style="color:var(--muted);font-size:13px;margin-top:8px;">Cargando sabores...</p>'
 
   const inCartRef = carrito.filter(e => e.id_receta === 'RBE-004').reduce((s,e) => s + e.cantidad, 0)
@@ -992,7 +1076,7 @@ function renderRefrescosPage(cont, pg, others) {
     const inCart = carrito.filter(e => e.id_receta === a.id).reduce((s,e) => s + e.cantidad, 0)
     const badge  = inCart > 0 ? `<span class="item-badge">${inCart}</span>` : ''
     const fotoRef = (catalogoAll || []).find(r => r.id_receta === a.id)
-    const thumbHtml = _itemThumbHtml({ id_receta: a.id, nombre: a.nombre, foto_url: fotoRef?.foto_url || null }, { emoji: '💧' })
+    const thumbHtml = _itemThumbHtml({ id_receta: a.id, nombre: a.nombre, foto_url: fotoRef?.foto_url || null }, { emoji: '💧' }, 220)
     return `
       <div class="item-card" id="agua-card-${a.id}">
         ${badge}
@@ -1015,7 +1099,7 @@ function renderRefrescosPage(cont, pg, others) {
   }).join('')
 
   const fotoRefresco = (catalogoAll || []).find(r => r.id_receta === 'RBE-004')
-  const refrescoThumbHtml = _itemThumbHtml({ id_receta: 'RBE-004', nombre: 'Refresco', foto_url: fotoRefresco?.foto_url || null }, pg)
+  const refrescoThumbHtml = _itemThumbHtml({ id_receta: 'RBE-004', nombre: 'Refresco', foto_url: fotoRefresco?.foto_url || null }, pg, 220)
 
   cont.innerHTML = `
     <h1 class="page-title">${pg.title}</h1>
@@ -1048,20 +1132,10 @@ function renderRefrescosPage(cont, pg, others) {
       </div>
     </div>`
 
-  document.getElementById('bot-nav').classList.remove('hidden')
+  document.getElementById('bot-nav').classList.add('hidden')
   document.getElementById('main-content').style.paddingRight = ''
   actualizarPanelOrdenes()
-  document.getElementById('nav-btns').innerHTML = others.map(p => {
-    const navQty = carrito
-      .filter(e => { const m = menuItems.find(x => x.id_receta === e.id_receta); return m && m.categoria === p.cat })
-      .reduce((s, e) => s + e.cantidad, 0)
-    const navBadge = navQty > 0 ? `<span class="nav-badge">${navQty}</span>` : ''
-    return `<button class="nav-btn" onclick="goPage('${p.id}')">
-      ${navBadge}
-      <span class="nb-icon">${p.emoji}</span>
-      <span class="nb-lbl">${p.label}</span>
-    </button>`
-  }).join('')
+  mostrarBotonFlotante()
 }
 
 function seleccionarSabor(id, nombre) {
@@ -1259,7 +1333,7 @@ async function abrirCz(idReceta, cartIdx = null) {
     if (bebidasCombo.length === 0) {
       const { data: beb } = await window._db
         .from('productos')
-        .select('id_producto, nombre_corto')
+        .select('id_producto, nombre_corto, foto_url')
         .eq('tenant_id', POS.TENANT_ID)
         .eq('activo', true)
         .in('id_producto', ['BEB-027','BEB-028','BEB-029','BEB-030','BEB-031',
@@ -2131,7 +2205,7 @@ function updateCartBar() {
   }
   // Refrescar badges de carta y nav solo cuando el menú está activo
   if (menuDataReady && !document.getElementById('app').classList.contains('hidden')) {
-    goPage(currentPg)
+    refrescarVistaActual()
   }
 }
 
@@ -3002,11 +3076,10 @@ function actualizarRecibidoMixto(i, val) {
 }
 
 function volverAlCarrito() {
-  document.getElementById('bot-nav').classList.remove('hidden')
   const cartBarEl = document.getElementById('cart-bar')
   if (cartBarEl) cartBarEl.classList.remove('hidden')
   actualizarPanelOrdenes()
-  goPage(currentPg)
+  refrescarVistaActual()
   setTimeout(abrirCart, 50)
 }
 
@@ -3458,7 +3531,7 @@ function cerrarOrdenExitosa(folio) {
   tipoEntregaVenta = 'barra'
   bolsasSeleccionadas = { chica: 0, grande: 0 }
   updateCartBar()
-  setTimeout(() => goPage('res'), 2000)
+  setTimeout(() => mostrarInicio(), 2000)
 }
 
 
@@ -3466,9 +3539,8 @@ function cerrarOrdenExitosa(folio) {
 function resetSesion() {
   carrito      = []
   ordenActual  = null
-  document.getElementById('bot-nav').classList.remove('hidden')
   updateCartBar()
-  goPage(currentPg)
+  refrescarVistaActual()
 }
 
 function volverMenu() {
@@ -3504,14 +3576,13 @@ function entrarAlMenu() {
   cargarOrdenesActivas()
   iniciarTickerOrdenes()
   if (menuDataReady) {
-    goPage('res')
+    mostrarInicio()
   } else {
     document.getElementById('main-content').innerHTML = '<div class="load-c"><div class="spinner"></div></div>'
     document.getElementById('bot-nav').classList.add('hidden')
     menuLoadPromise.then(() => {
-      document.getElementById('bot-nav').classList.remove('hidden')
       actualizarPanelOrdenes()
-      goPage('res')
+      mostrarInicio()
     })
   }
 }
