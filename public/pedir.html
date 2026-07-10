@@ -786,7 +786,7 @@ async function cargarMenu() {
   try {
     const { data: recetas, error: e1 } = await window._db
       .from('catalogo_recetas')
-      .select('id_receta, nombre_platillo, categoria, descripcion, tagline, orden, tipo_receta')
+      .select('id_receta, nombre_platillo, categoria, subcategoria, descripcion, tagline, orden, tipo_receta, foto_url')
       .eq('tenant_id', POS.TENANT_ID)
       .eq('fuente',    POS.FUENTE)
       .eq('activo',    true)
@@ -804,11 +804,11 @@ async function cargarMenu() {
 
     const pm = {}; if (precios) precios.forEach(p => { pm[p.id_item] = p.precio })
 
-    const all = recetas.map(r => ({ id_receta:r.id_receta, nombre:r.nombre_platillo, categoria:r.categoria, descripcion:r.descripcion||'', tagline:r.tagline||'', precio:pm[r.id_receta]||0, orden:r.orden, tipo_receta:r.tipo_receta }))
+    const all = recetas.map(r => ({ id_receta:r.id_receta, nombre:r.nombre_platillo, categoria:r.categoria, subcategoria:r.subcategoria, descripcion:r.descripcion||'', tagline:r.tagline||'', precio:pm[r.id_receta]||0, orden:r.orden, tipo_receta:r.tipo_receta, foto_url:r.foto_url||null }))
     catalogoAll = all
     modSalsaFuria = all.filter(r => r.id_receta === 'RSA-004')
     modExtras = all.filter(r => r.categoria === 'Extras' && r.id_receta !== 'RSA-004')
-    modSalsas = all.filter(r => r.categoria === 'Aderezos')
+    modSalsas = all.filter(r => r.categoria === 'Subrecetas' && r.subcategoria === 'Aderezos y Salsas')
     menuItems = all.filter(r => MENU_CATS.includes(r.categoria) && r.tipo_receta !== 'receta')
     const ADEREZOS_COMBO_POLLO = ['RSA-004','RSA-005','RSA-006','RSA-007','RSA-008']
     aderezosCombo = all.filter(r => ADEREZOS_COMBO_POLLO.includes(r.id_receta))
@@ -842,6 +842,18 @@ async function cargarMenu() {
     document.getElementById('main-content').innerHTML = `<div class="err-box">Error al cargar el menú: ${e.message}</div>`
     // No re-throw: promise resolves even on error
   }
+}
+
+function _itemThumbHtml(it, pg) {
+  if (it.foto_url) {
+    try {
+      const { data } = window._db.storage.from('recetas').getPublicUrl(it.foto_url)
+      if (data && data.publicUrl) {
+        return `<div class="item-thumb" style="padding:0"><img src="${data.publicUrl}" alt="${it.nombre}" loading="lazy" style="width:100%;height:100%;object-fit:cover;display:block"></div>`
+      }
+    } catch (e) {}
+  }
+  return `<div class="item-thumb">${pg.emoji}</div>`
 }
 
 // ── Navegación ────────────────────────────────────────────────────────────────
@@ -882,7 +894,7 @@ async function goPage(pgId) {
       drinkQty[it.id_receta] = drinkQty[it.id_receta] || 1
       card.innerHTML = `
         ${badge}
-        <div class="item-thumb">${pg.emoji}</div>
+        ${_itemThumbHtml(it, pg)}
         <div class="item-body">
           <div class="item-name">${it.nombre}</div>
           ${it.descripcion ? `<div class="item-desc" style="font-style:italic;">${it.descripcion}</div>` : ''}
@@ -904,7 +916,7 @@ async function goPage(pgId) {
       card.onclick = () => abrirCz(it.id_receta)
       card.innerHTML = `
         ${badge}
-        <div class="item-thumb">${pg.emoji}</div>
+        ${_itemThumbHtml(it, pg)}
         <div class="item-body" style="padding-bottom:16px;">
           <div class="item-name">${it.nombre}</div>
           ${it.descripcion ? `<div class="item-desc" style="font-style:italic;">${it.descripcion}</div>` : ''}
@@ -979,10 +991,12 @@ function renderRefrescosPage(cont, pg, others) {
   const aguaCardsHtml = aguaItems.map(a => {
     const inCart = carrito.filter(e => e.id_receta === a.id).reduce((s,e) => s + e.cantidad, 0)
     const badge  = inCart > 0 ? `<span class="item-badge">${inCart}</span>` : ''
+    const fotoRef = (catalogoAll || []).find(r => r.id_receta === a.id)
+    const thumbHtml = _itemThumbHtml({ id_receta: a.id, nombre: a.nombre, foto_url: fotoRef?.foto_url || null }, { emoji: '💧' })
     return `
       <div class="item-card" id="agua-card-${a.id}">
         ${badge}
-        <div class="item-thumb">💧</div>
+        ${thumbHtml}
         <div class="item-body">
           <div class="item-name">${a.nombre}</div>
           <div class="item-price">$${a.precio}</div>
@@ -1000,12 +1014,15 @@ function renderRefrescosPage(cont, pg, others) {
       </div>`
   }).join('')
 
+  const fotoRefresco = (catalogoAll || []).find(r => r.id_receta === 'RBE-004')
+  const refrescoThumbHtml = _itemThumbHtml({ id_receta: 'RBE-004', nombre: 'Refresco', foto_url: fotoRefresco?.foto_url || null }, pg)
+
   cont.innerHTML = `
     <h1 class="page-title">${pg.title}</h1>
     <div id="item-grid" style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap;">
       <div class="item-card" style="flex:1.4;min-width:240px;">
         ${badgeRef}
-        <div class="item-thumb">${pg.emoji}</div>
+        ${refrescoThumbHtml}
         <div class="item-body">
           <div class="item-name">Refresco</div>
           <div class="item-desc" style="font-style:italic;">Elige tu sabor</div>
