@@ -1726,7 +1726,12 @@ function toggleIngRow(i) {
   actualizarBadgePersonalizar()
   actualizarCzBtn()
 }
+const _adjIngQtyLock = {}
 function adjIngQty(i, delta) {
+  const now = Date.now()
+  if (_adjIngQtyLock[i] && now - _adjIngQtyLock[i] < 250) return
+  _adjIngQtyLock[i] = now
+
   const newQty = Math.max(0, (cz.ingredientes[i].qty || 1) + delta)
   cz.ingredientes[i].on  = newQty > 0
   cz.ingredientes[i].qty = Math.max(1, newQty)
