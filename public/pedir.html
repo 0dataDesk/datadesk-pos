@@ -2348,6 +2348,11 @@ function mostrarResumen() {
     if (exA.length) lines.push(exA.map(e => e.nombre).join(', '))
     if ((m.salsas||[]).length) lines.push(m.salsas.map(s => s.nombre).join(', '))
     if (m.combo?.activo) lines.push('🍟 Combo: ' + (m.combo.acompañamiento_nombre || 'Papas Clásicas') + ' + ' + (m.combo.bebida_nombre || 'bebida'))
+    if (m.comboPollo?.activo) lines.push('🍗 Combo Pollo Tenders: ' + (m.comboPollo.aderezo_nombre || '') + ', ' + (m.comboPollo.acompañamiento_nombre || '') + ' + ' + (m.comboPollo.bebida_nombre || 'bebida'))
+    if (m.comboPromoRes?.activo) {
+      const labelPromoRes = m.comboPromoRes.promoPrecio === false ? '🎉 Combo Res (precio normal): ' : '🎉 Promo Inauguración: '
+      lines.push(labelPromoRes + (m.comboPromoRes.acompañamiento_nombre || '') + ' + ' + (m.comboPromoRes.bebida_nombre || 'bebida'))
+    }
     if (m.nota) lines.push('📝 ' + m.nota)
     return lines
   }
