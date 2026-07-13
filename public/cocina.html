@@ -272,6 +272,17 @@ function suscribirRealtime() {
           mostrarVacio()
         }
       }
+
+      if (payload.eventType === 'DELETE') {
+        const idVenta = payload.old.id_venta
+        document.getElementById('kds-ord-' + idVenta)?.remove()
+        const o = ordenes[idVenta]
+        if (o) {
+          (o.itemsEstado || []).forEach(i => { delete itemsEstadoIdx[i.id] })
+        }
+        delete ordenes[idVenta]
+        mostrarVacio()
+      }
     })
     .subscribe((status) => {
       const ind = document.getElementById('kds-conn')
@@ -287,6 +298,19 @@ function suscribirRealtime() {
     .channel('items-estado-cocina-' + POS.TENANT_ID)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'orden_items_estado', filter: 'tenant_id=eq.' + POS.TENANT_ID },
     payload => {
+      if (payload.eventType === 'DELETE') {
+        const oldRow = payload.old
+        if (!oldRow) return
+        const idVenta = itemsEstadoIdx[oldRow.id]
+        delete itemsEstadoIdx[oldRow.id]
+        const o = idVenta ? ordenes[idVenta] : null
+        if (o) {
+          o.itemsEstado = (o.itemsEstado || []).filter(i => i.id !== oldRow.id)
+          actualizarCard(idVenta)
+        }
+        return
+      }
+
       const row = payload.new
       if (!row) return
 
