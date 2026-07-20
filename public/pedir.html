@@ -2117,7 +2117,9 @@ function comboPromoResTotalExtra() {
   let side = 0
   if (cz.comboPromoRes.acompañamiento_id === 'RAC-004') side = comboPromoResPreciosMap['RAC-004'] || 0
   else if (cz.comboPromoRes.acompañamiento_id === 'RAC-006') side = (comboPromoResPreciosMap['RAC-004'] || 0) + (comboPromoResPreciosMap['RAC-006'] || 0)
-  const bebida = cz.comboPromoRes.bebida_id ? (comboPromoResPreciosMap[cz.comboPromoRes.bebida_id] || 0) : 0
+  const bebida = cz.comboPromoRes.bebida_id
+    ? (comboPromoResPreciosMap['RBE-004'] ?? comboPromoResPreciosMap['RBE-005'] ?? comboPromoResPreciosMap['RBE-006'] ?? 0)
+    : 0
   return side + bebida
 }
 
@@ -3394,7 +3396,9 @@ async function confirmarOrden() {
         if (it.mods.comboPromoRes.aderezo_id) {
           items.push(...itemAderezo(venta.id, it.mods.comboPromoRes.aderezo_id, it.mods.comboPromoRes.aderezo_nombre, 1, it.cantidad, 0, 'aderezo incluido', { es_componente_combo: true, incluido: true }))
         }
-        const bebidaPrecioRes = comboPromoResPreciosMap[it.mods.comboPromoRes.bebida_id] || 0
+        const bebidaPrecioRes = it.mods.comboPromoRes.bebida_id
+          ? (comboPromoResPreciosMap['RBE-004'] ?? comboPromoResPreciosMap['RBE-005'] ?? comboPromoResPreciosMap['RBE-006'] ?? 0)
+          : 0
         items.push({
           tenant_id:       POS.TENANT_ID,
           id_venta:        venta.id,
