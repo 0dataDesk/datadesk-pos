@@ -741,6 +741,7 @@ let drinkQty   = {}    // id_receta → qty inline para bebidas
 let currentPg   = 'inicio'
 let bebidasCombo = []  // bebidas disponibles para combo
 let comboPreciosMap = {} // id_item -> precio (listas combo_pollo, combo_upsell, promo_inauguracion, combo_furia)
+let comboPromoResPreciosMap = {} // id_item -> precio, solo lista combo_promo_res (separado, no comparte valores con comboPreciosMap)
 let aderezosCombo = []   // RSA-005/006/007/008 — aderezos del Combo Pollo Tenders
 let bebidaSeleccionada = { id: null, nombre: null }
 let refrescoQty = 1
@@ -771,7 +772,7 @@ let ordenActual = null
 let cz = { item:null, cartIdx:null, cantidad:1, ingredientes:[], extras:[], salsas:[], nota:'',
   combo:{ activo:false, bebida_id:null, bebida_nombre:null, acompañamiento_id:null, acompañamiento_nombre:null },
   comboPollo:{ activo:false, aderezo_id:null, aderezo_nombre:null, acompañamiento_id:null, acompañamiento_nombre:null, bebida_id:null, bebida_nombre:null },
-  comboPromoRes:{ activo:false, acompañamiento_id:null, acompañamiento_nombre:null, bebida_id:null, bebida_nombre:null, promoPrecio:true }
+  comboPromoRes:{ activo:false, acompañamiento_id:null, acompañamiento_nombre:null, bebida_id:null, bebida_nombre:null, promoPrecio:false }
 }
 
 // ── Estado de identificación + entrega ────────────────────────────────────────
@@ -862,15 +863,21 @@ async function cargarMenu() {
 
     // Orden alfabético de lista es determinista: 'combo_upsell' siempre se procesa después de
     // 'combo_furia', así que su valor (el incremento real de camote) es el que prevalece para RAC-006.
+    // 'combo_promo_res' se guarda aparte en comboPromoResPreciosMap: aunque comparte id_item (RAC-006)
+    // con combo_pollo/combo_upsell, su precio es propio y no debe mezclarse con el de esos combos.
     const { data: preciosCombo, error: eCombo } = await window._db
       .from('precios_venta')
       .select('id_item, precio, lista')
       .eq('tenant_id', POS.TENANT_ID)
-      .in('lista', ['combo_pollo','combo_upsell','promo_inauguracion','combo_furia'])
+      .in('lista', ['combo_pollo','combo_upsell','promo_inauguracion','combo_furia','combo_promo_res'])
       .order('lista')
     if (eCombo) console.error('Error precios combo:', eCombo)
     comboPreciosMap = {}
-    ;(preciosCombo || []).forEach(p => { comboPreciosMap[p.id_item] = Number(p.precio) })
+    comboPromoResPreciosMap = {}
+    ;(preciosCombo || []).forEach(p => {
+      if (p.lista === 'combo_promo_res') comboPromoResPreciosMap[p.id_item] = Number(p.precio)
+      else comboPreciosMap[p.id_item] = Number(p.precio)
+    })
 
     const { data: bebidas, error: eBeb } = await window._db
       .from('productos')
@@ -1286,7 +1293,7 @@ async function abrirCz(idReceta, cartIdx = null) {
     aderezoIncluido: savedMods?.aderezoIncluido || null,
     combo: savedMods?.combo || { activo: false, bebida_id: null, bebida_nombre: null, acompañamiento_id: null, acompañamiento_nombre: null, aderezo_id: null, aderezo_nombre: null },
     comboPollo: savedMods?.comboPollo || { activo: false, aderezo_id: null, aderezo_nombre: null, acompañamiento_id: null, acompañamiento_nombre: null, bebida_id: null, bebida_nombre: null },
-    comboPromoRes: savedMods?.comboPromoRes || { activo: false, acompañamiento_id: null, acompañamiento_nombre: null, bebida_id: null, bebida_nombre: null, promoPrecio: true, aderezo_id: null, aderezo_nombre: null }
+    comboPromoRes: savedMods?.comboPromoRes || { activo: false, acompañamiento_id: null, acompañamiento_nombre: null, bebida_id: null, bebida_nombre: null, promoPrecio: false, aderezo_id: null, aderezo_nombre: null }
   }
 
   document.getElementById('cz-name').textContent = item.nombre
@@ -2043,7 +2050,7 @@ function toggleComboPromoRes() {
     cz.comboPromoRes.aderezo_id = null
     cz.comboPromoRes.aderezo_nombre = null
   } else {
-    cz.comboPromoRes.promoPrecio = true
+    cz.comboPromoRes.promoPrecio = false
   }
   const row = document.getElementById('combo-promores-row')
   if (row) row.className = 'cz-row ' + (cz.comboPromoRes.activo ? 'on' : 'off')
@@ -2051,9 +2058,11 @@ function toggleComboPromoRes() {
   if (wrap) wrap.style.display = cz.comboPromoRes.activo ? '' : 'none'
   const precioRow = document.getElementById('combo-promores-precio-row')
   if (precioRow && cz.comboPromoRes.activo) {
-    precioRow.className = 'cz-row on'
+    precioRow.className = 'cz-row ' + (cz.comboPromoRes.promoPrecio !== false ? 'on' : 'off')
     const priceEl = precioRow.querySelector('.cz-row-price')
-    if (priceEl) priceEl.textContent = `Hamburguesa a $${comboPromoResPrecioBurger()}`
+    if (priceEl) priceEl.textContent = cz.comboPromoRes.promoPrecio !== false
+      ? `Hamburguesa a $${comboPromoResPrecioBurger()}`
+      : `Hamburguesa a precio normal $${cz.item.precio}`
   }
   actualizarCzBtn()
 }
@@ -2106,9 +2115,9 @@ function comboPromoResPrecioBurger() {
 function comboPromoResTotalExtra() {
   if (!cz.comboPromoRes.activo) return 0
   let side = 0
-  if (cz.comboPromoRes.acompañamiento_id === 'RAC-004') side = comboPreciosMap['RAC-004'] || 0
-  else if (cz.comboPromoRes.acompañamiento_id === 'RAC-006') side = (comboPreciosMap['RAC-004'] || 0) + (comboPreciosMap['RAC-006'] || 0)
-  const bebida = cz.comboPromoRes.bebida_id ? precioBebidaCombo() : 0
+  if (cz.comboPromoRes.acompañamiento_id === 'RAC-004') side = comboPromoResPreciosMap['RAC-004'] || 0
+  else if (cz.comboPromoRes.acompañamiento_id === 'RAC-006') side = (comboPromoResPreciosMap['RAC-004'] || 0) + (comboPromoResPreciosMap['RAC-006'] || 0)
+  const bebida = cz.comboPromoRes.bebida_id ? (comboPromoResPreciosMap[cz.comboPromoRes.bebida_id] || 0) : 0
   return side + bebida
 }
 
@@ -2207,7 +2216,7 @@ function cerrarCz() {
   cz = { item:null, cartIdx:null, cantidad:1, ingredientes:[], extras:[], salsas:[], nota:'', aderezoIncluido:null,
     combo:{ activo:false, bebida_id:null, bebida_nombre:null, acompañamiento_id:null, acompañamiento_nombre:null, aderezo_id:null, aderezo_nombre:null },
     comboPollo:{ activo:false, aderezo_id:null, aderezo_nombre:null, acompañamiento_id:null, acompañamiento_nombre:null, bebida_id:null, bebida_nombre:null },
-    comboPromoRes:{ activo:false, acompañamiento_id:null, acompañamiento_nombre:null, bebida_id:null, bebida_nombre:null, promoPrecio:true, aderezo_id:null, aderezo_nombre:null }
+    comboPromoRes:{ activo:false, acompañamiento_id:null, acompañamiento_nombre:null, bebida_id:null, bebida_nombre:null, promoPrecio:false, aderezo_id:null, aderezo_nombre:null }
   }
 }
 
@@ -3367,8 +3376,8 @@ async function confirmarOrden() {
           creado_por:      'operador'
         })
         const sideIdRes   = it.mods.comboPromoRes.acompañamiento_id
-        const sideBaseRes = comboPreciosMap['RAC-004'] || 0
-        const sidePrecioRes = sideIdRes === 'RAC-006' ? sideBaseRes + (comboPreciosMap['RAC-006'] || 0) : sideBaseRes
+        const sideBaseRes = comboPromoResPreciosMap['RAC-004'] || 0
+        const sidePrecioRes = sideIdRes === 'RAC-006' ? sideBaseRes + (comboPromoResPreciosMap['RAC-006'] || 0) : sideBaseRes
         items.push({
           tenant_id:       POS.TENANT_ID,
           id_venta:        venta.id,
@@ -3385,7 +3394,7 @@ async function confirmarOrden() {
         if (it.mods.comboPromoRes.aderezo_id) {
           items.push(...itemAderezo(venta.id, it.mods.comboPromoRes.aderezo_id, it.mods.comboPromoRes.aderezo_nombre, 1, it.cantidad, 0, 'aderezo incluido', { es_componente_combo: true, incluido: true }))
         }
-        const bebidaPrecioRes = precioBebidaCombo()
+        const bebidaPrecioRes = comboPromoResPreciosMap[it.mods.comboPromoRes.bebida_id] || 0
         items.push({
           tenant_id:       POS.TENANT_ID,
           id_venta:        venta.id,
