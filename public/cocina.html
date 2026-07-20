@@ -96,10 +96,17 @@ function timerStr(confirmada_en) {
 }
 
 // ── Render tarjeta ─────────────────────────────────────────────────────────────
+// Acento visual por tipo de entrega (borde izquierdo) — solo lectura, sin
+// botones ni interacción nueva. Se fija una vez al crear la tarjeta: no
+// cambia durante la vida de la orden, así que sobrevive a los refrescos de
+// className/innerHTML de actualizarCard() y del intervalo de 1s.
+const COLOR_TIPO_ENTREGA = { barra: '#3D0014', llevar: '#2C6E7A', delivery: '#6B2D8C' }
+
 function crearCard(orden, items, itemsEstado) {
   const card = document.createElement('div')
   card.className = 'kds-card verde'
   card.id = 'kds-ord-' + orden.id_venta
+  card.style.borderLeft = '4px solid ' + (COLOR_TIPO_ENTREGA[orden.tipo_entrega] || COLOR_TIPO_ENTREGA.barra)
   card.innerHTML = buildCardHTML(orden, items, itemsEstado)
   return card
 }

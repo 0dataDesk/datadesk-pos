@@ -30,6 +30,10 @@ html,body{
   --muted:   #7A5060;
   --border:  rgba(61,0,20,.10);
   --shadow:  0 2px 14px rgba(61,0,20,.09);
+  --accent-llevar:      #2C6E7A;
+  --on-accent-llevar:   #F2E0C8;
+  --accent-delivery:    #6B2D8C;
+  --on-accent-delivery: #F2E0C8;
 }
 
 /* ── Animations ─────────────────────────────────────────────────────────── */
@@ -754,7 +758,7 @@ let propinaSubtipo = 'debito'
 let propinasMixtas = []   // [{tipo:'efectivo'|'debito'|'credito', monto:0}]
 let efectivoRecibido = 0  // captura de billetes entregados por el cliente
 let deliveryPlataforma = null // 'didi'|'rappi'|'uber' — plataforma elegida al pagar con Delivery
-let tipoEntregaVenta = 'barra' // 'barra'|'llevar'
+let tipoEntregaVenta = 'barra' // 'barra'|'llevar'|'delivery'
 let bolsasSeleccionadas = { chica: 0, grande: 0 } // contadores independientes por tamaño, llevar
 let cerrarMesaState = { idVenta: null, clam: false, bolsas: { chica: 0, grande: 0 } } // modal "Cerrar mesa"
 
@@ -2424,7 +2428,7 @@ function mostrarResumen() {
       </div>
       <div style="margin-bottom:16px;">
         <div class="sh-sec-ttl" style="margin-bottom:8px;">Tipo de entrega</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
           <button id="entrega-barra"
             onclick="toggleTipoEntrega('barra')"
             style="padding:13px 6px;border-radius:12px;font-size:13px;font-weight:600;cursor:pointer;
@@ -2441,8 +2445,16 @@ function mostrarResumen() {
               color:${tipoEntregaVenta === 'llevar' ? 'var(--on-accent-llevar)' : 'var(--text)'};">
             🥡 Para llevar
           </button>
+          <button id="entrega-delivery"
+            onclick="toggleTipoEntrega('delivery')"
+            style="padding:13px 6px;border-radius:12px;font-size:13px;font-weight:600;cursor:pointer;
+              border:1.5px solid ${tipoEntregaVenta === 'delivery' ? 'var(--accent-delivery)' : 'var(--border)'};
+              background:${tipoEntregaVenta === 'delivery' ? 'var(--accent-delivery)' : 'var(--bg)'};
+              color:${tipoEntregaVenta === 'delivery' ? 'var(--on-accent-delivery)' : 'var(--text)'};">
+            🛵 Delivery
+          </button>
         </div>
-        <div id="bolsa-detalle" style="margin-top:10px;${tipoEntregaVenta === 'llevar' ? '' : 'display:none;'}">
+        <div id="bolsa-detalle" style="margin-top:10px;${(tipoEntregaVenta === 'llevar' || tipoEntregaVenta === 'delivery') ? '' : 'display:none;'}">
           <div class="sh-sec-ttl" style="margin-bottom:8px;">Bolsas</div>
           <div style="display:flex;flex-direction:column;gap:10px;">
             <div style="display:flex;align-items:center;justify-content:space-between;">
@@ -2471,10 +2483,21 @@ function mostrarResumen() {
             </div>
           </div>
         </div>
+        <div id="delivery-detalle" style="margin-top:10px;${tipoEntregaVenta === 'delivery' ? '' : 'display:none;'}">
+          <div class="sh-sec-ttl" style="margin-bottom:8px;">Elige la plataforma</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
+            ${PLATAFORMAS_DELIVERY.map(p => `
+              <button onclick="seleccionarDeliveryPlataforma('${p.id}')"
+                style="padding:13px 6px;border-radius:12px;font-size:13px;font-weight:600;cursor:pointer;
+                  border:1.5px solid var(--border);background:var(--bg);color:var(--text);">
+                ${p.emoji} ${p.label}
+              </button>`).join('')}
+          </div>
+        </div>
       </div>
       <div style="margin-bottom:16px;">
         <div class="sh-sec-ttl" style="margin-bottom:8px;">Método de pago</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
           <button id="pago-efectivo"
             onclick="elegirMetodoPago('efectivo')"
             style="padding:13px 6px;border-radius:12px;font-size:13px;font-weight:600;cursor:pointer;
@@ -2492,12 +2515,6 @@ function mostrarResumen() {
             style="padding:13px 6px;border-radius:12px;font-size:13px;font-weight:600;cursor:pointer;
               border:1.5px solid var(--border);background:var(--bg);color:var(--text);">
             🔀 Mixto
-          </button>
-          <button id="pago-delivery"
-            onclick="elegirMetodoPago('delivery')"
-            style="padding:13px 6px;border-radius:12px;font-size:13px;font-weight:600;cursor:pointer;
-              border:1.5px solid var(--border);background:var(--bg);color:var(--text);">
-            🛵 Delivery
           </button>
         </div>
         <div id="efectivo-detalle" style="margin-top:10px;">
@@ -2547,17 +2564,6 @@ function mostrarResumen() {
             background:rgba(200,137,42,.1);border:1px solid rgba(200,137,42,.3);
             font-size:13px;color:#B85C0A;text-align:center;">
             El descuento cambió. Reconfigura el pago mixto.
-          </div>
-        </div>
-        <div id="delivery-detalle" style="display:none;margin-top:10px;">
-          <div class="sh-sec-ttl" style="margin-bottom:8px;">Elige la plataforma</div>
-          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
-            ${PLATAFORMAS_DELIVERY.map(p => `
-              <button onclick="seleccionarDeliveryPlataforma('${p.id}')"
-                style="padding:13px 6px;border-radius:12px;font-size:13px;font-weight:600;cursor:pointer;
-                  border:1.5px solid var(--border);background:var(--bg);color:var(--text);">
-                ${p.emoji} ${p.label}
-              </button>`).join('')}
           </div>
         </div>
       </div>
@@ -2824,9 +2830,10 @@ function renderBolsasVal() {
 
 function toggleTipoEntrega(tipo) {
   tipoEntregaVenta = tipo
-  const btnBarra  = document.getElementById('entrega-barra')
-  const btnLlevar = document.getElementById('entrega-llevar')
-  ;[[btnBarra, 'barra', '--primary', '--on-pri'], [btnLlevar, 'llevar', '--accent-llevar', '--on-accent-llevar']].forEach(([btn, key, colorVar, onVar]) => {
+  const btnBarra    = document.getElementById('entrega-barra')
+  const btnLlevar   = document.getElementById('entrega-llevar')
+  const btnDelivery = document.getElementById('entrega-delivery')
+  ;[[btnBarra, 'barra', '--primary', '--on-pri'], [btnLlevar, 'llevar', '--accent-llevar', '--on-accent-llevar'], [btnDelivery, 'delivery', '--accent-delivery', '--on-accent-delivery']].forEach(([btn, key, colorVar, onVar]) => {
     if (!btn) return
     const sel = key === tipo
     btn.style.background  = sel ? `var(${colorVar})` : 'var(--bg)'
@@ -2834,12 +2841,23 @@ function toggleTipoEntrega(tipo) {
     btn.style.color       = sel ? `var(${onVar})`    : 'var(--text)'
   })
   const detalle = document.getElementById('bolsa-detalle')
-  if (detalle) detalle.style.display = tipo === 'llevar' ? '' : 'none'
+  if (detalle) detalle.style.display = (tipo === 'llevar' || tipo === 'delivery') ? '' : 'none'
   if (tipo === 'barra') {
     bolsasSeleccionadas = { chica: 0, grande: 0 }
   } else {
     bolsasSeleccionadas = sugerirBolsas(contarBurgersCarrito())
     renderBolsasVal()
+  }
+  // Delivery ahora se elige aquí, no en Método de pago — dispara la misma
+  // bandera metodoPago==='delivery' de la que ya depende toda la lógica de
+  // cobro (sin propina/descuento, total=subtotal, pagos_detalle, etc.), sin
+  // reescribirla. Si se sale de Delivery hacia otro tipo de entrega, regresa
+  // el método de pago a un estado neutro para no quedar "atorado" en modo
+  // delivery sin forma de confirmar.
+  if (tipo === 'delivery') {
+    elegirMetodoPago('delivery')
+  } else if (metodoPago === 'delivery') {
+    elegirMetodoPago('efectivo')
   }
 }
 
@@ -2909,7 +2927,8 @@ function seleccionarDeliveryPlataforma(plataforma) {
   if (deliveryPlataforma) return
   deliveryPlataforma = plataforma
   document.querySelectorAll('#delivery-detalle button').forEach(btn => { btn.disabled = true })
-  confirmarOrden()
+  const btn = document.getElementById('btn-confirmar')
+  if (btn) btn.disabled = false
 }
 
 function elegirSubtipoTarjeta(subtipo) {
@@ -3158,12 +3177,18 @@ function itemDesechable(id_venta, id_producto, nombre, cantidad) {
 
 async function confirmarOrden() {
   if (metodoPago === 'delivery' && !deliveryPlataforma) return
-  if (tipoEntregaVenta === 'llevar' && bolsasSeleccionadas.chica === 0 && bolsasSeleccionadas.grande === 0) { alert('Selecciona al menos una bolsa'); return }
+  if ((tipoEntregaVenta === 'llevar' || tipoEntregaVenta === 'delivery') && bolsasSeleccionadas.chica === 0 && bolsasSeleccionadas.grande === 0) { alert('Selecciona al menos una bolsa'); return }
 
   const subtotal   = carrito.reduce((s, i) => s + i.importe, 0)
   const descMonto  = metodoPago === 'delivery' ? 0 : (cortesiaDescPct > 0 ? subtotal * cortesiaDescPct / 100 : 0)
   const propinaEfectiva = metodoPago === 'delivery' ? 0 : propina
   const total      = metodoPago === 'delivery' ? subtotal : (subtotal - descMonto + propinaEfectiva)
+
+  if (metodoPago === 'delivery') {
+    const plataformaLabel = PLATAFORMAS_DELIVERY.find(p => p.id === deliveryPlataforma)?.label || deliveryPlataforma
+    const ok = confirm(`Confirmar orden por Delivery vía ${plataformaLabel}, total $${subtotal}?`)
+    if (!ok) return
+  }
 
   if (metodoPago !== 'delivery' && total <= 0) {
     const ok = confirm(`¿Confirmar cortesía del ${cortesiaDescPct}%?\nSubtotal original: $${subtotal}\nTotal a cobrar: $0`)
@@ -3458,7 +3483,7 @@ async function confirmarOrden() {
       })
     })
 
-    if (tipoEntregaVenta === 'llevar') {
+    if (tipoEntregaVenta === 'llevar' || tipoEntregaVenta === 'delivery') {
       if (bolsasSeleccionadas.chica > 0)  items.push(itemDesechable(venta.id, 'DES-005', 'Bolsa chica', bolsasSeleccionadas.chica))
       if (bolsasSeleccionadas.grande > 0) items.push(itemDesechable(venta.id, 'DES-004', 'Bolsa grande', bolsasSeleccionadas.grande))
     }
