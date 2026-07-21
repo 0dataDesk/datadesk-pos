@@ -211,18 +211,18 @@ html,body{
 
 /* ── Tiles grandes de inicio (Res/Pollo/Acompañamientos/Bebidas) ───────────── */
 .inicio-grid{
-  max-width:960px;margin:24px auto;padding:0 16px;
-  display:grid;grid-template-columns:repeat(2,1fr);gap:16px;
+  max-width:1400px;margin:32px auto;padding:0 32px;
+  display:grid;grid-template-columns:repeat(2,1fr);gap:24px;
 }
-@media(min-width:640px){ .inicio-grid{ grid-template-columns:repeat(4,1fr); } }
+@media(min-width:640px){ .inicio-grid{ grid-template-columns:repeat(4,1fr); gap:28px; } }
 .inicio-tile{
-  background:var(--surface);border:1.5px solid var(--border);border-radius:16px;
-  padding:28px 12px;text-align:center;cursor:pointer;transition:all .15s;
-  display:flex;flex-direction:column;align-items:center;gap:8px;position:relative;
+  background:var(--surface);border:1.5px solid var(--border);border-radius:24px;
+  padding:56px 20px;text-align:center;cursor:pointer;transition:all .15s;
+  display:flex;flex-direction:column;align-items:center;gap:14px;position:relative;
 }
 .inicio-tile:hover{border-color:var(--primary);transform:translateY(-2px);}
-.inicio-tile-emoji{font-size:40px;line-height:1;}
-.inicio-tile-label{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:1.15rem;letter-spacing:.5px;color:var(--text);}
+.inicio-tile-emoji{font-size:68px;line-height:1;}
+.inicio-tile-label{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:1.5rem;letter-spacing:.5px;color:var(--text);}
 
 /* ── Sheet (slide-up) ─────────────────────────────────────────────────────── */
 .sheet{position:fixed;inset:0;z-index:40;display:flex;flex-direction:column;justify-content:flex-end;}
@@ -2212,18 +2212,20 @@ function guardarCz() {
   const wasEditing = cz.cartIdx !== null
   if (wasEditing) carrito[cz.cartIdx] = entry
   else carrito.push(entry)
-  cerrarCz()
+  cerrarCz(true)
   updateCartBar()
   if (wasEditing) setTimeout(abrirCart, 80)
 }
 
-function cerrarCz() {
+function cerrarCz(volverInicio = false) {
   document.getElementById('sheet-cz').classList.add('hidden')
   cz = { item:null, cartIdx:null, cantidad:1, ingredientes:[], extras:[], salsas:[], nota:'', aderezoIncluido:null,
     combo:{ activo:false, bebida_id:null, bebida_nombre:null, acompañamiento_id:null, acompañamiento_nombre:null, aderezo_id:null, aderezo_nombre:null },
     comboPollo:{ activo:false, aderezo_id:null, aderezo_nombre:null, acompañamiento_id:null, acompañamiento_nombre:null, bebida_id:null, bebida_nombre:null },
     comboPromoRes:{ activo:false, acompañamiento_id:null, acompañamiento_nombre:null, bebida_id:null, bebida_nombre:null, promoPrecio:false, aderezo_id:null, aderezo_nombre:null }
   }
+  if (volverInicio) mostrarInicio()
+  else refrescarVistaActual()
 }
 
 // ── Carrito ───────────────────────────────────────────────────────────────────
@@ -2345,6 +2347,21 @@ function irPago() {
   mostrarResumen()
 }
 
+// Ajusta a mano el precio de una línea del resumen (solo Delivery) — el delta
+// se absorbe entero en precio_base del platillo principal, sin repartirlo
+// entre los componentes de combo/bebida (que conservan su precio real).
+function _ajustarPrecioLineaDelivery(inputEl) {
+  const idx = Number(inputEl.dataset.idx)
+  const it = carrito[idx]
+  if (!it) return
+  const nuevoValor = Number(inputEl.value) || 0
+  const delta = nuevoValor - it.importe
+  it.precio_base = it.precio_base + delta / it.cantidad
+  it.importe = nuevoValor
+  const subtotalEl = document.getElementById('resumen-subtotal')
+  if (subtotalEl) subtotalEl.textContent = '$' + carrito.reduce((s, i) => s + i.importe, 0)
+}
+
 function mostrarResumen() {
   document.getElementById('bot-nav').classList.add('hidden')
   document.getElementById('ordenes-panel').classList.add('hidden')
@@ -2373,18 +2390,31 @@ function mostrarResumen() {
   }
 
   const total = carrito.reduce((s, i) => s + i.importe, 0)
-  const lineas = carrito.map(it => {
+  const lineas = carrito.map((it, idx) => {
     const mods = modsDeItem(it.mods)
     const modsHtml = mods.length
       ? `<div style="font-size:12px;color:var(--muted);margin-top:3px;margin-left:10px;">${mods.join(' · ')}</div>`
       : ''
+    // Delivery: precio de la línea editable a mano (las plataformas aplican sus
+    // propios descuentos) — solo ajusta el platillo principal (it.precio_base),
+    // los componentes de combo/bebida se quedan con su precio real de siempre.
+    const precioHtml = tipoEntregaVenta === 'delivery'
+      ? `<span style="display:inline-flex;align-items:baseline;gap:2px;margin-left:12px;white-space:nowrap;">
+           <span style="font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:1.15rem;color:var(--primary);">$</span>
+           <input type="number" step="1" min="0" value="${it.importe}" data-idx="${idx}"
+             oninput="_ajustarPrecioLineaDelivery(this)"
+             style="width:64px;font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:1.15rem;
+               color:var(--primary);background:transparent;border:none;border-bottom:1.5px dashed var(--border);
+               text-align:right;padding:0 0 2px;">
+         </span>`
+      : `<span style="font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:1.15rem;
+                   color:var(--primary);white-space:nowrap;margin-left:12px;">$${it.importe}</span>`
     return `
       <div style="padding:10px 0;border-bottom:1px solid var(--border);">
         <div style="display:flex;justify-content:space-between;align-items:baseline;">
           <span style="font-size:14px;color:var(--text);">${it.nombre}
             <span style="color:var(--muted);font-size:13px;">×${it.cantidad}</span></span>
-          <span style="font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:1.15rem;
-                       color:var(--primary);white-space:nowrap;margin-left:12px;">$${it.importe}</span>
+          ${precioHtml}
         </div>
         ${modsHtml}
       </div>`
