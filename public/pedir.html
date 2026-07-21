@@ -2212,7 +2212,7 @@ function guardarCz() {
   const wasEditing = cz.cartIdx !== null
   if (wasEditing) carrito[cz.cartIdx] = entry
   else carrito.push(entry)
-  cerrarCz(true)
+  cerrarCz(!wasEditing)
   updateCartBar()
   if (wasEditing) setTimeout(abrirCart, 80)
 }
